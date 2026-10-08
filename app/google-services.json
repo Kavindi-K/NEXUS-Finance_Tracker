@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "859568003787",
+    "project_id": "nexus-finance-tracker-95c45",
+    "storage_bucket": "nexus-finance-tracker-95c45.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:859568003787:android:ca8f8d8894c8a3cdf2d94e",
+        "android_client_info": {
+          "package_name": "com.nexus.financetracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAnLrjOzxTjBuYyDpDCxm1Y8QCkZwLmmqg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
