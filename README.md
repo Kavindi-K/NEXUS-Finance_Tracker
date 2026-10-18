@@ -105,31 +105,31 @@ Cloud Firestore
 
 ## 📋 Comprehensive Requirements Traceability (FR1–FR23)
 
-| ID | Requirement Specification | Module Owner | Implementation Status |
-|---|---|---|:---:|
-| **FR1** | 5-field registration (Name, Email, Phone normalized to +94, Password) & Firestore profile sync | Member 1 | ✅ Implemented |
-| **FR2** | Session persistence across app restarts | Member 1 | ✅ Implemented |
-| **FR3** | Multi-source income logging (Salary, Freelance, AdSense, Crypto) | Member 1 | ✅ Implemented |
-| **FR4** | Multi-currency handling storing original, exchange rate, and converted LKR | Member 1 | ✅ Implemented |
-| **FR5** | Monthly income computed strictly from confirmed entries (never self-estimates) | Member 1 | ✅ Implemented |
-| **FR6** | Crypto tracked as running net P&L (gains minus losses) | Member 1 | ✅ Implemented |
-| **FR7** | Edit saved income entries with recalculation and audit trail | Member 1 | ✅ Implemented |
-| **FR8** | Freelance payments logged as "pending" and excluded from earned totals until "confirmed" | Member 1 | ✅ Implemented |
-| **FR9** | 3-tap rapid expense entry capturing amount, category, account, and committed flag | Member 2 | 🔄 In Progress |
-| **FR10** | Pre-fill category and account with most recently used values | Member 2 | 🔄 In Progress |
-| **FR11** | First-class recording of Cash and Secondary accounts (not card only) | Member 2 | 🔄 In Progress |
-| **FR12** | Dynamic user-editable categories with batched merge and reassignment | Member 2 | 🔄 In Progress |
-| **FR13** | Back-dated and bulk-add expense entry without streak penalties | Member 2 | 🔄 In Progress |
-| **FR14** | Quantified savings goal setup (MacBook Pro M4 LKR 490k, LKR 11.2k opening savings) | Member 3 | 🔄 In Progress |
-| **FR15** | Dynamic recalculation of required monthly savings rate on every confirmed entry | Member 3 | 🔄 In Progress |
-| **FR16** | Pace-based projected completion date flagging target deadline misses | Member 3 | 🔄 In Progress |
-| **FR17** | Real-time visual goal progress bar (percentage complete and remaining balance) | Member 3 | 🔄 In Progress |
-| **FR18** | Dashboard showing monthly cash flow and committed vs. discretionary ratio | Member 3 | 🔄 In Progress |
-| **FR19** | Real-time category-wise spending chart highlighting leaks | Member 3 | 🔄 In Progress |
-| **FR20** | Reconciled actual monthly income aggregated across all four sources | Member 3 | 🔄 In Progress |
-| **FR21** | Room offline caching ensuring core screens render without internet connectivity | Member 2 | 🔄 In Progress |
-| **FR22** | Explicit empty-state UI with zero crashes or blank screens on empty datasets | All Members | ✅ Implemented |
-| **FR23** | Recurring payment schedules requiring user confirmation before posting as an expense | Member 2 | 🔄 In Progress |
+| ID | Requirement Specification | Module Owner |
+|---|---|---|
+| **FR1** | 5-field registration (Name, Email, Phone normalized to +94, Password) & Firestore profile sync | Member 1 |
+| **FR2** | Session persistence across app restarts | Member 1 |
+| **FR3** | Multi-source income logging (Salary, Freelance, AdSense, Crypto) | Member 1 |
+| **FR4** | Multi-currency handling storing original, exchange rate, and converted LKR | Member 1 |
+| **FR5** | Monthly income computed strictly from confirmed entries (never self-estimates) | Member 1 |
+| **FR6** | Crypto tracked as running net P&L (gains minus losses) | Member 1 |
+| **FR7** | Edit saved income entries with recalculation and audit trail | Member 1 |
+| **FR8** | Freelance payments logged as "pending" and excluded from earned totals until "confirmed" | Member 1 |
+| **FR9** | 3-tap rapid expense entry capturing amount, category, account, and committed flag | Member 2 |
+| **FR10** | Pre-fill category and account with most recently used values | Member 2 |
+| **FR11** | First-class recording of Cash and Secondary accounts (not card only) | Member 2 |
+| **FR12** | Dynamic user-editable categories with batched merge and reassignment | Member 2 |
+| **FR13** | Back-dated and bulk-add expense entry without streak penalties | Member 2 |
+| **FR14** | Quantified savings goal setup (MacBook Pro M4 LKR 490k, LKR 11.2k opening savings) | Member 3 |
+| **FR15** | Dynamic recalculation of required monthly savings rate on every confirmed entry | Member 3 |
+| **FR16** | Pace-based projected completion date flagging target deadline misses | Member 3 |
+| **FR17** | Real-time visual goal progress bar (percentage complete and remaining balance) | Member 3 |
+| **FR18** | Dashboard showing monthly cash flow and committed vs. discretionary ratio | Member 3 |
+| **FR19** | Real-time category-wise spending chart highlighting leaks | Member 3 |
+| **FR20** | Reconciled actual monthly income aggregated across all four sources | Member 3 |
+| **FR21** | Room offline caching ensuring core screens render without internet connectivity | Member 2 |
+| **FR22** | Explicit empty-state UI with zero crashes or blank screens on empty datasets | All Members |
+| **FR23** | Recurring payment schedules requiring user confirmation before posting as an expense | Member 2 |
 
 ---
 
