@@ -54,7 +54,7 @@ fun GoalListScreen(
                     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(goal.title, style = MaterialTheme.typography.titleMedium)
-                            Text("Target: LKR ${goal.targetAmount} | Saved: LKR ${goal.savedAmount}")
+                            Text("Target: LKR ${goal.targetAmountLKR} | Saved: LKR ${goal.openingSavingsLKR}")
                         }
                     }
                 }

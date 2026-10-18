@@ -6,20 +6,20 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.nexus.financetracker.data.repository.AuthRepository
+import com.nexus.financetracker.domain.model.UserProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 /**
  * ViewModel for Login and Register screens.
- * Exposes only immutable state to the UI layer (no mutableStateOf leaking out).
- *
- * TODO: Add proper error message mapping (e.g. FirebaseAuthException codes).
+ * Writes UserProfile to Firestore users/{uid} upon registration.
  */
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     var uiState by mutableStateOf(AuthUiState())
@@ -30,11 +30,11 @@ class AuthViewModel @Inject constructor(
     fun login(email: String, password: String) {
         viewModelScope.launch {
             uiState = uiState.copy(isLoading = true, errorMessage = null)
-            try {
-                auth.signInWithEmailAndPassword(email, password).await()
+            val result = authRepository.login(email, password)
+            if (result.isSuccess) {
                 uiState = uiState.copy(isLoading = false, isSuccess = true)
-            } catch (e: Exception) {
-                uiState = uiState.copy(isLoading = false, errorMessage = e.localizedMessage)
+            } else {
+                uiState = uiState.copy(isLoading = false, errorMessage = result.exceptionOrNull()?.localizedMessage)
             }
         }
     }
@@ -42,17 +42,22 @@ class AuthViewModel @Inject constructor(
     fun register(email: String, password: String) {
         viewModelScope.launch {
             uiState = uiState.copy(isLoading = true, errorMessage = null)
-            try {
-                auth.createUserWithEmailAndPassword(email, password).await()
+            val profile = UserProfile(
+                displayName = email.substringBefore("@"),
+                email = email,
+                phoneNumber = "+94771234567"
+            )
+            val result = authRepository.register(email, password, profile)
+            if (result.isSuccess) {
                 uiState = uiState.copy(isLoading = false, isSuccess = true)
-            } catch (e: Exception) {
-                uiState = uiState.copy(isLoading = false, errorMessage = e.localizedMessage)
+            } else {
+                uiState = uiState.copy(isLoading = false, errorMessage = result.exceptionOrNull()?.localizedMessage)
             }
         }
     }
 
     fun signOut() {
-        auth.signOut()
+        authRepository.signOut()
         uiState = AuthUiState()
     }
 
