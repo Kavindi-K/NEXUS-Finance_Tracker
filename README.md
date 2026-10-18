@@ -38,7 +38,7 @@ The full assignment scope has been architecturally decoupled into three self-con
 │                           NEXUS FINANCE TRACKER SCOPE                           │
 ├─────────────────────────┬───────────────────────────┬───────────────────────────┤
 │        MEMBER 1         │         MEMBER 2          │         MEMBER 3          │
-│   (IT23585126 - Hewawitharana)   (IT23619258 - Kaluarachchi)    (IT23750838 - Jayasekara)    │
+
 ├─────────────────────────┼───────────────────────────┼───────────────────────────┤
 │ • Auth & User Profile   │ • Multi-Source Income     │ • Savings Goal Engine     │
 │ • Navigation & Theming  │ • Multi-Currency (USD/LKR)│ • Pacing & Dynamic Rates  │
