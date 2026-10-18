@@ -1,6 +1,6 @@
 # NEXUS — Personal Finance Management System
 
-A scenario-driven Android personal finance application built with **Kotlin (100%)**, **Jetpack Compose (Material Design 3)**, **MVVM Architecture**, and **Firebase** (Authentication & Cloud Firestore), engineered to solve real-world financial tracking friction based on the scenario of Mr. Kavindu Silva.
+A problem-first, scenario-driven Android personal finance application built with **Kotlin (100%)**, **Jetpack Compose (Material Design 3)**, **MVVM Architecture**, **Firebase** (Authentication & Cloud Firestore), and **Room Local Cache**, specifically engineered to resolve real-world financial tracking friction based on the scenario of Mr. Kavindu Silva.
 
 Developed for **SE3092: Platform Based Development (Assignment 01)**  
 Faculty of Computing — Sri Lanka Institute of Information Technology (SLIIT)  
@@ -8,83 +8,165 @@ Year 3, Semester 2 (2026)
 
 ---
 
-## 👥 Group Members & Module Allocation
+## 👥 Group Members & Scope Division
 
-| Student ID | Student Name | Role | Primary Modules & Responsibilities |
+| Student ID | Student Name | Assigned Module & Scope | Key Responsibilities |
 |---|---|---|---|
-| **IT23619258** | **K A M K Kaluarachchi** | **Member 1** | **Authentication, Security & Income Management**: Firebase setup, Security Rules, User Profile, Multi-source Income (Salary, Freelance, AdSense USD, Crypto P&L), Currency Conversion, Income Overview & Reconciliation |
-| **IT23750838** | **G P W Jayasekara (Pavan)** | **Member 2** | **Expense Tracking & Offline Persistence**: Low-friction quick add (3 taps or fewer), Card/Cash/Secondary accounts, Committed vs Discretionary classification, Categories (add/rename/merge), Recurring items schedule, Room offline caching |
-| **IT23585126** | **I N Hewawitharana (Ishara)** | **Member 3** | **Savings Goals, Analytics & Dashboard**: App navigation scaffold (Bottom Bar & Top Bar), MacBook Pro M4 quantified goal tracking, dynamic required monthly savings rate, pace projection, real-time Material 3 dashboard & charts |
+| **IT23619258** | **K A M K Kaluarachchi** | **Member 1**: Authentication & Multi-Source Income System | Firebase Auth setup, security rules, user profile (`users/{uid}`), 4 income streams (Salary, Freelance pending/confirmed, AdSense USD currency conversion, Crypto running net P&L), Income Overview & monthly reconciliation. |
+| **IT23750838** | **G P W Jayasekara** | **Member 2**: Low-Friction Expense & Schedule Management | 3-tap quick-add expense flow, Card/Cash/Secondary accounts, Committed vs. Discretionary classification, dynamic Categories (add, rename, batched merge), Recurring payments schedule (Rent, Gym, Subscriptions), Room offline caching. |
+| **IT23585126** | **I N Hewawitharana** | **Member 3**: Quantified Savings Goal & Real-Time Analytics | App navigation scaffold (Bottom Bar, Top Bar, FAB), MacBook Pro M4 quantified goal tracking, dynamic required monthly savings rate recalculation, trailing pace projection, real-time Material 3 dashboard, and category spending charts. |
 
 ---
 
-## 📌 Project Overview & Scenario Translation
+## 📌 Problem Scenario & System Vision
 
-Standard budgeting tools fail young professionals with irregular income and fragmented spending. **NEXUS** directly addresses the failure patterns identified in Kavindu Silva’s scenario:
+Traditional budgeting applications fail users like Kavindu Silva—a 25-year-old junior software engineer in Colombo earning variable income across four channels, spending impulsively across fragmented accounts, and struggling to save for a **LKR 490,000.00 MacBook Pro M4** despite earning over LKR 1.6M annually.
 
-1. **Irregular Multi-Source Income Capture (FR3–FR8)**:
-   * **Salary**: Pre-filled actual deposit capture to remove reliance on uninspected payslips.
-   * **Freelance**: Milestone-based tracking with **Pending** vs. **Confirmed** invoice states to eliminate forgotten follow-ups.
-   * **AdSense (USD)**: Multi-currency logging storing original USD, exchange rate, and converted LKR at the transaction date.
-   * **Crypto (Binance)**: Signed gains and losses netting into a true running P&L rather than inflating earned income.
-2. **Low-Friction Expense Logging (FR9–FR13)**:
-   * 3-tap quick-add flow defaulting to today's date and last-used account (Card, Cash, Secondary).
-   * First-class classification into **Committed** (Rent LKR 34k, utilities, gym) vs. **Discretionary** (revealing the LKR 24k coffee-and-dining leak).
-3. **Quantified Savings Goal (FR14–FR16)**:
-   * Live MacBook Pro M4 tracker (Target: LKR 490,000, Horizon: 12 months, Starting: LKR 11,200).
-   * Dynamically recalculated required monthly savings: $\frac{\text{target} - \text{estimated savings}}{\text{months remaining}}$ (starting at ~LKR 39,900/mo).
-   * Pace-based projection flagging whether the goal is on track, ahead, or behind.
-4. **Real-Time Dashboard & Categorical Insights (FR17–FR20)**:
-   * Reconciled actual monthly earnings displayed alongside the user's unvalidated estimate.
-   * Visual committed vs. discretionary spending ratio and ranked spending category bars.
+Four previous tools failed him (Google Sheets, Play Store USD-only apps, Notes app, and Bank summaries) because they were rigid, punished missed days, dropped cash/secondary accounts, and decoupled daily spending from his goal. 
+
+**NEXUS** inverts these assumptions through four core capabilities:
+1. **Multi-Source Income Capture & Reconciliation (FR3–FR8)**: Replaces four-app mental calculations with validated, per-source income events.
+2. **Low-Friction Expense Logging (FR9–FR13)**: 3-tap quick-add flow with aggressive defaults (date, last-used account, category) and committed-versus-discretionary tagging.
+3. **Live Quantified Savings Goal (FR14–FR16)**: Translates the abstract MacBook goal into a live required monthly savings figure (~LKR 39,900/month) with trailing pace projections.
+4. **Week-One Self-Awareness Dashboard (FR17–FR20)**: Real-time visual comparison of confirmed income vs. expenses, committed vs. discretionary ratios, and ranked leak categories (exposing the LKR 24,000 coffee/dining shock).
 
 ---
 
-## 🛠️ Technology Stack & Architectural Standards
+## 🏛️ MVVM Architecture Overview
 
-| Layer / Concern | Required Technology | Implementation Details |
-|---|---|---|
-| **Language** | Kotlin (100%) | Zero Java interoperability in application code; Gradle Kotlin DSL (`.kts`) |
-| **UI Toolkit** | Jetpack Compose | Material Design 3 components, Single-Activity architecture, zero XML layouts |
-| **Architecture** | Clean MVVM | Strict unidirectional data flow: UI $\rightarrow$ ViewModel $\rightarrow$ Repository $\rightarrow$ Data Sources |
-| **State Management** | StateFlow / Coroutines | Sealed `UiState` (Loading, Empty, Success, Error); no mutable state leaked to UI |
-| **Dependency Injection** | Hilt (Dagger) | Constructor injection for ViewModels and Repositories |
-| **Backend & Auth** | Firebase Authentication | Email/password authentication, session persistence, user profile synchronization |
-| **Primary Database** | Cloud Firestore | 6 flat top-level collections, composite query indexes, strict user-isolated rules |
-| **Local Cache** | Room Database | Offline-first persistence; UI never blocks when network is unavailable |
-| **Compatibility** | Android SDK | `minSdk = 26` (Android 8.0 Oreo), `targetSdk = 34+` (Android 14) |
+The system strictly adheres to **unidirectional data flow** with four distinct layers: **UI $\rightarrow$ ViewModel $\rightarrow$ Repository $\rightarrow$ Data Sources**, with shared domain models:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                          UI LAYER                                           │
+│   DashboardScreen │ IncomeOverviewScreen │ QuickAddExpenseScreen │ GoalSetupScreen          │
+│                   CategoriesRecurringScreen │ AuthScreen (Login & Register)                 │
+└──────────────────────────────────────────────▲──────────────────────────────────────────────┘
+                                               │ UI State (StateFlow)
+                                               │ User Actions (Events)
+┌──────────────────────────────────────────────▼─────────────────────────────────────────────┐
+│                                       VIEWMODEL LAYER                                       │
+│   DashboardViewModel │ IncomeViewModel │ ExpenseViewModel │ GoalViewModel                  │
+│                      ManageViewModel   │ AuthViewModel                                      │
+└──────────────────────────────────────────────▲──────────────────────────────────────────────┘
+                                               │ Domain Models (Kotlin Flow)
+┌──────────────────────────────────────────────▼─────────────────────────────────────────────┐
+│                                      REPOSITORY LAYER                                       │
+│   AuthRepository │ IncomeRepository │ ExpenseRepository │ GoalRepository                    │
+│                  CategoryRepository │ RecurringItemRepository                               │
+└──────────────────────────────────────────────▲──────────────────────────────────────────────┘
+                                               │
+                       ┌───────────────────────┴───────────────────────┐
+                       │                                               │
+┌──────────────────────▼──────────────────────┐ ┌──────────────────────▼──────────────────────┐
+│         CLOUD FIRESTORE (System of Record)   │ │           ROOM DATABASE (Offline Cache)     │
+│   users, incomes, expenses, goals,           │ │   Local SQLite tables mirroring Firestore   │
+│   categories, recurringItems                 │ │   for cold-start offline accessibility     │
+└─────────────────────────────────────────────┘ └─────────────────────────────────────────────┘
+```
+
+### 1. Six UI Screens & ViewModels
+* **`DashboardScreen` (`DashboardViewModel`)**: Combines income, expenses, goal progress, and category names in a single atomic `combine()` flow.
+* **`IncomeOverviewScreen` (`IncomeViewModel`)**: Shows earned vs. pending income, multi-currency conversions, and crypto net P&L.
+* **`QuickAddExpenseScreen` (`ExpenseViewModel`)**: 3-tap rapid input with keypad and pre-filled defaults.
+* **`GoalSetupScreen` (`GoalViewModel`)**: MacBook fund configuration, dynamic required savings, and pace calculations.
+* **`CategoriesRecurringScreen` (`ManageViewModel`)**: Category renaming, batched merging, and subscription payment confirmations.
+* **`AuthScreen` (`AuthViewModel`)**: Clean email/password sign-in and validated 5-field registration (+94 phone normalization).
+
+### 2. Six Domain Models
+* **`UserProfile`**: `uid`, `displayName`, `email`, `phoneNumber`, `createdAt`
+* **`Income`**: `id`, `userId`, `source` (salary/freelance/adsense/crypto), `status` (confirmed/pending), `amountOriginal`, `currency`, `exchangeRate`, `amountLKR`, `dateReceived`, `expectedDate`, `note`, `createdAt`, `updatedAt`
+* **`Expense`**: `id`, `userId`, `amountLKR`, `categoryId`, `account` (card/cash/secondary), `classification` (committed/discretionary), `note`, `date`, `recurringItemId`, `createdAt`
+* **`Goal`**: `id`, `userId`, `title`, `targetAmountLKR`, `openingSavingsLKR`, `startDate`, `targetDate`, `isActive`, `createdAt`
+* **`Category`**: `id`, `userId`, `name`, `mergingInto`, `createdAt`
+* **`RecurringItem`**: `id`, `userId`, `title`, `amountLKR`, `categoryId`, `account`, `classification`, `frequency` (weekly/monthly/yearly), `nextDueDate`, `isActive`, `createdAt`
 
 ---
 
-## 🗄️ Firestore Database Architecture (6 Flat Collections)
+## 🗄️ Firestore Database Design (6 Top-Level Collections)
 
-As specified in Section 5.1 of the Technical Design Document, NEXUS uses **six flat, top-level collections** keyed by `userId`:
+To optimize query indexing, maintain constant repository path depth, and avoid subcollection query limitations, NEXUS organizes all data into **six flat collections linked by `userId`**:
 
 ```
 Cloud Firestore
-├── users/{uid}               # Profile: displayName, email, phoneNumber, createdAt
-├── incomes/{incomeId}        # source, status, amountOriginal, currency, exchangeRate, amountLKR, dates
-├── expenses/{expenseId}      # amountLKR, categoryId, account, classification, date, recurringItemId
-├── goals/{goalId}            # title, targetAmountLKR, openingSavingsLKR, startDate, targetDate, isActive
-├── categories/{categoryId}   # name, mergingInto (for batched migration), createdAt
-└── recurringItems/{itemId}   # title, amountLKR, categoryId, account, frequency, nextDueDate, isActive
+├── users/{uid}               # User profiles (created on registration)
+├── incomes/{incomeId}        # All income events (confirmed & pending)
+├── expenses/{expenseId}      # Direct expense logs (LKR base currency)
+├── goals/{goalId}            # Savings goals (single active goal displayed)
+├── categories/{categoryId}   # Dynamic user categories (with mergingInto marker)
+└── recurringItems/{itemId}   # Recurring payment commitments & schedules
 ```
+
+### Multi-Currency & Financial Accuracy (NFR9)
+* **AdSense USD**: Both original USD and prevailing exchange rate are stored alongside the converted LKR (`amountLKR = amountOriginal × exchangeRate`). Historical reports never fluctuate when rates change.
+* **Crypto P&L (FR6)**: Crypto entries record signed gains and losses (negative numbers for closed positions at a loss), ensuring net positions are accurate without inflating earned income.
 
 ---
 
-## 🌿 Git Branching Strategy & Team Workflow
+## 📋 Comprehensive Requirements Traceability (FR1–FR23)
 
-To ensure seamless parallel work and high code quality across all 3 members:
+| ID | Requirement Specification | Module Owner |
+|---|---|---|
+| **FR1** | 5-field registration (Name, Email, Phone normalized to +94, Password) & Firestore profile sync | Member 1 |
+| **FR2** | Session persistence across app restarts | Member 1 |
+| **FR3** | Multi-source income logging (Salary, Freelance, AdSense, Crypto) | Member 1 |
+| **FR4** | Multi-currency handling storing original, exchange rate, and converted LKR | Member 1 |
+| **FR5** | Monthly income computed strictly from confirmed entries (never self-estimates) | Member 1 |
+| **FR6** | Crypto tracked as running net P&L (gains minus losses) | Member 1 |
+| **FR7** | Edit saved income entries with recalculation and audit trail | Member 1 |
+| **FR8** | Freelance payments logged as "pending" and excluded from earned totals until "confirmed" | Member 1 |
+| **FR9** | 3-tap rapid expense entry capturing amount, category, account, and committed flag | Member 2 |
+| **FR10** | Pre-fill category and account with most recently used values | Member 2 |
+| **FR11** | First-class recording of Cash and Secondary accounts (not card only) | Member 2 |
+| **FR12** | Dynamic user-editable categories with batched merge and reassignment | Member 2 |
+| **FR13** | Back-dated and bulk-add expense entry without streak penalties | Member 2 |
+| **FR14** | Quantified savings goal setup (MacBook Pro M4 LKR 490k, LKR 11.2k opening savings) | Member 3 |
+| **FR15** | Dynamic recalculation of required monthly savings rate on every confirmed entry | Member 3 |
+| **FR16** | Pace-based projected completion date flagging target deadline misses | Member 3 |
+| **FR17** | Real-time visual goal progress bar (percentage complete and remaining balance) | Member 3 |
+| **FR18** | Dashboard showing monthly cash flow and committed vs. discretionary ratio | Member 3 |
+| **FR19** | Real-time category-wise spending chart highlighting leaks | Member 3 |
+| **FR20** | Reconciled actual monthly income aggregated across all four sources | Member 3 |
+| **FR21** | Room offline caching ensuring core screens render without internet connectivity | Member 2 |
+| **FR22** | Explicit empty-state UI with zero crashes or blank screens on empty datasets | All Members |
+| **FR23** | Recurring payment schedules requiring user confirmation before posting as an expense | Member 2 |
+
+---
+
+## 🛠️ Technology Stack & Compliance
+
+| Layer / Concern | Required Technology | Compliance in Project |
+|---|---|---|
+| **Language** | Kotlin (100%) | Zero Java files in application layer; Kotlin DSL (`build.gradle.kts`) |
+| **UI Framework** | Jetpack Compose | Material Design 3 components, Single-Activity architecture, zero XML layouts |
+| **Architecture** | MVVM | Strict separation: UI $\rightarrow$ ViewModel $\rightarrow$ Repository $\rightarrow$ Model |
+| **State Management** | StateFlow / Coroutines | Sealed `UiState` (Loading, Empty, Success, Error); no mutable state leaked to UI |
+| **Dependency Injection** | Hilt (Dagger) | Factory and constructor injection; no manual ViewModel instantiation |
+| **Database** | Firebase Firestore | 6 flat collections, real-time snapshot listeners, user-isolated security rules |
+| **Local Caching** | Room Database | Offline-first persistence; UI never blocked on network failure |
+| **Authentication** | Firebase Authentication | Email/password provider with session restoration |
+| **Navigation** | Navigation Compose | Single-Activity architecture with typed routes |
+| **SDK Compatibility** | Min SDK 26, Target SDK 34+ | Configured with `minSdk = 26`, `targetSdk = 36`, `compileSdk = 37` |
+
+---
+
+## 🌿 Git Branching Strategy & Parallel Workflow
+
+The development follows an integration branch model to enable clean parallel work:
 
 ```
 main (Production / Stable Release APK)
-  └── development (Team Integration Branch)
-        ├── feature/firestore-setup
-        ├── feature/firestore-security
-        ├── feature/auth-registration
-        ├── feature/income-*
-        ├── feature/expense-*
-        └── feature/goal-*
+  └── development (Shared Team Integration Branch)
+        ├── feature/firestore-setup (Member 1)
+        ├── feature/firestore-security (Member 1)
+        ├── feature/auth-* (Member 1)
+        ├── feature/income-* (Member 1)
+        ├── feature/expense-* (Member 2)
+        ├── feature/categories-recurring (Member 2)
+        ├── feature/offline-cache (Member 2)
+        ├── feature/app-nav-scaffold (Member 3)
+        ├── feature/goal-* (Member 3)
+        └── feature/dashboard-analytics (Member 3)
 ```
 
 ### Git Collaboration Protocol:
@@ -99,80 +181,16 @@ main (Production / Stable Release APK)
    * Each feature must be submitted via a GitHub Pull Request to `development`.
    * Requires peer review and clean compilation (`./gradlew assembleDebug` and `./gradlew testDebugUnitTest`) before merging.
 4. **Final Release**: Once all modules pass integration testing on `development`, a final release PR is merged into `main`.
-
----
-
-## 📋 Member 1 Implementation Roadmap (12 Feature Branches)
-
-| # | Branch Name | Deliverable & Requirement |
-|---|---|---|
-| 01 | `feature/firestore-setup` | Live Firestore connection, 6 collections schema, data models, repository interfaces |
-| 02 | `feature/firestore-security` | Complete `firestore.rules`, user isolation, index definitions in `firestore.indexes.json` |
-| 03 | `feature/auth-registration` | Full Name, Email, Normalized Phone (+94...), Password validation, profile write (FR1) |
-| 04 | `feature/auth-login` | Sign-in, session persistence across restarts, secure logout flow (FR1, FR2) |
-| 05 | `feature/income-add` | Income entry form for Salary, Freelance, AdSense, Crypto with source types (FR3) |
-| 06 | `feature/income-currency` | Multi-currency conversions, storing historical exchange rate & LKR amount (FR4, NFR9) |
-| 07 | `feature/income-edit` | Update and edit existing income entries without duplication (FR7) |
-| 08 | `feature/income-freelance` | Pending milestone invoices vs confirmed received payments handling (FR5, FR8) |
-| 09 | `feature/income-crypto` | Binance asset entries with signed amounts netting into running P&L (FR6) |
-| 10 | `feature/income-overview` | Monthly income reconciliation, source breakdown, and search filter (FR5, FR20) |
-| 11 | `feature/user-profile` | View profile data, editable name/phone, account metadata |
-| 12 | `feature/test-income-auth` | Unit and integration testing for validation, currency maths, and data isolation |
-
----
-
-## 📂 Project Structure
-
-```
-com.nexus.financetracker/
-├── FinanceApp.kt                     # Application entry point (@HiltAndroidApp)
-├── MainActivity.kt                   # Single Activity hosting AppNavGraph
-│
-├── domain/                           # Domain Layer
-│   └── model/                        # Clean Data Models (No framework dependencies)
-│       ├── UserProfile.kt            # users/{uid}
-│       ├── Income.kt                 # incomes/{incomeId}
-│       ├── Expense.kt                # expenses/{expenseId}
-│       ├── Goal.kt                   # goals/{goalId}
-│       ├── Category.kt               # categories/{categoryId}
-│       └── RecurringItem.kt          # recurringItems/{itemId}
-│
-├── data/                             # Data Layer
-│   ├── repository/                   # Repository Interfaces & Firestore Implementations
-│   │   ├── AuthRepository.kt & AuthRepositoryImpl.kt
-│   │   ├── IncomeRepository.kt & IncomeRepositoryImpl.kt
-│   │   ├── ExpenseRepository.kt & ExpenseRepositoryImpl.kt
-│   │   ├── GoalRepository.kt & GoalRepositoryImpl.kt
-│   │   ├── CategoryRepository.kt & CategoryRepositoryImpl.kt
-│   │   └── RecurringItemRepository.kt & RecurringItemRepositoryImpl.kt
-│   ├── remote/                       # Remote Data Sources (Firestore Listeners)
-│   │   └── GoalRemoteDataSource.kt
-│   └── local/                        # Room Cache Layer
-│       ├── database/AppDatabase.kt
-│       ├── dao/GoalDao.kt
-│       └── entity/GoalEntity.kt
-│
-├── di/                               # Dependency Injection (Hilt)
-│   ├── DatabaseModule.kt             # Room Database & DAO providers
-│   ├── FirebaseModule.kt             # FirebaseAuth & FirebaseFirestore providers
-│   └── RepositoryModule.kt           # Repository interface @Binds bindings
-│
-└── ui/                               # Presentation Layer (Jetpack Compose)
-    ├── navigation/                   # AppNavGraph, Screen destinations
-    ├── theme/                        # Material Design 3 Theme, Typography, Shapes
-    ├── auth/                         # LoginScreen, RegisterScreen, AuthViewModel
-    ├── dashboard/                    # DashboardScreen, DashboardViewModel
-    └── goal/                         # GoalListScreen, GoalViewModel
-```
+5. `main` is protected and updated only for stable milestone releases.
 
 ---
 
 ## 🚀 Setup & Build Instructions
 
 ### Prerequisites
-1. **Android Studio** (Ladybug 2024.2+ or Meerkat)
-2. **JDK 17 or JDK 21** configured in Android Studio Gradle settings
-3. **Android Device or Emulator** running API Level 26+ (Android 8.0 Oreo or higher)
+1. **Android Studio** Ladybug (2024.2+) or Meerkat
+2. **JDK 17 or JDK 21**
+3. **Android Device or Emulator** running API 26+ (Android 8.0 Oreo or higher)
 
 ### Installation & Run
 1. **Clone the repository:**
@@ -180,21 +198,20 @@ com.nexus.financetracker/
    git clone https://github.com/Kavindi-K/NEXUS-Finance_Tracker.git
    cd NEXUS-Finance_Tracker
    ```
-2. **Firebase Setup:**
-   * Ensure `google-services.json` is located in the `app/` directory.
+2. **Firebase Configuration:**
+   * Verify `google-services.json` is placed inside the `app/` directory (Package: `com.nexus.financetracker`).
    * In Firebase Console:
-     * Enable **Firebase Authentication** with Email/Password provider.
-     * Create **Cloud Firestore** in production mode.
-     * Publish the security rules defined in `firestore.rules`.
+     * Enable **Firebase Authentication** (Email/Password).
+     * Set up **Cloud Firestore** and publish the rules defined in `firestore.rules`.
 3. **Compile and Build Debug APK:**
    ```bash
    ./gradlew assembleDebug
    ```
-4. **Run Unit Tests:**
+4. **Execute Unit Tests:**
    ```bash
    ./gradlew testDebugUnitTest
    ```
-5. **Install on Connected Device/Emulator:**
+5. **Install on Device/Emulator:**
    ```bash
    ./gradlew installDebug
    ```
