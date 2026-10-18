@@ -29,4 +29,34 @@ abstract class RepositoryModule {
     abstract fun bindGoalRepository(
         impl: GoalRepositoryImpl
     ): GoalRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(
+        impl: com.nexus.financetracker.data.repository.AuthRepositoryImpl
+    ): com.nexus.financetracker.data.repository.AuthRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindIncomeRepository(
+        impl: com.nexus.financetracker.data.repository.IncomeRepositoryImpl
+    ): com.nexus.financetracker.data.repository.IncomeRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindExpenseRepository(
+        impl: com.nexus.financetracker.data.repository.ExpenseRepositoryImpl
+    ): com.nexus.financetracker.data.repository.ExpenseRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCategoryRepository(
+        impl: com.nexus.financetracker.data.repository.CategoryRepositoryImpl
+    ): com.nexus.financetracker.data.repository.CategoryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRecurringItemRepository(
+        impl: com.nexus.financetracker.data.repository.RecurringItemRepositoryImpl
+    ): com.nexus.financetracker.data.repository.RecurringItemRepository
 }

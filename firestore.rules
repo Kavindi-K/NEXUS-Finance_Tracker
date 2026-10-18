@@ -2,24 +2,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Each user only has access to their own data
+    // User profile document (users/{userId})
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
 
-      // User's transactions collection
-      match /transactions/{transactionId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      // User's savings goals collection
-      match /goals/{goalId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      // User's category budgets collection
-      match /budgets/{budgetId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
+    // Top-level collections: incomes, expenses, goals, categories, recurringItems
+    match /{col}/{id} {
+      allow read, update, delete: if request.auth != null
+        && col in ['incomes', 'expenses', 'goals', 'categories', 'recurringItems']
+        && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+        && col in ['incomes', 'expenses', 'goals', 'categories', 'recurringItems']
+        && request.resource.data.userId == request.auth.uid;
     }
   }
 }
