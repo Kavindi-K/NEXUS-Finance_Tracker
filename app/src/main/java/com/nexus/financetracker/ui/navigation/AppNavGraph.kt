@@ -5,12 +5,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.nexus.financetracker.ui.auth.AuthViewModel
 import com.nexus.financetracker.ui.auth.LoginScreen
 import com.nexus.financetracker.ui.auth.RegisterScreen
 import com.nexus.financetracker.ui.dashboard.DashboardScreen
@@ -22,14 +25,27 @@ import com.nexus.financetracker.ui.settings.SettingsScreen
 /**
  * Root Navigation Graph with single-activity Material 3 Scaffold and Bottom Navigation.
  *
- * Bottom bar is automatically shown on top-level destinations (Dashboard, Income, Expenses,
- * Goals, Settings) and hidden during Auth flows (Login, Register).
+ * Implements persistent session restoration (FR2):
+ * - If user is already authenticated with Firebase, starts at Dashboard.
+ * - Otherwise starts at Login.
+ *
+ * Implements protected back stack (FR2):
+ * - On successful login/registration, auth screens are popped off the stack.
+ * - On sign-out, Firebase session is cleared and back stack is completely purged (popUpTo(0)).
  */
 @Composable
-fun AppNavGraph() {
+fun AppNavGraph(
+    authViewModel: AuthViewModel = hiltViewModel()
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    // Computed ONCE at first composition — never re-evaluated on recomposition.
+    // Prevents NavHost from rebuilding the graph when auth.currentUser changes mid-session.
+    val startDestination = remember {
+        if (authViewModel.isUserLoggedIn) Screen.Dashboard.route else Screen.Login.route
+    }
 
     // Top-level destinations that display the bottom navigation bar
     val topLevelRoutes = listOf(
@@ -61,7 +77,7 @@ fun AppNavGraph() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Login.route,
+            startDestination = startDestination,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
@@ -144,7 +160,12 @@ fun AppNavGraph() {
 
             composable(Screen.Settings.route) {
                 SettingsScreen(
+                    userEmail = authViewModel.currentUser?.email,
+                    displayName = authViewModel.currentUser?.displayName,
                     onLogout = {
+                        // Sign out of Firebase Auth and clear all session state
+                        authViewModel.signOut()
+                        // Completely purge back stack so user cannot return to protected screens
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
