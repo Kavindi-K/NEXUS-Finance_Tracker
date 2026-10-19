@@ -1,17 +1,22 @@
 package com.nexus.financetracker.ui.auth
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
 /**
- * Login screen — placeholder scaffold.
- * TODO: Add proper form validation, loading indicator, and error display.
+ * Sign In Screen.
+ * Conforms to FR2 (Authentication & Persistent Session).
+ * Delegates input validation to AuthViewModel.validateLogin().
  */
 @Composable
 fun LoginScreen(
@@ -30,10 +35,12 @@ fun LoginScreen(
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var localError by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -45,36 +52,72 @@ fun LoginScreen(
 
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = {
+                email = it
+                localError = null
+            },
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            enabled = !uiState.isLoading
         )
         Spacer(Modifier.height(12.dp))
+
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = {
+                password = it
+                localError = null
+            },
             label = { Text("Password") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            enabled = !uiState.isLoading
         )
         Spacer(Modifier.height(8.dp))
 
-        uiState.errorMessage?.let {
-            Text(it, color = MaterialTheme.colorScheme.error)
+        // Display local validation error first; fallback to Firebase error
+        val displayError = localError ?: uiState.errorMessage
+        displayError?.let {
+            Text(
+                text = it,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
             Spacer(Modifier.height(8.dp))
         }
 
         Button(
-            onClick = { viewModel.login(email, password) },
+            onClick = {
+                localError = viewModel.validateLogin(email, password)
+                if (localError == null) {
+                    viewModel.login(email, password)
+                }
+            },
             enabled = !uiState.isLoading,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(if (uiState.isLoading) "Signing in…" else "Sign In")
+            if (uiState.isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("Signing in…")
+            } else {
+                Text("Sign In")
+            }
         }
         Spacer(Modifier.height(12.dp))
-        TextButton(onClick = onNavigateToRegister) {
+
+        TextButton(
+            onClick = onNavigateToRegister,
+            enabled = !uiState.isLoading
+        ) {
             Text("Don't have an account? Register")
         }
     }

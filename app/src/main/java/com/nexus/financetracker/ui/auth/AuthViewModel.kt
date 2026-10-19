@@ -7,6 +7,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.nexus.financetracker.data.repository.AuthRepository
 import com.nexus.financetracker.domain.model.UserProfile
@@ -15,13 +17,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * ViewModel for Login and Register screens.
- *
- * Registration flow:
- *  1. Normalize email (trim + lowercase) so it matches the Firebase Auth token email.
- *  2. Normalize phone to E.164 (+94XXXXXXXXX).
- *  3. Delegate to AuthRepository.register() which handles Auth + Firestore write with rollback.
- *  4. Map FirebaseAuthUserCollisionException to a human-readable message.
+ * ViewModel for Authentication (Login and Register) and Session Management.
+ * Conforms to FR1, FR2 and Technical Document Section 4.2.
  */
 @HiltViewModel
 class AuthViewModel @Inject constructor(
@@ -32,21 +29,46 @@ class AuthViewModel @Inject constructor(
     var uiState by mutableStateOf(AuthUiState())
         private set
 
+    /** Check if a valid session exists for persistent login across app restarts. */
+    val isUserLoggedIn: Boolean
+        get() = auth.currentUser != null
+
     val currentUser get() = auth.currentUser
 
+    /**
+     * Authenticates user with trimmed/lowercased email and maps Firebase Auth exceptions
+     * to clean, human-readable user messages.
+     */
     fun login(email: String, password: String) {
+        val normalizedEmail = email.trim().lowercase()
         viewModelScope.launch {
             uiState = uiState.copy(isLoading = true, errorMessage = null)
-            val result = authRepository.login(email, password)
+            val result = authRepository.login(normalizedEmail, password)
             if (result.isSuccess) {
                 uiState = uiState.copy(isLoading = false, isSuccess = true)
             } else {
-                uiState = uiState.copy(
-                    isLoading = false,
-                    errorMessage = result.exceptionOrNull()?.localizedMessage
-                )
+                val errorMsg = when (val ex = result.exceptionOrNull()) {
+                    is FirebaseAuthInvalidUserException ->
+                        "No account found with this email. Please create an account."
+                    is FirebaseAuthInvalidCredentialsException ->
+                        "Invalid email or password. Please try again."
+                    else ->
+                        ex?.localizedMessage ?: "Sign in failed. Please check your network and credentials."
+                }
+                uiState = uiState.copy(isLoading = false, errorMessage = errorMsg)
             }
         }
+    }
+
+    /**
+     * Validates login inputs before network authentication (kept in ViewModel per architecture rules).
+     */
+    fun validateLogin(email: String, password: String): String? {
+        val trimmedEmail = email.trim()
+        if (trimmedEmail.isBlank()) return "Email address is required"
+        if (!Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) return "Enter a valid email address"
+        if (password.isBlank()) return "Password is required"
+        return null
     }
 
     fun register(
@@ -55,8 +77,6 @@ class AuthViewModel @Inject constructor(
         phoneNumber: String,
         password: String
     ) {
-        // Normalize email: trim whitespace and lowercase so it matches the Auth token email
-        // (Firestore rule checks request.auth.token.email == profile.email)
         val normalizedEmail = email.trim().lowercase()
         val normalizedPhone = normalizePhone(phoneNumber)
 
@@ -71,7 +91,6 @@ class AuthViewModel @Inject constructor(
             if (result.isSuccess) {
                 uiState = uiState.copy(isLoading = false, isSuccess = true)
             } else {
-                // Map duplicate-email error to a clear message
                 val errorMsg = when (result.exceptionOrNull()) {
                     is FirebaseAuthUserCollisionException ->
                         "This email is already registered. Please sign in instead."
@@ -95,12 +114,6 @@ class AuthViewModel @Inject constructor(
 
     /**
      * Normalises a Sri Lankan phone number to E.164 format (+94XXXXXXXXX).
-     *
-     * Accepted inputs (spaces and dashes are stripped first):
-     *   0771234567   → +94771234567
-     *   771234567    → +94771234567
-     *   94771234567  → +94771234567
-     *   +94771234567 → +94771234567  (already valid, returned as-is)
      */
     internal fun normalizePhone(raw: String): String {
         val clean = raw.replace(Regex("[\\s\\-().]"), "")
@@ -113,8 +126,7 @@ class AuthViewModel @Inject constructor(
     }
 
     /**
-     * Client-side field validation — lives in the ViewModel, not the Composable.
-     * Returns a human-readable error string, or null if every field is valid.
+     * Client-side registration validation — lives in the ViewModel, not the Composable.
      */
     fun validateRegistration(
         fullName: String,

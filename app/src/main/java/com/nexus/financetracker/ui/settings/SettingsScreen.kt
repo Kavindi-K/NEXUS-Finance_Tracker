@@ -4,9 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -19,8 +18,35 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    userEmail: String? = null,
+    displayName: String? = null,
     onLogout: () -> Unit
 ) {
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Sign Out") },
+            text = { Text("Are you sure you want to sign out of NEXUS Finance Tracker?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        onLogout()
+                    }
+                ) {
+                    Text("Sign Out", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -67,11 +93,11 @@ fun SettingsScreen(
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "NEXUS Account",
+                            text = displayName?.ifBlank { null } ?: "NEXUS User",
                             style = MaterialTheme.typography.titleMedium
                         )
                         Text(
-                            text = "Connected via Firebase Auth",
+                            text = userEmail ?: "Connected via Firebase Auth",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -118,7 +144,7 @@ fun SettingsScreen(
 
             // Logout Action (Auth session)
             OutlinedButton(
-                onClick = onLogout,
+                onClick = { showLogoutDialog = true },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.error
