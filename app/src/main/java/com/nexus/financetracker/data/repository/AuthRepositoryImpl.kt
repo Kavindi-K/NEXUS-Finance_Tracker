@@ -13,6 +13,12 @@ import javax.inject.Singleton
 /**
  * Implementation of AuthRepository connecting to Firebase Auth and Firestore "users/{uid}".
  * Conforms to FR1, FR2 and Technical Document Section 5.2.
+ *
+ * Registration is intentionally split into two steps so that a Firestore failure
+ * does not leave a dangling Auth account:
+ *   Step 1 – Create the Firebase Auth account.
+ *   Step 2 – Write the Firestore profile document.
+ *             On failure the Auth account is deleted (rollback) so the user can retry.
  */
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
@@ -40,11 +46,55 @@ class AuthRepositoryImpl @Inject constructor(
         firestore.collection("users").document(profile.uid).set(profile).await()
     }
 
-    override suspend fun register(email: String, password: String, profile: UserProfile): Result<Unit> = runCatching {
-        val authResult = auth.createUserWithEmailAndPassword(email, password).await()
-        val uid = authResult.user?.uid ?: throw IllegalStateException("Auth user UID is null")
+    /**
+     * Two-step registration with rollback:
+     * 1. Create Auth account → get uid.
+     * 2. Write Firestore profile.
+     *    • If the Firestore write fails → delete the Auth account so the user can retry.
+     */
+    override suspend fun register(
+        email: String,
+        password: String,
+        profile: UserProfile
+    ): Result<Unit> {
+        // Step 1 — Create Firebase Auth account
+        val authResult = runCatching {
+            auth.createUserWithEmailAndPassword(email, password).await()
+        }
+        if (authResult.isFailure) return Result.failure(authResult.exceptionOrNull()!!)
+
+        val uid = authResult.getOrNull()?.user?.uid
+            ?: return Result.failure(IllegalStateException("Auth UID is null after account creation"))
+
+        // Step 2 — Write Firestore profile
         val updatedProfile = profile.copy(uid = uid, email = email)
-        firestore.collection("users").document(uid).set(updatedProfile).await()
+        val profileResult = runCatching {
+            firestore.collection("users").document(uid).set(updatedProfile).await()
+        }
+
+        if (profileResult.isFailure) {
+            // Attempt rollback: delete the Auth account so the email can be retried.
+            // The rollback may itself fail (e.g. no network), so we wrap it separately.
+            val rollbackResult = runCatching { auth.currentUser?.delete()?.await() }
+
+            return if (rollbackResult.isSuccess) {
+                // Clean rollback — user can retry registration freely
+                Result.failure(
+                    Exception("Profile could not be saved. Please check your connection and try again.")
+                )
+            } else {
+                // Rollback failed — Auth account exists but has no Firestore profile.
+                // The user must sign in and their profile will be missing until recreated.
+                Result.failure(
+                    Exception(
+                        "Profile save failed and the account could not be fully cleaned up. " +
+                        "Please try signing in — if your profile is missing, contact support."
+                    )
+                )
+            }
+        }
+
+        return Result.success(Unit)
     }
 
     override suspend fun login(email: String, password: String): Result<Unit> = runCatching {
