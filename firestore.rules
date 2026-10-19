@@ -1,25 +1,165 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Each user only has access to their own data
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      // User's transactions collection
-      match /transactions/{transactionId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
+    function signedIn() {
+      return request.auth != null;
+    }
 
-      // User's savings goals collection
-      match /goals/{goalId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
+    function owns(data) {
+      return signedIn() && request.auth.uid == data.userId;
+    }
 
-      // User's category budgets collection
-      match /budgets/{budgetId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
+    function sameOwner() {
+      return request.resource.data.userId == resource.data.userId;
+    }
+
+    function sameCreated() {
+      return request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function onlyKeys(d, allowed) {
+      return d.keys().hasOnly(allowed);
+    }
+
+    function validAccount(d) {
+      return d.account in ['card', 'cash', 'secondary'];
+    }
+
+    function validClass(d) {
+      return d.classification in ['committed', 'discretionary'];
+    }
+
+    // 1. Users collection (users/{uid})
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid
+        && validUser(request.resource.data, uid);
+      allow update: if signedIn() && request.auth.uid == uid
+        && validUser(request.resource.data, uid) && sameCreated();
+      allow delete: if false;
+    }
+
+    function validUser(d, uid) {
+      return onlyKeys(d, ['uid', 'displayName', 'email', 'phoneNumber', 'createdAt'])
+        && d.keys().hasAll(['uid', 'displayName', 'email', 'phoneNumber', 'createdAt'])
+        && d.uid == uid
+        && d.displayName is string && d.displayName.size() > 0
+        && d.email == request.auth.token.email
+        && d.phoneNumber is string
+        && d.phoneNumber.matches('^\\+[1-9][0-9]{7,14}$')
+        && d.createdAt is timestamp;
+    }
+
+    // 2. Incomes collection (incomes/{id})
+    match /incomes/{id} {
+      allow read, delete: if owns(resource.data);
+      allow create: if owns(request.resource.data)
+        && validIncome(request.resource.data);
+      allow update: if owns(resource.data) && sameOwner() && sameCreated()
+        && validIncome(request.resource.data);
+    }
+
+    function validIncome(d) {
+      return onlyKeys(d, ['userId', 'source', 'status', 'amountOriginal', 'currency',
+        'exchangeRate', 'amountLKR', 'dateReceived', 'expectedDate',
+        'note', 'createdAt', 'updatedAt'])
+        && d.source in ['salary', 'freelance', 'adsense', 'crypto']
+        && d.status in ['confirmed', 'pending']
+        && d.amountOriginal is number && d.exchangeRate is number
+        && d.exchangeRate > 0 && d.amountLKR is number
+        && math.abs(d.amountLKR - d.amountOriginal * d.exchangeRate) <= 0.01
+        && d.currency is string && d.currency.size() >= 3
+        && (d.currency != 'LKR' || d.exchangeRate == 1)
+        && ((d.source == 'crypto' && d.amountOriginal != 0) || d.amountOriginal > 0)
+        && ((d.status == 'confirmed' && 'dateReceived' in d && d.dateReceived is timestamp)
+          || (d.status == 'pending' && !('dateReceived' in d)))
+        && (!('expectedDate' in d) || (d.status == 'pending' && d.expectedDate is timestamp))
+        && (!('note' in d) || d.note is string)
+        && d.createdAt is timestamp
+        && (!('updatedAt' in d) || d.updatedAt is timestamp);
+    }
+
+    // 3. Expenses collection (expenses/{id})
+    match /expenses/{id} {
+      allow read, delete: if owns(resource.data);
+      allow create: if owns(request.resource.data)
+        && validExpense(request.resource.data);
+      allow update: if owns(resource.data) && sameOwner() && sameCreated()
+        && validExpense(request.resource.data);
+    }
+
+    function validExpense(d) {
+      return onlyKeys(d, ['userId', 'amountLKR', 'categoryId', 'account',
+        'classification', 'note', 'date', 'createdAt', 'recurringItemId'])
+        && d.amountLKR is number && d.amountLKR > 0
+        && validAccount(d) && validClass(d)
+        && d.categoryId is string && d.categoryId.size() > 0
+        && d.date is timestamp && d.createdAt is timestamp
+        && (!('note' in d) || d.note is string)
+        && (!('recurringItemId' in d) || d.recurringItemId is string);
+    }
+
+    // 4. Goals collection (goals/{id})
+    match /goals/{id} {
+      allow read, delete: if owns(resource.data);
+      allow create: if owns(request.resource.data)
+        && validGoal(request.resource.data);
+      allow update: if owns(resource.data) && sameOwner() && sameCreated()
+        && validGoal(request.resource.data);
+    }
+
+    function validGoal(d) {
+      return onlyKeys(d, ['userId', 'title', 'targetAmountLKR', 'openingSavingsLKR',
+        'startDate', 'targetDate', 'isActive', 'createdAt'])
+        && d.title is string && d.title.size() > 0
+        && d.targetAmountLKR is number && d.targetAmountLKR > 0
+        && d.openingSavingsLKR is number && d.openingSavingsLKR >= 0
+        && d.startDate is timestamp && d.targetDate is timestamp
+        && d.targetDate > d.startDate
+        && d.isActive is bool && d.createdAt is timestamp;
+    }
+
+    // 5. Categories collection (categories/{id})
+    match /categories/{id} {
+      allow read, delete: if owns(resource.data);
+      allow create: if owns(request.resource.data)
+        && validCategory(request.resource.data);
+      allow update: if owns(resource.data) && sameOwner() && sameCreated()
+        && validCategory(request.resource.data);
+    }
+
+    function validCategory(d) {
+      return onlyKeys(d, ['userId', 'name', 'createdAt', 'mergingInto'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 40
+        && (!('mergingInto' in d) || d.mergingInto is string)
+        && d.createdAt is timestamp;
+    }
+
+    // 6. Recurring Items collection (recurringItems/{id})
+    match /recurringItems/{id} {
+      allow read, delete: if owns(resource.data);
+      allow create: if owns(request.resource.data)
+        && validRecurring(request.resource.data);
+      allow update: if owns(resource.data) && sameOwner() && sameCreated()
+        && validRecurring(request.resource.data);
+    }
+
+    function validRecurring(d) {
+      return onlyKeys(d, ['userId', 'title', 'amountLKR', 'categoryId', 'account',
+        'classification', 'frequency', 'nextDueDate', 'isActive', 'createdAt'])
+        && d.title is string && d.title.size() > 0
+        && d.amountLKR is number && d.amountLKR > 0
+        && d.categoryId is string && d.categoryId.size() > 0
+        && validAccount(d) && validClass(d)
+        && d.frequency in ['weekly', 'monthly', 'yearly']
+        && d.nextDueDate is timestamp && d.isActive is bool
+        && d.createdAt is timestamp;
+    }
+
+    // Catch-all: default deny any undeclared collection
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

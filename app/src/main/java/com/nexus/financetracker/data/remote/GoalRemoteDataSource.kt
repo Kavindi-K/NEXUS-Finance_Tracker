@@ -10,18 +10,19 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Remote data source — wraps all Firestore operations for goals.
+ * Remote data source — wraps all Firestore operations for goals in top-level "goals" collection.
+ * Conforms to Technical Document Section 5.1/5.2.
  */
 @Singleton
 class GoalRemoteDataSource @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
-    private fun userCollection(userId: String) =
-        firestore.collection("users").document(userId).collection("goals")
+    private val goalsCollection = firestore.collection("goals")
 
     fun getGoals(userId: String): Flow<List<Goal>> = callbackFlow {
-        val listener = userCollection(userId)
-            .orderBy("deadline", com.google.firebase.firestore.Query.Direction.ASCENDING)
+        val listener = goalsCollection
+            .whereEqualTo("userId", userId)
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null) {
                     close(error)
@@ -36,15 +37,17 @@ class GoalRemoteDataSource @Inject constructor(
     }
 
     suspend fun addGoal(userId: String, goal: Goal): String {
-        val ref = userCollection(userId).add(goal).await()
+        val withUser = if (goal.userId.isEmpty()) goal.copy(userId = userId) else goal
+        val ref = goalsCollection.add(withUser).await()
         return ref.id
     }
 
     suspend fun updateGoal(userId: String, goal: Goal) {
-        userCollection(userId).document(goal.id).set(goal).await()
+        val withUser = if (goal.userId.isEmpty()) goal.copy(userId = userId) else goal
+        goalsCollection.document(goal.id).set(withUser).await()
     }
 
     suspend fun deleteGoal(userId: String, goalId: String) {
-        userCollection(userId).document(goalId).delete().await()
+        goalsCollection.document(goalId).delete().await()
     }
 }
