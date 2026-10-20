@@ -23,8 +23,19 @@ data class GoalCalculation(
     val cumulativeConfirmedIncomeLKR: Double,
     val cumulativeExpenseLKR: Double,
     val isCompleted: Boolean,
-    val isOverdue: Boolean
+    val isOverdue: Boolean,
+    val projection: GoalProjection = GoalProjection.project(
+        goal = goal,
+        cumulativeConfirmedIncomeLKR = cumulativeConfirmedIncomeLKR,
+        cumulativeExpenseLKR = cumulativeExpenseLKR,
+        remainingAmountLKR = remainingAmountLKR,
+        hasTransactions = (cumulativeConfirmedIncomeLKR > 0.0 || cumulativeExpenseLKR > 0.0)
+    )
 ) {
+    val actualMonthlyAverageLKR: Double get() = projection.monthlySavingsRateLKR
+    val projectedCompletionDate: Date? get() = projection.projectedDate
+    val paceStatus: PaceStatus get() = projection.paceStatus
+    val paceMessage: String get() = projection.statusMessage
     companion object {
         /**
          * Computes the real-time financial trajectory for the given goal against the user's
@@ -84,6 +95,16 @@ data class GoalCalculation(
                 0.0
             }
 
+            val hasTransactions = relevantIncomes.isNotEmpty() || relevantExpenses.isNotEmpty()
+            val projection = GoalProjection.project(
+                goal = goal,
+                cumulativeConfirmedIncomeLKR = cumulativeConfirmedIncome,
+                cumulativeExpenseLKR = cumulativeExpense,
+                remainingAmountLKR = remainingAmount,
+                hasTransactions = hasTransactions,
+                currentDate = currentDate
+            )
+
             return GoalCalculation(
                 goal = goal,
                 estimatedCurrentSavingsLKR = estimatedCurrentSavings,
@@ -95,7 +116,8 @@ data class GoalCalculation(
                 cumulativeConfirmedIncomeLKR = cumulativeConfirmedIncome,
                 cumulativeExpenseLKR = cumulativeExpense,
                 isCompleted = estimatedCurrentSavings >= goal.targetAmountLKR,
-                isOverdue = isOverdue
+                isOverdue = isOverdue,
+                projection = projection
             )
         }
 

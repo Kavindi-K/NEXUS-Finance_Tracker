@@ -48,8 +48,8 @@ class GoalViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 goalRepository.getGoals(userId),
-                incomeRepository.getIncomes(userId),
-                expenseRepository.getExpenses(userId)
+                incomeRepository.getIncomes(userId).catch { emit(emptyList()) },
+                expenseRepository.getExpenses(userId).catch { emit(emptyList()) }
             ) { goals, incomes, expenses ->
                 val calculations = goals.associate { goal ->
                     goal.id to GoalCalculation.calculate(
