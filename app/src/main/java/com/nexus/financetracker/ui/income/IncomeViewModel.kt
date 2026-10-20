@@ -33,7 +33,7 @@ private data class SourceDefaults(
 data class IncomeFormState(
     val source: String = IncomeSource.SALARY,
     val status: String = IncomeStatus.CONFIRMED,
-    val amountOriginal: String = "130000",
+    val amountOriginal: String = "130000.00",
     val currency: String = "LKR",
     val exchangeRate: String = "1.0",
     val dateReceived: Date = Date(),
@@ -120,8 +120,8 @@ class IncomeViewModel @Inject constructor(
 
                     // Prefill salary if user currently has salary selected and amount is default
                     if (_formState.value.source == IncomeSource.SALARY && lastSalary != null) {
-                        val formatted = if (lastSalary % 1.0 == 0.0) lastSalary.toLong().toString() else lastSalary.toString()
-                        if (_formState.value.amountOriginal.isBlank() || _formState.value.amountOriginal == "130000") {
+                        val formatted = String.format(java.util.Locale.US, "%.2f", lastSalary)
+                        if (_formState.value.amountOriginal.isBlank() || _formState.value.amountOriginal == "130000.00" || _formState.value.amountOriginal == "130000") {
                             _formState.value = _formState.value.copy(amountOriginal = formatted)
                         }
                     }
@@ -156,8 +156,8 @@ class IncomeViewModel @Inject constructor(
             IncomeSource.SALARY -> {
                 // Salary: LKR, variable (120,000 to 140,000), prefill last amount makes it a one-tap edit
                 val prefill = lastSalary?.let {
-                    if (it % 1.0 == 0.0) it.toLong().toString() else it.toString()
-                } ?: "130000"
+                    String.format(java.util.Locale.US, "%.2f", it)
+                } ?: "130000.00"
                 SourceDefaults(currency = "LKR", exchangeRate = "1.0", amount = prefill, status = IncomeStatus.CONFIRMED)
             }
             IncomeSource.FREELANCE -> {
@@ -222,8 +222,8 @@ class IncomeViewModel @Inject constructor(
     fun resetForm() {
         val lastSalary = _uiState.value.lastSalaryAmount
         val prefill = lastSalary?.let {
-            if (it % 1.0 == 0.0) it.toLong().toString() else it.toString()
-        } ?: "130000"
+            String.format(java.util.Locale.US, "%.2f", it)
+        } ?: "130000.00"
 
         _formState.value = IncomeFormState(
             source = IncomeSource.SALARY,

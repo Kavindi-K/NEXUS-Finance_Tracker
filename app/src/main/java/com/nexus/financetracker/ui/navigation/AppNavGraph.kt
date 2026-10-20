@@ -145,6 +145,7 @@ fun AppNavGraph(
                 IncomeEntryScreen(
                     viewModel = incomeViewModel,
                     onNavigateBack = {
+                        incomeViewModel.resetForm()
                         navController.popBackStack()
                     }
                 )
