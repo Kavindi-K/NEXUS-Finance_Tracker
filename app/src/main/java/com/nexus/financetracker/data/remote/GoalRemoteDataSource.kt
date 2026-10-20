@@ -22,7 +22,6 @@ class GoalRemoteDataSource @Inject constructor(
     fun getGoals(userId: String): Flow<List<Goal>> = callbackFlow {
         val listener = goalsCollection
             .whereEqualTo("userId", userId)
-            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null) {
                     close(error)
@@ -30,7 +29,7 @@ class GoalRemoteDataSource @Inject constructor(
                 }
                 val goals = snapshot.documents.mapNotNull { doc ->
                     doc.toObject(Goal::class.java)?.copy(id = doc.id)
-                }
+                }.sortedByDescending { it.createdAt }
                 trySend(goals)
             }
         awaitClose { listener.remove() }

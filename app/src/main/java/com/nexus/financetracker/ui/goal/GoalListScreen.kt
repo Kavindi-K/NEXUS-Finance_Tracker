@@ -280,43 +280,99 @@ private fun GoalCard(
                 }
             }
 
-            // Required Monthly Savings Rate Card (FR15)
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                modifier = Modifier.fillMaxWidth()
+            // Rates Comparison: Required / Month vs Your Average / Month (FR15, Section 6.5)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Column {
+                    Column(modifier = Modifier.padding(10.dp)) {
                         Text(
-                            text = "Required per Month",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            text = "Required / Month",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                         )
                         Text(
-                            text = if (calculation != null && calculation.monthsRemaining > 0) {
-                                "${calculation.monthsRemaining} months remaining"
-                            } else {
-                                "Deadline due"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            text = calculation?.let { "LKR ${currencyFormat.format(it.requiredMonthlySavingsLKR)}" }
+                                ?: "Calculating...",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
-                    Text(
-                        text = calculation?.let { "LKR ${currencyFormat.format(it.requiredMonthlySavingsLKR)}" }
-                            ?: "Calculating...",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                }
+
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            text = "Your Average / Month",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                        )
+                        val avgRate = calculation?.actualMonthlyAverageLKR ?: 0.0
+                        Text(
+                            text = "LKR ${currencyFormat.format(avgRate)}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+            }
+
+            // Pace Status & Projected Completion Date (FR16, Section 6.5)
+            val projection = calculation?.projection
+            if (projection != null) {
+                val (containerColor, contentColor) = when (projection.paceStatus) {
+                    com.nexus.financetracker.domain.model.PaceStatus.AHEAD_OF_PACE,
+                    com.nexus.financetracker.domain.model.PaceStatus.ON_TRACK,
+                    com.nexus.financetracker.domain.model.PaceStatus.COMPLETED ->
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) to MaterialTheme.colorScheme.primary
+                    com.nexus.financetracker.domain.model.PaceStatus.BEHIND_PACE,
+                    com.nexus.financetracker.domain.model.PaceStatus.OVERDUE ->
+                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f) to MaterialTheme.colorScheme.error
+                    com.nexus.financetracker.domain.model.PaceStatus.INSUFFICIENT_HISTORY ->
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f) to MaterialTheme.colorScheme.onSurfaceVariant
+                }
+
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = containerColor,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = when (projection.paceStatus) {
+                                com.nexus.financetracker.domain.model.PaceStatus.AHEAD_OF_PACE -> "Ahead of pace"
+                                com.nexus.financetracker.domain.model.PaceStatus.ON_TRACK -> "On track"
+                                com.nexus.financetracker.domain.model.PaceStatus.BEHIND_PACE -> "Slightly behind pace"
+                                com.nexus.financetracker.domain.model.PaceStatus.COMPLETED -> "Goal Achieved"
+                                com.nexus.financetracker.domain.model.PaceStatus.OVERDUE -> "Deadline Passed"
+                                com.nexus.financetracker.domain.model.PaceStatus.INSUFFICIENT_HISTORY -> "Pace Projection"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = contentColor
+                        )
+                        Text(
+                            text = projection.statusMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
 
