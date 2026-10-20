@@ -33,6 +33,7 @@ import java.util.Locale
 @Composable
 fun IncomeEntryScreen(
     viewModel: IncomeViewModel,
+    incomeId: String? = null,
     onNavigateBack: () -> Unit
 ) {
     val formState by viewModel.formState.collectAsState()
@@ -40,9 +41,13 @@ fun IncomeEntryScreen(
     val context = LocalContext.current
     val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
 
-    // Reset form each time the entry screen is opened so previous unsaved drafts are not retained
-    LaunchedEffect(Unit) {
-        viewModel.resetForm()
+    // Load income for edit if ID is provided, otherwise reset to blank/default draft
+    LaunchedEffect(incomeId) {
+        if (!incomeId.isNullOrBlank()) {
+            viewModel.loadIncomeForEdit(incomeId)
+        } else {
+            viewModel.resetForm()
+        }
     }
 
     val calendar = remember { Calendar.getInstance() }
@@ -67,10 +72,13 @@ fun IncomeEntryScreen(
     val isFreelance = formState.source == IncomeSource.FREELANCE
     val isCrypto = formState.source == IncomeSource.CRYPTO
 
+    val screenTitle = if (formState.isEditMode) "Edit Income" else "Record Income"
+    val submitButtonText = if (formState.isEditMode) "Update Income" else "Save Income"
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Record Income", style = MaterialTheme.typography.titleLarge) },
+                title = { Text(screenTitle, style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -100,7 +108,7 @@ fun IncomeEntryScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
-                        enabled = !formState.isSubmitting
+                        enabled = !formState.isSubmitting && !formState.isLoading
                     ) {
                         if (formState.isSubmitting) {
                             CircularProgressIndicator(
@@ -109,21 +117,31 @@ fun IncomeEntryScreen(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text("Save Income", style = MaterialTheme.typography.titleMedium)
+                            Text(submitButtonText, style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 }
             }
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(scrollState)
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
+        if (formState.isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
             // Source Selection (FlowRow)
             Text(
                 text = "Income Source",
@@ -372,4 +390,5 @@ fun IncomeEntryScreen(
             Spacer(Modifier.height(16.dp))
         }
     }
+}
 }

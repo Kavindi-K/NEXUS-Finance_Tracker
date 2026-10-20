@@ -17,7 +17,9 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
 
     // Transaction & Detail Screens
-    object AddIncome : Screen("add_income")
+    object AddIncome : Screen("add_income?incomeId={incomeId}") {
+        fun createRoute(incomeId: String? = null) = if (incomeId != null) "add_income?incomeId=$incomeId" else "add_income"
+    }
     object AddExpense : Screen("add_expense")
     object AddTransaction : Screen("add_transaction?type={type}") {
         fun createRoute(type: String) = "add_transaction?type=$type"

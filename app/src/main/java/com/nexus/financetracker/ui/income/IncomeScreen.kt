@@ -1,6 +1,7 @@
 package com.nexus.financetracker.ui.income
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,7 +34,8 @@ import java.util.Locale
 @Composable
 fun IncomeScreen(
     viewModel: IncomeViewModel,
-    onAddIncome: () -> Unit
+    onAddIncome: () -> Unit,
+    onEditIncome: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val dateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
@@ -190,6 +192,7 @@ fun IncomeScreen(
                         IncomeCard(
                             income = income,
                             dateFormatter = dateFormatter,
+                            onEdit = { onEditIncome(income.id) },
                             onDelete = { viewModel.deleteIncome(income.id) }
                         )
                     }
@@ -203,6 +206,7 @@ fun IncomeScreen(
 private fun IncomeCard(
     income: Income,
     dateFormatter: SimpleDateFormat,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val isConfirmed = income.status == IncomeStatus.CONFIRMED
@@ -217,7 +221,9 @@ private fun IncomeCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onEdit() },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
@@ -307,16 +313,32 @@ private fun IncomeCard(
                 }
             }
 
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.DeleteOutline,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                    modifier = Modifier.size(20.dp)
-                )
+            Spacer(Modifier.width(4.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
