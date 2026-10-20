@@ -90,6 +90,11 @@ class IncomeRepositoryImpl @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    override suspend fun getIncomeById(incomeId: String): Income? {
+        val snapshot = incomesCollection.document(incomeId).get().await()
+        return snapshot.toObject(Income::class.java)?.copy(id = snapshot.id)
+    }
+
     override suspend fun addIncome(income: Income): String {
         val docRef = incomesCollection.add(income.toFirestoreMap()).await()
         return docRef.id

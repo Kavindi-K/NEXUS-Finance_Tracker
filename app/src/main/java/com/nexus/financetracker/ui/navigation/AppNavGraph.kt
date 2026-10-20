@@ -138,15 +138,29 @@ fun AppNavGraph(
                 IncomeScreen(
                     viewModel = incomeViewModel,
                     onAddIncome = {
-                        navController.navigate(Screen.AddIncome.route)
+                        navController.navigate(Screen.AddIncome.createRoute())
+                    },
+                    onEditIncome = { incomeId ->
+                        navController.navigate(Screen.AddIncome.createRoute(incomeId))
                     }
                 )
             }
 
-            composable(Screen.AddIncome.route) {
+            composable(
+                route = Screen.AddIncome.route,
+                arguments = listOf(
+                    navArgument("incomeId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val incomeId = backStackEntry.arguments?.getString("incomeId")
                 val incomeViewModel: IncomeViewModel = hiltViewModel()
                 IncomeEntryScreen(
                     viewModel = incomeViewModel,
+                    incomeId = incomeId,
                     onNavigateBack = {
                         incomeViewModel.resetForm()
                         navController.popBackStack()

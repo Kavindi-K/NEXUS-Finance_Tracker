@@ -31,6 +31,8 @@ private data class SourceDefaults(
 )
 
 data class IncomeFormState(
+    val editingIncomeId: String? = null,
+    val originalCreatedAt: Date? = null,
     val source: String = IncomeSource.SALARY,
     val status: String = IncomeStatus.CONFIRMED,
     val amountOriginal: String = "130000.00",
@@ -39,9 +41,13 @@ data class IncomeFormState(
     val dateReceived: Date = Date(),
     val expectedDate: Date = Date(),
     val note: String = "",
+    val isLoading: Boolean = false,
     val isSubmitting: Boolean = false,
     val error: String? = null
 ) {
+    val isEditMode: Boolean
+        get() = editingIncomeId != null
+
     val computedLkrAmount: Double?
         get() {
             val amount = amountOriginal.toDoubleOrNull() ?: return null
@@ -119,7 +125,7 @@ class IncomeViewModel @Inject constructor(
                     )
 
                     // Prefill salary if user currently has salary selected and amount is default
-                    if (_formState.value.source == IncomeSource.SALARY && lastSalary != null) {
+                    if (!_formState.value.isEditMode && _formState.value.source == IncomeSource.SALARY && lastSalary != null) {
                         val formatted = String.format(java.util.Locale.US, "%.2f", lastSalary)
                         if (_formState.value.amountOriginal.isBlank() || _formState.value.amountOriginal == "130000.00" || _formState.value.amountOriginal == "130000") {
                             _formState.value = _formState.value.copy(amountOriginal = formatted)
@@ -141,6 +147,44 @@ class IncomeViewModel @Inject constructor(
             IncomeFilter.ALL -> incomes
             IncomeFilter.CONFIRMED -> incomes.filter { it.status == IncomeStatus.CONFIRMED }
             IncomeFilter.PENDING -> incomes.filter { it.status == IncomeStatus.PENDING }
+        }
+    }
+
+    fun loadIncomeForEdit(incomeId: String) {
+        viewModelScope.launch {
+            _formState.value = _formState.value.copy(isLoading = true, error = null)
+            try {
+                val existing = _uiState.value.incomes.find { it.id == incomeId }
+                    ?: incomeRepository.getIncomeById(incomeId)
+
+                if (existing != null) {
+                    _formState.value = IncomeFormState(
+                        editingIncomeId = existing.id,
+                        originalCreatedAt = existing.createdAt,
+                        source = existing.source,
+                        status = existing.status,
+                        amountOriginal = String.format(java.util.Locale.US, "%.2f", existing.amountOriginal),
+                        currency = existing.currency,
+                        exchangeRate = existing.exchangeRate.toString(),
+                        dateReceived = existing.dateReceived ?: existing.createdAt,
+                        expectedDate = existing.expectedDate ?: Date(),
+                        note = existing.note ?: "",
+                        isLoading = false,
+                        isSubmitting = false,
+                        error = null
+                    )
+                } else {
+                    _formState.value = _formState.value.copy(
+                        isLoading = false,
+                        error = "Income record not found"
+                    )
+                }
+            } catch (e: Exception) {
+                _formState.value = _formState.value.copy(
+                    isLoading = false,
+                    error = e.localizedMessage ?: "Failed to load income details"
+                )
+            }
         }
     }
 
@@ -226,6 +270,8 @@ class IncomeViewModel @Inject constructor(
         } ?: "130000.00"
 
         _formState.value = IncomeFormState(
+            editingIncomeId = null,
+            originalCreatedAt = null,
             source = IncomeSource.SALARY,
             status = IncomeStatus.CONFIRMED,
             amountOriginal = prefill,
@@ -277,8 +323,12 @@ class IncomeViewModel @Inject constructor(
         }
 
         val computedLKR = ((amount * rate) * 100.0).roundToLong() / 100.0
+        val isEdit = state.isEditMode
+        val editingId = state.editingIncomeId
+        val createdAt = state.originalCreatedAt ?: Date()
 
         val income = Income(
+            id = editingId ?: "",
             userId = userId,
             source = state.source,
             status = state.status,
@@ -289,7 +339,8 @@ class IncomeViewModel @Inject constructor(
             dateReceived = if (state.status == IncomeStatus.CONFIRMED) state.dateReceived else null,
             expectedDate = if (state.status == IncomeStatus.PENDING) state.expectedDate else null,
             note = state.note.trim().takeIf { it.isNotBlank() },
-            createdAt = Date()
+            createdAt = createdAt,
+            updatedAt = if (isEdit) Date() else null
         )
 
         val validationError = income.validate()
@@ -301,7 +352,11 @@ class IncomeViewModel @Inject constructor(
         viewModelScope.launch {
             _formState.value = _formState.value.copy(isSubmitting = true, error = null)
             try {
-                incomeRepository.addIncome(income)
+                if (isEdit) {
+                    incomeRepository.updateIncome(income)
+                } else {
+                    incomeRepository.addIncome(income)
+                }
                 _formState.value = _formState.value.copy(isSubmitting = false)
                 resetForm()
                 onSuccess()
