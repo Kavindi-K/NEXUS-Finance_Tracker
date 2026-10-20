@@ -369,6 +369,30 @@ class IncomeViewModel @Inject constructor(
         }
     }
 
+    fun confirmIncome(income: Income, dateReceived: Date = Date(), onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            val updated = income.copy(
+                status = IncomeStatus.CONFIRMED,
+                dateReceived = dateReceived,
+                expectedDate = null,
+                updatedAt = Date()
+            )
+            val error = updated.validate()
+            if (error != null) {
+                _uiState.value = _uiState.value.copy(errorMessage = error)
+                return@launch
+            }
+            try {
+                incomeRepository.updateIncome(updated)
+                onComplete()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = e.localizedMessage ?: "Failed to confirm income"
+                )
+            }
+        }
+    }
+
     fun deleteIncome(incomeId: String) {
         viewModelScope.launch {
             try {
