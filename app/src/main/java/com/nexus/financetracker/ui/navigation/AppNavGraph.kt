@@ -13,11 +13,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.nexus.financetracker.ui.auth.AuthViewModel
 import com.nexus.financetracker.ui.auth.LoginScreen
 import com.nexus.financetracker.ui.auth.RegisterScreen
 import com.nexus.financetracker.ui.dashboard.DashboardScreen
 import com.nexus.financetracker.ui.expense.ExpenseScreen
+import com.nexus.financetracker.ui.goal.AddEditGoalScreen
 import com.nexus.financetracker.ui.goal.GoalListScreen
 import com.nexus.financetracker.ui.income.IncomeEntryScreen
 import com.nexus.financetracker.ui.income.IncomeScreen
@@ -161,7 +164,8 @@ fun AppNavGraph(
 
             composable(Screen.Goals.route) {
                 GoalListScreen(
-                    onAddGoal = { navController.navigate(Screen.AddGoal.route) },
+                    onAddGoal = { navController.navigate(Screen.AddGoal.createRoute()) },
+                    onEditGoal = { goalId -> navController.navigate(Screen.AddGoal.createRoute(goalId)) },
                     onBack = {
                         navController.navigate(Screen.Dashboard.route) {
                             popUpTo(navController.graph.findStartDestination().id) {
@@ -170,6 +174,23 @@ fun AppNavGraph(
                             launchSingleTop = true
                         }
                     }
+                )
+            }
+
+            composable(
+                route = Screen.AddGoal.route,
+                arguments = listOf(
+                    navArgument("goalId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val goalId = backStackEntry.arguments?.getString("goalId")
+                AddEditGoalScreen(
+                    goalId = goalId,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 

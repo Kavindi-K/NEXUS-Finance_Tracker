@@ -36,15 +36,44 @@ class GoalRemoteDataSource @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    suspend fun getGoalById(goalId: String): Goal? {
+        val doc = goalsCollection.document(goalId).get().await()
+        return if (doc.exists()) {
+            doc.toObject(Goal::class.java)?.copy(id = doc.id)
+        } else {
+            null
+        }
+    }
+
     suspend fun addGoal(userId: String, goal: Goal): String {
         val withUser = if (goal.userId.isEmpty()) goal.copy(userId = userId) else goal
-        val ref = goalsCollection.add(withUser).await()
+        val data = hashMapOf(
+            "userId" to withUser.userId,
+            "title" to withUser.title,
+            "targetAmountLKR" to withUser.targetAmountLKR,
+            "openingSavingsLKR" to withUser.openingSavingsLKR,
+            "startDate" to withUser.startDate,
+            "targetDate" to withUser.targetDate,
+            "isActive" to withUser.isActive,
+            "createdAt" to withUser.createdAt
+        )
+        val ref = goalsCollection.add(data).await()
         return ref.id
     }
 
     suspend fun updateGoal(userId: String, goal: Goal) {
         val withUser = if (goal.userId.isEmpty()) goal.copy(userId = userId) else goal
-        goalsCollection.document(goal.id).set(withUser).await()
+        val data = hashMapOf(
+            "userId" to withUser.userId,
+            "title" to withUser.title,
+            "targetAmountLKR" to withUser.targetAmountLKR,
+            "openingSavingsLKR" to withUser.openingSavingsLKR,
+            "startDate" to withUser.startDate,
+            "targetDate" to withUser.targetDate,
+            "isActive" to withUser.isActive,
+            "createdAt" to withUser.createdAt
+        )
+        goalsCollection.document(goal.id).set(data).await()
     }
 
     suspend fun deleteGoal(userId: String, goalId: String) {
