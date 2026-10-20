@@ -7,6 +7,7 @@ import com.nexus.financetracker.domain.model.IncomeStatus
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 import java.util.Date
 import javax.inject.Inject
@@ -33,11 +34,24 @@ class IncomeRepositoryImpl @Inject constructor(
                 }
                 val list = snapshot?.documents?.mapNotNull { doc ->
                     doc.toObject(Income::class.java)?.copy(id = doc.id)
-                } ?: emptyList()
+                }?.sortedWith(
+                    compareByDescending<Income> { it.dateReceived ?: it.createdAt }
+                        .thenByDescending { it.createdAt }
+                ) ?: emptyList()
                 trySend(list)
             }
         awaitClose { listener.remove() }
     }
+
+    override fun getConfirmedIncomes(userId: String): Flow<List<Income>> =
+        getIncomes(userId).map { list ->
+            list.filter { it.status == IncomeStatus.CONFIRMED }
+        }
+
+    override fun getTotalConfirmedIncomeLKR(userId: String): Flow<Double> =
+        getConfirmedIncomes(userId).map { list ->
+            list.sumOf { it.amountLKR }
+        }
 
     override fun getIncomesByDateRange(userId: String, startDate: Date, endDate: Date): Flow<List<Income>> = callbackFlow {
         val listener = incomesCollection
@@ -77,12 +91,12 @@ class IncomeRepositoryImpl @Inject constructor(
     }
 
     override suspend fun addIncome(income: Income): String {
-        val docRef = incomesCollection.add(income).await()
+        val docRef = incomesCollection.add(income.toFirestoreMap()).await()
         return docRef.id
     }
 
     override suspend fun updateIncome(income: Income) {
-        incomesCollection.document(income.id).set(income).await()
+        incomesCollection.document(income.id).set(income.toFirestoreMap()).await()
     }
 
     override suspend fun deleteIncome(incomeId: String) {
