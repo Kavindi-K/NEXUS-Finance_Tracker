@@ -56,6 +56,11 @@ fun IncomeEntryScreen(
         ).show()
     }
 
+    val isAdSense = formState.source == IncomeSource.ADSENSE
+    val isSalary = formState.source == IncomeSource.SALARY
+    val isFreelance = formState.source == IncomeSource.FREELANCE
+    val isCrypto = formState.source == IncomeSource.CRYPTO
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -113,7 +118,7 @@ fun IncomeEntryScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // Source Selection (FlowRow so chip titles never break awkwardly)
+            // Source Selection (FlowRow)
             Text(
                 text = "Income Source",
                 style = MaterialTheme.typography.labelLarge,
@@ -173,89 +178,108 @@ fun IncomeEntryScreen(
                 )
             }
 
-            // Currency & Exchange Rate
-            Text(
-                text = "Currency & Exchange Rate",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-            val currencies = listOf("LKR", "USD", "EUR", "GBP", "AUD")
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                currencies.forEach { cur ->
-                    FilterChip(
-                        selected = formState.currency == cur,
-                        onClick = { viewModel.onCurrencyChanged(cur) },
-                        label = { Text(cur) }
-                    )
-                }
-            }
-
-            if (formState.currency != "LKR") {
-                OutlinedTextField(
-                    value = formState.exchangeRate,
-                    onValueChange = viewModel::onExchangeRateChanged,
-                    label = { Text("Exchange Rate to LKR") },
-                    leadingIcon = { Icon(Icons.Default.CurrencyExchange, contentDescription = null) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
-                    supportingText = { Text("1 ${formState.currency} = ${formState.exchangeRate} LKR") }
-                )
-            }
-
-            // Original Amount
-            OutlinedTextField(
-                value = formState.amountOriginal,
-                onValueChange = viewModel::onAmountOriginalChanged,
-                label = { Text("Original Amount (${formState.currency})") },
-                placeholder = { Text("0.00") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-                supportingText = {
-                    if (formState.source == IncomeSource.CRYPTO) {
-                        Text("For crypto, enter positive for profit or negative for realized loss")
-                    } else {
-                        Text("Enter the exact amount received or expected")
-                    }
-                }
-            )
-
-            // Computed LKR Total Banner
-            formState.computedLkrAmount?.let { lkr ->
+            // Currency & Exchange Rate (Shown ONLY for AdSense as specified in Stream requirements)
+            if (isAdSense) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     )
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Column {
-                            Text(
-                                text = "LKR Amount Equivalent",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.CurrencyExchange,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "LKR %,.2f".format(lkr),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                text = "AdSense USD Transfer",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
                             )
                         }
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.TrendingUp,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(32.dp)
+                        Text(
+                            text = "AdSense is paid in USD and converted to LKR at transfer. The original USD amount and rate are stored so history never shifts.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+
+                        OutlinedTextField(
+                            value = formState.exchangeRate,
+                            onValueChange = viewModel::onExchangeRateChanged,
+                            label = { Text("Exchange Rate to LKR") },
+                            leadingIcon = { Icon(Icons.Default.CurrencyExchange, contentDescription = null) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth(),
+                            supportingText = { Text("1 USD = ${formState.exchangeRate} LKR") }
+                        )
+                    }
+                }
+            }
+
+            // Amount Input Field
+            val amountLabel = if (isAdSense) "Original Amount (USD)" else "Amount (LKR)"
+            val amountSupportingText: String = when {
+                isSalary -> "Prefilled from your last salary deposit (tap to edit)"
+                isFreelance -> "Milestone amount in LKR"
+                isCrypto -> "Enter positive for profit, negative for realized loss"
+                isAdSense -> "Original USD payout amount"
+                else -> "Enter amount"
+            }
+
+            OutlinedTextField(
+                value = formState.amountOriginal,
+                onValueChange = viewModel::onAmountOriginalChanged,
+                label = { Text(amountLabel) },
+                placeholder = { Text("0.00") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+                supportingText = { Text(amountSupportingText) }
+            )
+
+            // Computed LKR Total Banner (Shown for AdSense when converting from USD)
+            if (isAdSense) {
+                formState.computedLkrAmount?.let { lkr ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Actual LKR Received",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    text = "LKR %,.2f".format(lkr),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -290,14 +314,22 @@ fun IncomeEntryScreen(
                 )
             )
 
-            // Optional Note
+            // Note Field (Customized label for Freelance client/project reference)
+            val noteLabel = if (isFreelance) "Client or Project Reference (Optional)" else "Note (Optional)"
+            val notePlaceholder = if (isFreelance) "e.g. Acme Corp - Phase 2 milestone" else "e.g. Monthly salary deposit"
+
             OutlinedTextField(
                 value = formState.note,
                 onValueChange = viewModel::onNoteChanged,
-                label = { Text("Note (Optional)") },
-                placeholder = { Text("e.g. Monthly salary, Web design project") },
+                label = { Text(noteLabel) },
+                placeholder = { Text(notePlaceholder) },
                 modifier = Modifier.fillMaxWidth(),
-                maxLines = 3
+                maxLines = 3,
+                supportingText = {
+                    if (isFreelance) {
+                        Text("Carries client or invoice reference so you never lose track")
+                    }
+                }
             )
 
             // Validation Error Banner
@@ -317,7 +349,6 @@ fun IncomeEntryScreen(
                 }
             }
 
-            // Spacer for scroll clearance above pinned bottom bar
             Spacer(Modifier.height(16.dp))
         }
     }

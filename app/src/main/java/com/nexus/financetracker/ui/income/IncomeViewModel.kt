@@ -23,10 +23,17 @@ enum class IncomeFilter {
     PENDING
 }
 
+private data class SourceDefaults(
+    val currency: String,
+    val exchangeRate: String,
+    val amount: String,
+    val status: String
+)
+
 data class IncomeFormState(
     val source: String = IncomeSource.SALARY,
     val status: String = IncomeStatus.CONFIRMED,
-    val amountOriginal: String = "",
+    val amountOriginal: String = "130000",
     val currency: String = "LKR",
     val exchangeRate: String = "1.0",
     val dateReceived: Date = Date(),
@@ -48,6 +55,7 @@ data class IncomeUiState(
     val filteredIncomes: List<Income> = emptyList(),
     val totalConfirmedLKR: Double = 0.0,
     val totalPendingLKR: Double = 0.0,
+    val lastSalaryAmount: Double? = null,
     val selectedFilter: IncomeFilter = IncomeFilter.ALL,
     val isLoading: Boolean = true,
     val errorMessage: String? = null
@@ -93,6 +101,11 @@ class IncomeViewModel @Inject constructor(
                         .filter { it.status == IncomeStatus.PENDING }
                         .sumOf { it.amountLKR }
 
+                    val lastSalary = allIncomes
+                        .filter { it.source == IncomeSource.SALARY }
+                        .maxByOrNull { it.dateReceived ?: it.createdAt }
+                        ?.amountOriginal
+
                     val filtered = applyFilter(allIncomes, _uiState.value.selectedFilter)
 
                     _uiState.value = _uiState.value.copy(
@@ -100,9 +113,18 @@ class IncomeViewModel @Inject constructor(
                         filteredIncomes = filtered,
                         totalConfirmedLKR = confirmedTotal,
                         totalPendingLKR = pendingTotal,
+                        lastSalaryAmount = lastSalary,
                         isLoading = false,
                         errorMessage = null
                     )
+
+                    // Prefill salary if user currently has salary selected and amount is default
+                    if (_formState.value.source == IncomeSource.SALARY && lastSalary != null) {
+                        val formatted = if (lastSalary % 1.0 == 0.0) lastSalary.toLong().toString() else lastSalary.toString()
+                        if (_formState.value.amountOriginal.isBlank() || _formState.value.amountOriginal == "130000") {
+                            _formState.value = _formState.value.copy(amountOriginal = formatted)
+                        }
+                    }
                 }
         }
     }
@@ -122,10 +144,41 @@ class IncomeViewModel @Inject constructor(
         }
     }
 
-    // --- Form Management ---
+    // --- Form Management tailored to Stream specifications ---
 
     fun onSourceChanged(source: String) {
-        _formState.value = _formState.value.copy(source = source, error = null)
+        val lastSalary = _uiState.value.lastSalaryAmount
+        val defaults = when (source) {
+            IncomeSource.ADSENSE -> {
+                // AdSense: Paid in USD and converted to LKR at transfer.
+                SourceDefaults(currency = "USD", exchangeRate = "320.0", amount = "", status = IncomeStatus.CONFIRMED)
+            }
+            IncomeSource.SALARY -> {
+                // Salary: LKR, variable (120,000 to 140,000), prefill last amount makes it a one-tap edit
+                val prefill = lastSalary?.let {
+                    if (it % 1.0 == 0.0) it.toLong().toString() else it.toString()
+                } ?: "130000"
+                SourceDefaults(currency = "LKR", exchangeRate = "1.0", amount = prefill, status = IncomeStatus.CONFIRMED)
+            }
+            IncomeSource.FREELANCE -> {
+                // Freelance: Milestone-based, defaults to pending (invoiced, unpaid)
+                SourceDefaults(currency = "LKR", exchangeRate = "1.0", amount = "", status = IncomeStatus.PENDING)
+            }
+            IncomeSource.CRYPTO -> {
+                // Crypto: Realized profit and loss in LKR
+                SourceDefaults(currency = "LKR", exchangeRate = "1.0", amount = "", status = IncomeStatus.CONFIRMED)
+            }
+            else -> SourceDefaults(currency = "LKR", exchangeRate = "1.0", amount = "", status = IncomeStatus.CONFIRMED)
+        }
+
+        _formState.value = _formState.value.copy(
+            source = source,
+            currency = defaults.currency,
+            exchangeRate = defaults.exchangeRate,
+            amountOriginal = defaults.amount,
+            status = defaults.status,
+            error = null
+        )
     }
 
     fun onStatusChanged(status: String) {
@@ -134,7 +187,11 @@ class IncomeViewModel @Inject constructor(
 
     fun onCurrencyChanged(currency: String) {
         val uppercaseCurrency = currency.uppercase().trim()
-        val defaultRate = if (uppercaseCurrency == "LKR") "1.0" else _formState.value.exchangeRate
+        val defaultRate = when (uppercaseCurrency) {
+            "LKR" -> "1.0"
+            "USD" -> if (_formState.value.exchangeRate == "1.0" || _formState.value.exchangeRate.isBlank()) "320.0" else _formState.value.exchangeRate
+            else -> _formState.value.exchangeRate
+        }
         _formState.value = _formState.value.copy(
             currency = uppercaseCurrency,
             exchangeRate = defaultRate,
@@ -163,7 +220,18 @@ class IncomeViewModel @Inject constructor(
     }
 
     fun resetForm() {
-        _formState.value = IncomeFormState()
+        val lastSalary = _uiState.value.lastSalaryAmount
+        val prefill = lastSalary?.let {
+            if (it % 1.0 == 0.0) it.toLong().toString() else it.toString()
+        } ?: "130000"
+
+        _formState.value = IncomeFormState(
+            source = IncomeSource.SALARY,
+            status = IncomeStatus.CONFIRMED,
+            amountOriginal = prefill,
+            currency = "LKR",
+            exchangeRate = "1.0"
+        )
     }
 
     fun submitIncome(onSuccess: () -> Unit) {
@@ -183,6 +251,11 @@ class IncomeViewModel @Inject constructor(
         val rate = state.exchangeRate.toDoubleOrNull()
         if (rate == null || rate <= 0.0) {
             _formState.value = _formState.value.copy(error = "Please enter a valid positive exchange rate")
+            return
+        }
+
+        if (state.currency !in listOf("LKR", "USD")) {
+            _formState.value = _formState.value.copy(error = "Only LKR and USD currencies are supported")
             return
         }
 
