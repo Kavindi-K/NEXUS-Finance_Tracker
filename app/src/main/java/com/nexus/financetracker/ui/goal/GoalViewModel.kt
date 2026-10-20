@@ -3,13 +3,17 @@ package com.nexus.financetracker.ui.goal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.repository.GoalRepository
+import com.nexus.financetracker.data.repository.IncomeRepository
 import com.nexus.financetracker.domain.model.Goal
+import com.nexus.financetracker.domain.model.GoalCalculation
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Date
@@ -18,10 +22,13 @@ import javax.inject.Inject
 /**
  * ViewModel for Savings Goals screens (List, Add, Edit).
  * Implements MVVM pattern, input validation, and Firestore repository persistence.
+ * Re-calculates estimated savings and required monthly rates on every transaction update (FR15).
  */
 @HiltViewModel
 class GoalViewModel @Inject constructor(
     private val goalRepository: GoalRepository,
+    private val incomeRepository: IncomeRepository,
+    private val expenseRepository: ExpenseRepository,
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
@@ -39,20 +46,32 @@ class GoalViewModel @Inject constructor(
         val userId = auth.currentUser?.uid ?: return
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
-            goalRepository.getGoals(userId)
-                .catch { e ->
-                    _uiState.value = _uiState.value.copy(
-                        errorMessage = e.localizedMessage ?: "Failed to load goals",
-                        isLoading = false
+            combine(
+                goalRepository.getGoals(userId),
+                incomeRepository.getIncomes(userId),
+                expenseRepository.getExpenses(userId)
+            ) { goals, incomes, expenses ->
+                val calculations = goals.associate { goal ->
+                    goal.id to GoalCalculation.calculate(
+                        goal = goal,
+                        incomes = incomes,
+                        expenses = expenses
                     )
                 }
-                .collect { goals ->
-                    _uiState.value = _uiState.value.copy(
-                        goals = goals,
-                        isLoading = false,
-                        errorMessage = null
-                    )
-                }
+                Triple(goals, calculations, null as String?)
+            }.catch { e ->
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = e.localizedMessage ?: "Failed to load goals",
+                    isLoading = false
+                )
+            }.collect { (goals, calculations, error) ->
+                _uiState.value = _uiState.value.copy(
+                    goals = goals,
+                    calculations = calculations,
+                    isLoading = false,
+                    errorMessage = error
+                )
+            }
         }
     }
 
@@ -283,13 +302,17 @@ class GoalViewModel @Inject constructor(
 }
 
 /**
- * State representation for the goals list screen.
+ * State representation for the goals list screen with real-time financial calculations (FR15).
  */
 data class GoalUiState(
     val isLoading: Boolean = true,
     val goals: List<Goal> = emptyList(),
+    val calculations: Map<String, GoalCalculation> = emptyMap(),
     val errorMessage: String? = null
-)
+) {
+    val activeGoal: Goal? get() = goals.firstOrNull { it.isActive }
+    val activeGoalCalculation: GoalCalculation? get() = activeGoal?.let { calculations[it.id] }
+}
 
 /**
  * State representation for the add / edit goal form.
