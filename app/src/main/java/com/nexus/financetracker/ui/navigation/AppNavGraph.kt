@@ -19,7 +19,9 @@ import com.nexus.financetracker.ui.auth.RegisterScreen
 import com.nexus.financetracker.ui.dashboard.DashboardScreen
 import com.nexus.financetracker.ui.expense.ExpenseScreen
 import com.nexus.financetracker.ui.goal.GoalListScreen
+import com.nexus.financetracker.ui.income.IncomeEntryScreen
 import com.nexus.financetracker.ui.income.IncomeScreen
+import com.nexus.financetracker.ui.income.IncomeViewModel
 import com.nexus.financetracker.ui.settings.SettingsScreen
 
 /**
@@ -129,9 +131,21 @@ fun AppNavGraph(
             }
 
             composable(Screen.Income.route) {
+                val incomeViewModel: IncomeViewModel = hiltViewModel()
                 IncomeScreen(
+                    viewModel = incomeViewModel,
                     onAddIncome = {
-                        navController.navigate(Screen.AddTransaction.createRoute("INCOME"))
+                        navController.navigate(Screen.AddIncome.route)
+                    }
+                )
+            }
+
+            composable(Screen.AddIncome.route) {
+                val incomeViewModel: IncomeViewModel = hiltViewModel()
+                IncomeEntryScreen(
+                    viewModel = incomeViewModel,
+                    onNavigateBack = {
+                        navController.popBackStack()
                     }
                 )
             }
