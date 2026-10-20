@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -38,6 +39,11 @@ fun IncomeEntryScreen(
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
+
+    // Reset form each time the entry screen is opened so previous unsaved drafts are not retained
+    LaunchedEffect(Unit) {
+        viewModel.resetForm()
+    }
 
     val calendar = remember { Calendar.getInstance() }
 
@@ -234,52 +240,66 @@ fun IncomeEntryScreen(
                 else -> "Enter amount"
             }
 
+            var isAmountFocused by remember { mutableStateOf(false) }
+
             OutlinedTextField(
                 value = formState.amountOriginal,
                 onValueChange = viewModel::onAmountOriginalChanged,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { focusState ->
+                        if (isAmountFocused && !focusState.isFocused) {
+                            formState.amountOriginal.toDoubleOrNull()?.let { num ->
+                                viewModel.onAmountOriginalChanged(String.format(Locale.US, "%.2f", num))
+                            }
+                        }
+                        isAmountFocused = focusState.isFocused
+                    },
                 label = { Text(amountLabel) },
+                prefix = { Text(if (isAdSense) "$ " else "LKR ") },
                 placeholder = { Text("0.00") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-                supportingText = { Text(amountSupportingText) }
+                supportingText = {
+                    formState.computedLkrAmount?.let { lkr ->
+                        Text("Formatted: LKR %,.2f".format(lkr))
+                    } ?: Text(amountSupportingText)
+                }
             )
 
-            // Computed LKR Total Banner (Shown for AdSense when converting from USD)
-            if (isAdSense) {
-                formState.computedLkrAmount?.let { lkr ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer
-                        )
+            // Computed LKR Total Banner (Shown with xxx.00 formatting for all streams)
+            formState.computedLkrAmount?.let { lkr ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Actual LKR Received",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Text(
-                                    text = "LKR %,.2f".format(lkr),
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.TrendingUp,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(32.dp)
+                        Column {
+                            Text(
+                                text = if (isAdSense) "Actual LKR Received" else "Recorded Amount",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                text = "LKR %,.2f".format(lkr),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                         }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(32.dp)
+                        )
                     }
                 }
             }

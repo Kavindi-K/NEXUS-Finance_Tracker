@@ -300,7 +300,7 @@ private fun IncomeCard(
 
                 if (income.currency != "LKR") {
                     Text(
-                        text = "%,.2f %s".format(income.amountOriginal, income.currency),
+                        text = "$%,.2f %s @ %,.2f".format(income.amountOriginal, income.currency, income.exchangeRate),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
