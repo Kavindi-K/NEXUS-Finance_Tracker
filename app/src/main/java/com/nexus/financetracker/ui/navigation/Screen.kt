@@ -27,7 +27,9 @@ sealed class Screen(val route: String) {
     }
 
     // Goal Sub-Screens
-    object AddGoal : Screen("add_goal")
+    object AddGoal : Screen("add_goal?goalId={goalId}") {
+        fun createRoute(goalId: String? = null) = if (goalId != null) "add_goal?goalId=$goalId" else "add_goal"
+    }
     object GoalDetail : Screen("goal/{id}") {
         fun createRoute(id: String) = "goal/$id"
     }

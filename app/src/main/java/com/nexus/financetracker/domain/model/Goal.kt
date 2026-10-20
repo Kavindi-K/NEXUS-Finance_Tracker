@@ -1,5 +1,6 @@
 package com.nexus.financetracker.domain.model
 
+import com.google.firebase.firestore.Exclude
 import java.util.Date
 
 /**
@@ -7,6 +8,7 @@ import java.util.Date
  * Conforms strictly to Technical Document Section 5.2.
  */
 data class Goal(
+    @get:Exclude
     val id: String = "",
     val userId: String = "",
     val title: String = "",
