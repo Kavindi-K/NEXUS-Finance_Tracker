@@ -8,9 +8,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CurrencyBitcoin
 import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material3.*
@@ -18,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -248,12 +251,91 @@ fun IncomeEntryScreen(
                 }
             }
 
+            // Crypto Specific Guidance & Profit/Loss Toggle
+            if (isCrypto) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.CurrencyBitcoin,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "Realized Crypto P&L Only",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Text(
+                            text = "Record net realized profit or loss from closed trades only. Do not record gross trading turnover (buy/sell order volume) as earnings.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = !formState.isCryptoLoss,
+                                onClick = { viewModel.onCryptoLossToggled(false) },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.TrendingUp,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                label = { Text("Profit (+)") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Color(0xFFE8F5E9),
+                                    selectedLabelColor = Color(0xFF2E7D32),
+                                    selectedLeadingIconColor = Color(0xFF2E7D32)
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            FilterChip(
+                                selected = formState.isCryptoLoss,
+                                onClick = { viewModel.onCryptoLossToggled(true) },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.TrendingDown,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                label = { Text("Realized Loss (-)") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onErrorContainer,
+                                    selectedLeadingIconColor = MaterialTheme.colorScheme.onErrorContainer
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+
             // Amount Input Field
             val amountLabel = if (isAdSense) "Original Amount (USD)" else "Amount (LKR)"
             val amountSupportingText: String = when {
                 isSalary -> "Prefilled from your last salary deposit (tap to edit)"
                 isFreelance -> "Milestone amount in LKR"
-                isCrypto -> "Enter positive for profit, negative for realized loss"
+                isCrypto -> if (formState.isCryptoLoss) "Recording a realized loss (-LKR)" else "Recording a realized gain (+LKR)"
                 isAdSense -> "Original USD payout amount"
                 else -> "Enter amount"
             }
@@ -275,7 +357,7 @@ fun IncomeEntryScreen(
                     },
                 label = { Text(amountLabel) },
                 prefix = { Text(if (isAdSense) "$ " else "LKR ") },
-                placeholder = { Text("0.00") },
+                placeholder = { Text(if (isCrypto && formState.isCryptoLoss) "-0.00" else "0.00") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 supportingText = {
                     formState.computedLkrAmount?.let { lkr ->
@@ -286,11 +368,41 @@ fun IncomeEntryScreen(
 
             // Computed LKR Total Banner (Shown with xxx.00 formatting for all streams)
             formState.computedLkrAmount?.let { lkr ->
+                val isNegative = lkr < 0
+                val containerColor = if (isNegative) {
+                    MaterialTheme.colorScheme.errorContainer
+                } else if (isCrypto) {
+                    Color(0xFFE8F5E9)
+                } else {
+                    MaterialTheme.colorScheme.secondaryContainer
+                }
+
+                val contentColor = if (isNegative) {
+                    MaterialTheme.colorScheme.onErrorContainer
+                } else if (isCrypto) {
+                    Color(0xFF2E7D32)
+                } else {
+                    MaterialTheme.colorScheme.onSecondaryContainer
+                }
+
+                val titleText = when {
+                    isCrypto && isNegative -> "Realized Crypto Loss (Deducted from Total)"
+                    isCrypto -> "Realized Crypto Profit"
+                    isAdSense -> "Actual LKR Received"
+                    else -> "Recorded Amount"
+                }
+
+                val formattedAmountText = if (isNegative) {
+                    "- LKR %,.2f".format(kotlin.math.abs(lkr))
+                } else if (isCrypto) {
+                    "+ LKR %,.2f".format(lkr)
+                } else {
+                    "LKR %,.2f".format(lkr)
+                }
+
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    )
+                    colors = CardDefaults.cardColors(containerColor = containerColor)
                 ) {
                     Row(
                         modifier = Modifier
@@ -301,21 +413,21 @@ fun IncomeEntryScreen(
                     ) {
                         Column {
                             Text(
-                                text = if (isAdSense) "Actual LKR Received" else "Recorded Amount",
+                                text = titleText,
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                color = contentColor
                             )
                             Text(
-                                text = "LKR %,.2f".format(lkr),
+                                text = formattedAmountText,
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                color = contentColor
                             )
                         }
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                            imageVector = if (isNegative) Icons.AutoMirrored.Filled.TrendingDown else Icons.AutoMirrored.Filled.TrendingUp,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            tint = contentColor,
                             modifier = Modifier.size(32.dp)
                         )
                     }

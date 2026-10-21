@@ -209,68 +209,70 @@ fun IncomeScreen(
                                 }
                             }
                         }
-                    } else if (uiState.selectedFilter == IncomeFilter.ALL && pendingList.isNotEmpty()) {
-                        // Section 1: Pending Invoices & Milestones (Excluded from totals)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 2.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                    } else {
+                        if (uiState.selectedFilter == IncomeFilter.ALL && pendingList.isNotEmpty()) {
+                            // Section 1: Pending Invoices & Milestones (Excluded from totals)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 2.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Pending Invoices & Milestones (${pendingList.size})",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE65100)
+                                )
+                                Text(
+                                    text = "Excluded from totals",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            pendingList.forEach { income ->
+                                IncomeCard(
+                                    income = income,
+                                    dateFormatter = dateFormatter,
+                                    onEdit = { onEditIncome(income.id) },
+                                    onDelete = { viewModel.deleteIncome(income.id) },
+                                    onConfirmPayment = { incomeToConfirm = income }
+                                )
+                            }
+
+                            // Section 2: Confirmed Received Income
+                            Spacer(Modifier.height(2.dp))
                             Text(
-                                text = "Pending Invoices & Milestones (${pendingList.size})",
+                                text = "Confirmed Income (${confirmedList.size})",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFE65100)
+                                color = MaterialTheme.colorScheme.onSurface
                             )
-                            Text(
-                                text = "Excluded from totals",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
 
-                        pendingList.forEach { income ->
-                            IncomeCard(
-                                income = income,
-                                dateFormatter = dateFormatter,
-                                onEdit = { onEditIncome(income.id) },
-                                onDelete = { viewModel.deleteIncome(income.id) },
-                                onConfirmPayment = { incomeToConfirm = income }
-                            )
-                        }
-
-                        // Section 2: Confirmed Received Income
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = "Confirmed Income (${confirmedList.size})",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-
-                        confirmedList.forEach { income ->
-                            IncomeCard(
-                                income = income,
-                                dateFormatter = dateFormatter,
-                                onEdit = { onEditIncome(income.id) },
-                                onDelete = { viewModel.deleteIncome(income.id) },
-                                onConfirmPayment = null
-                            )
-                        }
-                    } else {
-                        // Filtered view (Pending or Confirmed)
-                        uiState.filteredIncomes.forEach { income ->
-                            IncomeCard(
-                                income = income,
-                                dateFormatter = dateFormatter,
-                                onEdit = { onEditIncome(income.id) },
-                                onDelete = { viewModel.deleteIncome(income.id) },
-                                onConfirmPayment = if (income.status == IncomeStatus.PENDING) {
-                                    { incomeToConfirm = income }
-                                } else null
-                            )
+                            confirmedList.forEach { income ->
+                                IncomeCard(
+                                    income = income,
+                                    dateFormatter = dateFormatter,
+                                    onEdit = { onEditIncome(income.id) },
+                                    onDelete = { viewModel.deleteIncome(income.id) },
+                                    onConfirmPayment = null
+                                )
+                            }
+                        } else {
+                            // Filtered view (Pending or Confirmed)
+                            uiState.filteredIncomes.forEach { income ->
+                                IncomeCard(
+                                    income = income,
+                                    dateFormatter = dateFormatter,
+                                    onEdit = { onEditIncome(income.id) },
+                                    onDelete = { viewModel.deleteIncome(income.id) },
+                                    onConfirmPayment = if (income.status == IncomeStatus.PENDING) {
+                                        { incomeToConfirm = income }
+                                    } else null
+                                )
+                            }
                         }
                     }
                 }
@@ -301,7 +303,8 @@ private fun IncomeCard(
     onConfirmPayment: (() -> Unit)? = null
 ) {
     val isConfirmed = income.status == IncomeStatus.CONFIRMED
-    val isCryptoLoss = income.source == IncomeSource.CRYPTO && income.amountLKR < 0
+    val isCrypto = income.source == IncomeSource.CRYPTO
+    val isCryptoLoss = isCrypto && income.amountLKR < 0
 
     val icon: ImageVector = when (income.source) {
         IncomeSource.SALARY -> Icons.Default.Work
@@ -336,7 +339,8 @@ private fun IncomeCard(
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(
-                            if (isConfirmed) MaterialTheme.colorScheme.primaryContainer
+                            if (isCryptoLoss) MaterialTheme.colorScheme.errorContainer
+                            else if (isConfirmed) MaterialTheme.colorScheme.primaryContainer
                             else MaterialTheme.colorScheme.tertiaryContainer
                         ),
                     contentAlignment = Alignment.Center
@@ -344,7 +348,8 @@ private fun IncomeCard(
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = if (isConfirmed) MaterialTheme.colorScheme.onPrimaryContainer
+                        tint = if (isCryptoLoss) MaterialTheme.colorScheme.onErrorContainer
+                        else if (isConfirmed) MaterialTheme.colorScheme.onPrimaryContainer
                         else MaterialTheme.colorScheme.onTertiaryContainer,
                         modifier = Modifier.size(24.dp)
                     )
@@ -384,14 +389,31 @@ private fun IncomeCard(
 
                 Column(horizontalAlignment = Alignment.End) {
                     val amountColor = if (isCryptoLoss) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    val amountText = when {
+                        isCryptoLoss -> "- LKR %,.2f".format(kotlin.math.abs(income.amountLKR))
+                        isCrypto -> "+ LKR %,.2f".format(income.amountLKR)
+                        else -> "LKR %,.2f".format(income.amountLKR)
+                    }
                     Text(
-                        text = "LKR %,.2f".format(income.amountLKR),
+                        text = amountText,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = amountColor
                     )
 
-                    if (income.currency != "LKR") {
+                    if (isCrypto) {
+                        Surface(
+                            shape = MaterialTheme.shapes.extraSmall,
+                            color = if (isCryptoLoss) MaterialTheme.colorScheme.errorContainer else Color(0xFFE8F5E9)
+                        ) {
+                            Text(
+                                text = if (isCryptoLoss) "Realized Loss" else "Realized Profit",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isCryptoLoss) MaterialTheme.colorScheme.onErrorContainer else Color(0xFF2E7D32),
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    } else if (income.currency != "LKR") {
                         Text(
                             text = "$%,.2f %s @ %,.2f".format(income.amountOriginal, income.currency, income.exchangeRate),
                             style = MaterialTheme.typography.bodySmall,
@@ -601,3 +623,6 @@ private fun ConfirmPaymentDialog(
         }
     )
 }
+
+
+

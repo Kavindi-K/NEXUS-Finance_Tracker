@@ -38,6 +38,7 @@ data class IncomeFormState(
     val amountOriginal: String = "130000.00",
     val currency: String = "LKR",
     val exchangeRate: String = "1.0",
+    val isCryptoLoss: Boolean = false,
     val dateReceived: Date = Date(),
     val expectedDate: Date = Date(),
     val note: String = "",
@@ -99,9 +100,8 @@ class IncomeViewModel @Inject constructor(
                     )
                 }
                 .collect { allIncomes ->
-                    val confirmedTotal = allIncomes
-                        .filter { it.status == IncomeStatus.CONFIRMED }
-                        .sumOf { it.amountLKR }
+                    val confirmedIncomes = allIncomes.filter { it.status == IncomeStatus.CONFIRMED }
+                    val confirmedTotal = confirmedIncomes.sumOf { it.amountLKR }
 
                     val pendingTotal = allIncomes
                         .filter { it.status == IncomeStatus.PENDING }
@@ -158,6 +158,8 @@ class IncomeViewModel @Inject constructor(
                     ?: incomeRepository.getIncomeById(incomeId)
 
                 if (existing != null) {
+                    val isCrypto = existing.source == IncomeSource.CRYPTO
+                    val isLoss = isCrypto && existing.amountOriginal < 0
                     _formState.value = IncomeFormState(
                         editingIncomeId = existing.id,
                         originalCreatedAt = existing.createdAt,
@@ -166,6 +168,7 @@ class IncomeViewModel @Inject constructor(
                         amountOriginal = String.format(java.util.Locale.US, "%.2f", existing.amountOriginal),
                         currency = existing.currency,
                         exchangeRate = existing.exchangeRate.toString(),
+                        isCryptoLoss = isLoss,
                         dateReceived = existing.dateReceived ?: existing.createdAt,
                         expectedDate = existing.expectedDate ?: Date(),
                         note = existing.note ?: "",
@@ -221,6 +224,7 @@ class IncomeViewModel @Inject constructor(
             exchangeRate = defaults.exchangeRate,
             amountOriginal = defaults.amount,
             status = defaults.status,
+            isCryptoLoss = false,
             error = null
         )
     }
@@ -248,7 +252,38 @@ class IncomeViewModel @Inject constructor(
     }
 
     fun onAmountOriginalChanged(amount: String) {
-        _formState.value = _formState.value.copy(amountOriginal = amount, error = null)
+        val trimmed = amount.trim()
+        val isCrypto = _formState.value.source == IncomeSource.CRYPTO
+        val isLoss = if (isCrypto) {
+            if (trimmed.startsWith("-")) true
+            else _formState.value.isCryptoLoss
+        } else false
+
+        val normalizedAmount = if (isCrypto && isLoss && trimmed.isNotBlank() && !trimmed.startsWith("-")) {
+            "-$trimmed"
+        } else {
+            amount
+        }
+
+        _formState.value = _formState.value.copy(
+            amountOriginal = normalizedAmount,
+            isCryptoLoss = isLoss,
+            error = null
+        )
+    }
+
+    fun onCryptoLossToggled(isLoss: Boolean) {
+        val current = _formState.value.amountOriginal.trim()
+        val updated = if (isLoss) {
+            if (current.isNotBlank() && !current.startsWith("-")) "-$current" else current
+        } else {
+            if (current.startsWith("-")) current.removePrefix("-") else current
+        }
+        _formState.value = _formState.value.copy(
+            isCryptoLoss = isLoss,
+            amountOriginal = updated,
+            error = null
+        )
     }
 
     fun onDateReceivedChanged(date: Date) {
@@ -276,7 +311,8 @@ class IncomeViewModel @Inject constructor(
             status = IncomeStatus.CONFIRMED,
             amountOriginal = prefill,
             currency = "LKR",
-            exchangeRate = "1.0"
+            exchangeRate = "1.0",
+            isCryptoLoss = false
         )
     }
 
@@ -288,10 +324,18 @@ class IncomeViewModel @Inject constructor(
         }
 
         val state = _formState.value
-        val amount = state.amountOriginal.toDoubleOrNull()
-        if (amount == null) {
+        val rawAmount = state.amountOriginal.toDoubleOrNull()
+        if (rawAmount == null) {
             _formState.value = _formState.value.copy(error = "Please enter a valid amount")
             return
+        }
+
+        val amount = if (state.source == IncomeSource.CRYPTO) {
+            if (state.isCryptoLoss && rawAmount > 0) -rawAmount
+            else if (!state.isCryptoLoss && rawAmount < 0) kotlin.math.abs(rawAmount)
+            else rawAmount
+        } else {
+            rawAmount
         }
 
         val rate = state.exchangeRate.toDoubleOrNull()
