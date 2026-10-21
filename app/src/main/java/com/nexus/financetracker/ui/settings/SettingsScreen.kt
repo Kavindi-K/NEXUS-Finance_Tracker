@@ -2,6 +2,7 @@ package com.nexus.financetracker.ui.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
@@ -20,7 +21,8 @@ import androidx.compose.ui.unit.dp
 fun SettingsScreen(
     userEmail: String? = null,
     displayName: String? = null,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onBack: () -> Unit = {}
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
 
@@ -51,6 +53,14 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Settings", style = MaterialTheme.typography.titleLarge) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Dashboard"
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )

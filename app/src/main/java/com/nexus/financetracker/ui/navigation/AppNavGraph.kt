@@ -26,6 +26,8 @@ import com.nexus.financetracker.ui.goal.GoalListScreen
 import com.nexus.financetracker.ui.income.IncomeEntryScreen
 import com.nexus.financetracker.ui.income.IncomeScreen
 import com.nexus.financetracker.ui.income.IncomeViewModel
+import com.nexus.financetracker.ui.alerts.AlertsScreen
+import com.nexus.financetracker.ui.reports.ReportsScreen
 import com.nexus.financetracker.ui.settings.SettingsScreen
 
 /**
@@ -59,9 +61,21 @@ fun AppNavGraph(
         Screen.Income.route,
         Screen.Expenses.route,
         Screen.Goals.route,
-        Screen.Settings.route
+        Screen.Settings.route,
+        Screen.Alerts.route,
+        Screen.Reports.route
     )
     val shouldShowBottomBar = currentRoute in topLevelRoutes
+
+    val onBackToDashboard: () -> Unit = {
+        val popped = navController.popBackStack(Screen.Dashboard.route, inclusive = false)
+        if (!popped) {
+            navController.navigate(Screen.Dashboard.route) {
+                popUpTo(Screen.Dashboard.route) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -70,16 +84,32 @@ fun AppNavGraph(
                 AppBottomNavBar(
                     currentRoute = currentRoute,
                     onNavigateToDestination = { targetRoute ->
-                        navController.navigate(targetRoute) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                        if (targetRoute == Screen.Dashboard.route) {
+                            val popped = navController.popBackStack(Screen.Dashboard.route, inclusive = false)
+                            if (!popped) {
+                                navController.navigate(Screen.Dashboard.route) {
+                                    popUpTo(Screen.Dashboard.route) { inclusive = false }
+                                    launchSingleTop = true
+                                }
+                            }
+                        } else {
+                            navController.navigate(targetRoute) {
+                                popUpTo(Screen.Dashboard.route) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    },
+                    onQuickAdd = {
+                        navController.navigate(Screen.Income.route) {
+                            popUpTo(Screen.Dashboard.route) {
                                 saveState = true
                             }
                             launchSingleTop = true
                             restoreState = true
                         }
-                    },
-                    onQuickAdd = {
-                        navController.navigate(Screen.Expenses.route)
                     }
                 )
             }
@@ -122,7 +152,7 @@ fun AppNavGraph(
                 DashboardScreen(
                     onNavigateToGoals = {
                         navController.navigate(Screen.Goals.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(Screen.Dashboard.route) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -130,14 +160,35 @@ fun AppNavGraph(
                         }
                     },
                     onAddIncome = {
-                        navController.navigate(Screen.Income.route)
+                        navController.navigate(Screen.Income.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     },
                     onAddExpense = {
-                        navController.navigate(Screen.Expenses.route)
+                        navController.navigate(Screen.Expenses.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     },
                     onNavigateToSettings = {
                         navController.navigate(Screen.Settings.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onNavigateToReports = {
+                        navController.navigate(Screen.Reports.route) {
+                            popUpTo(Screen.Dashboard.route) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -156,7 +207,8 @@ fun AppNavGraph(
                     },
                     onEditIncome = { incomeId ->
                         navController.navigate(Screen.AddIncome.createRoute(incomeId))
-                    }
+                    },
+                    onBack = onBackToDashboard
                 )
             }
 
@@ -186,7 +238,8 @@ fun AppNavGraph(
                 ExpenseScreen(
                     onAddExpense = {
                         navController.navigate(Screen.AddTransaction.createRoute("EXPENSE"))
-                    }
+                    },
+                    onBack = onBackToDashboard
                 )
             }
 
@@ -194,14 +247,7 @@ fun AppNavGraph(
                 GoalListScreen(
                     onAddGoal = { navController.navigate(Screen.AddGoal.createRoute()) },
                     onEditGoal = { goalId -> navController.navigate(Screen.AddGoal.createRoute(goalId)) },
-                    onBack = {
-                        navController.navigate(Screen.Dashboard.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                        }
-                    }
+                    onBack = onBackToDashboard
                 )
             }
 
@@ -233,8 +279,17 @@ fun AppNavGraph(
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
-                    }
+                    },
+                    onBack = onBackToDashboard
                 )
+            }
+
+            composable(Screen.Alerts.route) {
+                AlertsScreen(onBack = onBackToDashboard)
+            }
+
+            composable(Screen.Reports.route) {
+                ReportsScreen(onBack = onBackToDashboard)
             }
         }
     }

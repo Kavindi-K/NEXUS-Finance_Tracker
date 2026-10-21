@@ -78,7 +78,7 @@ val bottomNavItems = listOf(
 fun AppBottomNavBar(
     currentRoute: String?,
     onNavigateToDestination: (String) -> Unit,
-    onQuickAdd: () -> Unit = { onNavigateToDestination(Screen.Expenses.route) }
+    onQuickAdd: () -> Unit = { onNavigateToDestination(Screen.Income.route) }
 ) {
     Box(
         modifier = Modifier
@@ -136,11 +136,11 @@ fun AppBottomNavBar(
                     // Gap in the center reserved for the elevated Floating Action Button
                     Spacer(modifier = Modifier.weight(1f))
 
-                    // Alerts (navigates to Goals where MacBook Pro M4 quantified goal & deadline alerts live)
+                    // Alerts
                     WireframeBottomNavItem(
                         title = "Alerts",
-                        isSelected = currentRoute == Screen.Goals.route,
-                        onClick = { onNavigateToDestination(Screen.Goals.route) }
+                        isSelected = currentRoute == Screen.Alerts.route,
+                        onClick = { onNavigateToDestination(Screen.Alerts.route) }
                     ) { tint ->
                         Icon(
                             imageVector = Icons.Outlined.NotificationsNone,

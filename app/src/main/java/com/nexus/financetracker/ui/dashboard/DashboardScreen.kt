@@ -53,6 +53,7 @@ fun DashboardScreen(
     onAddIncome: () -> Unit,
     onAddExpense: () -> Unit,
     onNavigateToSettings: () -> Unit = {},
+    onNavigateToReports: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -297,7 +298,7 @@ fun DashboardScreen(
                     WireframeMenuButton(
                         label = "Reports",
                         iconContent = { BarChartIcon() },
-                        onClick = onNavigateToGoals
+                        onClick = onNavigateToReports
                     )
                 }
 
