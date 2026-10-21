@@ -13,7 +13,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.roundToLong
 
@@ -22,6 +25,33 @@ enum class IncomeFilter {
     CONFIRMED,
     PENDING
 }
+
+enum class EstimateComparisonStatus {
+    BELOW_ESTIMATE,
+    WITHIN_ESTIMATE,
+    ABOVE_ESTIMATE
+}
+
+data class IncomeSourceTotal(
+    val source: String,
+    val displayName: String,
+    val amountLKR: Double,
+    val percentage: Int
+)
+
+data class MonthlyReconciliation(
+    val monthLabel: String,
+    val reconciledActualLKR: Double,
+    val estimateMinLKR: Double = 160000.0,
+    val estimateMaxLKR: Double = 210000.0,
+    val comparisonStatus: EstimateComparisonStatus,
+    val differenceLKR: Double,
+    val salaryLKR: Double = 0.0,
+    val freelanceLKR: Double = 0.0,
+    val adsenseLKR: Double = 0.0,
+    val cryptoNetLKR: Double = 0.0,
+    val sourceBreakdown: List<IncomeSourceTotal> = emptyList()
+)
 
 private data class SourceDefaults(
     val currency: String,
@@ -64,6 +94,9 @@ data class IncomeUiState(
     val totalPendingLKR: Double = 0.0,
     val lastSalaryAmount: Double? = null,
     val selectedFilter: IncomeFilter = IncomeFilter.ALL,
+    val selectedMonthLabel: String = "",
+    val isPeriodAllTime: Boolean = false,
+    val reconciliation: MonthlyReconciliation? = null,
     val isLoading: Boolean = true,
     val errorMessage: String? = null
 )
@@ -79,6 +112,9 @@ class IncomeViewModel @Inject constructor(
 
     private val _formState = MutableStateFlow(IncomeFormState())
     val formState: StateFlow<IncomeFormState> = _formState.asStateFlow()
+
+    private var selectedCalendar: Calendar = Calendar.getInstance()
+    private var rawIncomes: List<Income> = emptyList()
 
     val currentUserId: String?
         get() = auth.currentUser?.uid
@@ -100,38 +136,158 @@ class IncomeViewModel @Inject constructor(
                     )
                 }
                 .collect { allIncomes ->
-                    val confirmedIncomes = allIncomes.filter { it.status == IncomeStatus.CONFIRMED }
-                    val confirmedTotal = confirmedIncomes.sumOf { it.amountLKR }
-
-                    val pendingTotal = allIncomes
-                        .filter { it.status == IncomeStatus.PENDING }
-                        .sumOf { it.amountLKR }
-
-                    val lastSalary = allIncomes
-                        .filter { it.source == IncomeSource.SALARY }
-                        .maxByOrNull { it.dateReceived ?: it.createdAt }
-                        ?.amountOriginal
-
-                    val filtered = applyFilter(allIncomes, _uiState.value.selectedFilter)
-
-                    _uiState.value = _uiState.value.copy(
-                        incomes = allIncomes,
-                        filteredIncomes = filtered,
-                        totalConfirmedLKR = confirmedTotal,
-                        totalPendingLKR = pendingTotal,
-                        lastSalaryAmount = lastSalary,
-                        isLoading = false,
-                        errorMessage = null
-                    )
-
-                    // Prefill salary if user currently has salary selected and amount is default
-                    if (!_formState.value.isEditMode && _formState.value.source == IncomeSource.SALARY && lastSalary != null) {
-                        val formatted = String.format(java.util.Locale.US, "%.2f", lastSalary)
-                        if (_formState.value.amountOriginal.isBlank() || _formState.value.amountOriginal == "130000.00" || _formState.value.amountOriginal == "130000") {
-                            _formState.value = _formState.value.copy(amountOriginal = formatted)
-                        }
-                    }
+                    rawIncomes = allIncomes
+                    recomputeState()
                 }
+        }
+    }
+
+    fun onPreviousMonthClicked() {
+        selectedCalendar.add(Calendar.MONTH, -1)
+        if (_uiState.value.isPeriodAllTime) {
+            _uiState.value = _uiState.value.copy(isPeriodAllTime = false)
+        }
+        recomputeState()
+    }
+
+    fun onNextMonthClicked() {
+        selectedCalendar.add(Calendar.MONTH, 1)
+        if (_uiState.value.isPeriodAllTime) {
+            _uiState.value = _uiState.value.copy(isPeriodAllTime = false)
+        }
+        recomputeState()
+    }
+
+    fun onCurrentMonthClicked() {
+        selectedCalendar = Calendar.getInstance()
+        _uiState.value = _uiState.value.copy(isPeriodAllTime = false)
+        recomputeState()
+    }
+
+    fun onToggleAllTimePeriod(allTime: Boolean) {
+        _uiState.value = _uiState.value.copy(isPeriodAllTime = allTime)
+        recomputeState()
+    }
+
+    private fun recomputeState() {
+        val allIncomes = rawIncomes
+        val isAllTime = _uiState.value.isPeriodAllTime
+        val monthLabelFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
+        val monthLabel = monthLabelFormat.format(selectedCalendar.time)
+
+        val cal = Calendar.getInstance().apply { time = selectedCalendar.time }
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val startOfMonth = cal.time
+
+        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
+        cal.set(Calendar.HOUR_OF_DAY, 23)
+        cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59)
+        cal.set(Calendar.MILLISECOND, 999)
+        val endOfMonth = cal.time
+
+        // Overall confirmed & pending across all entries
+        val overallConfirmedTotal = allIncomes.filter { it.status == IncomeStatus.CONFIRMED }.sumOf { it.amountLKR }
+        val overallPendingTotal = allIncomes.filter { it.status == IncomeStatus.PENDING }.sumOf { it.amountLKR }
+
+        // Selected period incomes
+        val periodIncomes = if (isAllTime) {
+            allIncomes
+        } else {
+            allIncomes.filter { income ->
+                val date = income.dateReceived ?: income.createdAt
+                !date.before(startOfMonth) && !date.after(endOfMonth)
+            }
+        }
+
+        val periodConfirmed = periodIncomes.filter { it.status == IncomeStatus.CONFIRMED }
+        val reconciledActual = periodConfirmed.sumOf { it.amountLKR }
+
+        val salaryTotal = periodConfirmed.filter { it.source == IncomeSource.SALARY }.sumOf { it.amountLKR }
+        val freelanceTotal = periodConfirmed.filter { it.source == IncomeSource.FREELANCE }.sumOf { it.amountLKR }
+        val adsenseTotal = periodConfirmed.filter { it.source == IncomeSource.ADSENSE }.sumOf { it.amountLKR }
+        val cryptoNetTotal = periodConfirmed.filter { it.source == IncomeSource.CRYPTO }.sumOf { it.amountLKR }
+
+        val positiveDenominator = maxOf(1.0, salaryTotal + freelanceTotal + adsenseTotal + maxOf(0.0, cryptoNetTotal))
+        val sourceBreakdown = listOf(
+            IncomeSourceTotal(
+                source = IncomeSource.SALARY,
+                displayName = "Base Salary",
+                amountLKR = salaryTotal,
+                percentage = if (salaryTotal > 0) ((salaryTotal / positiveDenominator) * 100).toInt() else 0
+            ),
+            IncomeSourceTotal(
+                source = IncomeSource.FREELANCE,
+                displayName = "Freelance",
+                amountLKR = freelanceTotal,
+                percentage = if (freelanceTotal > 0) ((freelanceTotal / positiveDenominator) * 100).toInt() else 0
+            ),
+            IncomeSourceTotal(
+                source = IncomeSource.ADSENSE,
+                displayName = "AdSense (USD)",
+                amountLKR = adsenseTotal,
+                percentage = if (adsenseTotal > 0) ((adsenseTotal / positiveDenominator) * 100).toInt() else 0
+            ),
+            IncomeSourceTotal(
+                source = IncomeSource.CRYPTO,
+                displayName = "Crypto (Net P&L)",
+                amountLKR = cryptoNetTotal,
+                percentage = if (cryptoNetTotal > 0) ((cryptoNetTotal / positiveDenominator) * 100).toInt() else 0
+            )
+        )
+
+        // Compare against Kavindu's estimate range: LKR 160,000 - 210,000
+        val estimateMin = 160000.0
+        val estimateMax = 210000.0
+        val (comparisonStatus, diff) = when {
+            reconciledActual < estimateMin -> Pair(EstimateComparisonStatus.BELOW_ESTIMATE, estimateMin - reconciledActual)
+            reconciledActual > estimateMax -> Pair(EstimateComparisonStatus.ABOVE_ESTIMATE, reconciledActual - estimateMax)
+            else -> Pair(EstimateComparisonStatus.WITHIN_ESTIMATE, 0.0)
+        }
+
+        val reconciliation = MonthlyReconciliation(
+            monthLabel = if (isAllTime) "All-Time" else monthLabel,
+            reconciledActualLKR = reconciledActual,
+            estimateMinLKR = estimateMin,
+            estimateMaxLKR = estimateMax,
+            comparisonStatus = comparisonStatus,
+            differenceLKR = diff,
+            salaryLKR = salaryTotal,
+            freelanceLKR = freelanceTotal,
+            adsenseLKR = adsenseTotal,
+            cryptoNetLKR = cryptoNetTotal,
+            sourceBreakdown = sourceBreakdown
+        )
+
+        val lastSalary = allIncomes
+            .filter { it.source == IncomeSource.SALARY }
+            .maxByOrNull { it.dateReceived ?: it.createdAt }
+            ?.amountOriginal
+
+        val filtered = applyFilter(periodIncomes, _uiState.value.selectedFilter)
+
+        _uiState.value = _uiState.value.copy(
+            incomes = periodIncomes,
+            filteredIncomes = filtered,
+            totalConfirmedLKR = overallConfirmedTotal,
+            totalPendingLKR = overallPendingTotal,
+            lastSalaryAmount = lastSalary,
+            selectedMonthLabel = monthLabel,
+            reconciliation = reconciliation,
+            isLoading = false,
+            errorMessage = null
+        )
+
+        // Prefill salary if user currently has salary selected and amount is default
+        if (!_formState.value.isEditMode && _formState.value.source == IncomeSource.SALARY && lastSalary != null) {
+            val formatted = String.format(Locale.US, "%.2f", lastSalary)
+            if (_formState.value.amountOriginal.isBlank() || _formState.value.amountOriginal == "130000.00" || _formState.value.amountOriginal == "130000") {
+                _formState.value = _formState.value.copy(amountOriginal = formatted)
+            }
         }
     }
 
