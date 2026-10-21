@@ -3,12 +3,17 @@ package com.nexus.financetracker.ui.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.repository.GoalRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
+import com.nexus.financetracker.domain.model.Category
+import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseClassification
 import com.nexus.financetracker.domain.model.Goal
 import com.nexus.financetracker.domain.model.GoalCalculation
+import com.nexus.financetracker.domain.model.Income
+import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,19 +30,21 @@ import javax.inject.Inject
 import kotlin.math.roundToInt
 
 /**
- * ViewModel for the Dashboard screen (Member 3 - Order 7: feature/dashboard-summary).
+ * ViewModel for Dashboard Summary & Charts (Member 3 - Order 8: feature/dashboard-charts).
  *
  * Implements Technical Document Section 4.2.2 & 6.2:
- * - Combines confirmed income, expenses, net result and active goal summary for the selected month in a single combine()
- * - Reconciles confirmed salary, freelance, adsense and crypto (FR5, FR20)
- * - Computes committed vs discretionary spending ratio (FR18)
- * - Summarizes active goal progress and category ranking (FR15, FR17, FR19)
+ * - Real-time category-wise spending chart highlighting leaks (FR19)
+ * - Committed vs Discretionary spending visualization (FR18)
+ * - Income by source breakdown visualization (FR3, FR20)
+ * - Safe handling of empty states with zero crashes (FR22)
+ * - Combines observable repository streams: income, expense, goal, category (FR5, FR15, FR17, FR20)
  */
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val incomeRepository: IncomeRepository,
     private val expenseRepository: ExpenseRepository,
     private val goalRepository: GoalRepository,
+    private val categoryRepository: CategoryRepository,
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
@@ -66,8 +73,9 @@ class DashboardViewModel @Inject constructor(
             combine(
                 incomeRepository.getIncomes(userId).catch { emit(emptyList()) },
                 expenseRepository.getExpenses(userId).catch { emit(emptyList()) },
-                goalRepository.getGoals(userId).catch { emit(emptyList()) }
-            ) { incomes, expenses, goals ->
+                goalRepository.getGoals(userId).catch { emit(emptyList()) },
+                categoryRepository.getCategories(userId).catch { emit(emptyList()) }
+            ) { incomes, expenses, goals, categories ->
                 // 1. Current-month confirmed incomes only (FR5, FR20 - pending strictly excluded)
                 val monthConfirmedIncomes = incomes.filter { income ->
                     income.status == IncomeStatus.CONFIRMED &&
@@ -88,20 +96,17 @@ class DashboardViewModel @Inject constructor(
                 val netResult = totalIncome - totalExpense
 
                 // 4. Committed vs Discretionary split (FR18)
+                val (committedPercent, discretionaryPercent) = calculateCommittedDiscretionarySplit(
+                    expenses = monthExpenses,
+                    startOfMonth = startOfMonth,
+                    endOfMonth = endOfMonth
+                )
                 val committed = monthExpenses
-                    .filter { it.classification == ExpenseClassification.COMMITTED }
+                    .filter { it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true) }
                     .sumOf { it.amountLKR }
                 val discretionary = monthExpenses
-                    .filter { it.classification == ExpenseClassification.DISCRETIONARY }
+                    .filter { it.classification.equals(ExpenseClassification.DISCRETIONARY, ignoreCase = true) }
                     .sumOf { it.amountLKR }
-
-                val committedPercent = if (totalExpense > 0) {
-                    ((committed / totalExpense) * 100.0).roundToInt().coerceIn(0, 100)
-                } else 0
-
-                val discretionaryPercent = if (totalExpense > 0) {
-                    (100 - committedPercent).coerceIn(0, 100)
-                } else 0
 
                 // 5. Active goal summary (FR15, FR17)
                 val activeGoal = goals.firstOrNull { it.isActive }
@@ -113,26 +118,16 @@ class DashboardViewModel @Inject constructor(
                     )
                 }
 
-                // 6. Category spending breakdown (FR19 / Wireframe 6.2)
-                val categories = if (monthExpenses.isNotEmpty()) {
-                    val maxCat = monthExpenses.groupBy { it.categoryId.ifEmpty { "Other" } }
-                        .mapValues { (_, list) -> list.sumOf { it.amountLKR } }
-                    val maxVal = maxCat.values.maxOrNull() ?: 1.0
+                // 6. Category spending visualization with ID-to-name resolution (FR19 / Order 8)
+                val categorySpendings = calculateCategorySpending(
+                    expenses = monthExpenses,
+                    categories = categories,
+                    startOfMonth = startOfMonth,
+                    endOfMonth = endOfMonth
+                )
 
-                    maxCat.map { (cat, sum) ->
-                        CategorySpending(
-                            name = cat.replaceFirstChar { it.uppercase() },
-                            amountLKR = sum,
-                            fraction = (sum / maxVal).toFloat().coerceIn(0f, 1f)
-                        )
-                    }.sortedByDescending { it.amountLKR }.take(4)
-                } else {
-                    listOf(
-                        CategorySpending("Rent", 36500.0, 0.65f),
-                        CategorySpending("Food and dining", 24000.0, 0.45f),
-                        CategorySpending("Transport", 11800.0, 0.22f)
-                    )
-                }
+                // 7. Income sources breakdown visualization (FR3, FR20)
+                val incomeSources = calculateIncomeSources(monthConfirmedIncomes)
 
                 DashboardUiState(
                     isLoading = false,
@@ -147,7 +142,10 @@ class DashboardViewModel @Inject constructor(
                     discretionaryPercentage = discretionaryPercent,
                     activeGoal = activeGoal,
                     activeGoalCalculation = goalCalculation,
-                    categorySpendings = categories,
+                    categorySpendings = categorySpendings,
+                    incomeSources = incomeSources,
+                    hasExpenseRecords = monthExpenses.isNotEmpty(),
+                    hasIncomeRecords = monthConfirmedIncomes.isNotEmpty(),
                     errorMessage = null
                 )
             }.catch { e ->
@@ -184,6 +182,95 @@ class DashboardViewModel @Inject constructor(
 
             return Pair(startDate, endDate)
         }
+
+        /**
+         * Resolves category IDs to names, aggregates month spending, and ranks categories (FR19).
+         * Top category receives fraction 1.0f; other categories are scaled proportionally.
+         */
+        fun calculateCategorySpending(
+            expenses: List<Expense>,
+            categories: List<Category>,
+            startOfMonth: Date,
+            endOfMonth: Date
+        ): List<CategorySpending> {
+            val monthExpenses = expenses.filter {
+                !it.date.before(startOfMonth) && !it.date.after(endOfMonth)
+            }
+            if (monthExpenses.isEmpty()) return emptyList()
+
+            val categoryMap = categories.associate { it.id to it.name }
+            val categoryTotals = monthExpenses.groupBy { expense ->
+                categoryMap[expense.categoryId]?.takeIf { it.isNotBlank() }
+                    ?: expense.categoryId.takeIf { it.isNotBlank() }
+                    ?: "Other"
+            }.mapValues { (_, list) -> list.sumOf { it.amountLKR } }
+
+            val maxSpending = categoryTotals.values.maxOrNull() ?: 1.0
+            val totalExpenses = monthExpenses.sumOf { it.amountLKR }
+
+            return categoryTotals.map { (catName, sum) ->
+                val pct = if (totalExpenses > 0) ((sum / totalExpenses) * 100.0).roundToInt() else 0
+                val formattedName = catName.replaceFirstChar {
+                    if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                }
+                CategorySpending(
+                    name = formattedName,
+                    amountLKR = sum,
+                    fraction = if (maxSpending > 0) (sum / maxSpending).toFloat().coerceIn(0.05f, 1f) else 0f,
+                    percentageOfTotal = pct
+                )
+            }.sortedByDescending { it.amountLKR }
+        }
+
+        /**
+         * Computes committed vs discretionary ratio (FR18) with division-by-zero protection.
+         */
+        fun calculateCommittedDiscretionarySplit(
+            expenses: List<Expense>,
+            startOfMonth: Date,
+            endOfMonth: Date
+        ): Pair<Int, Int> {
+            val monthExpenses = expenses.filter {
+                !it.date.before(startOfMonth) && !it.date.after(endOfMonth)
+            }
+            val totalExpense = monthExpenses.sumOf { it.amountLKR }
+            if (totalExpense <= 0) return Pair(0, 0)
+
+            val committed = monthExpenses
+                .filter { it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true) }
+                .sumOf { it.amountLKR }
+
+            val committedPercent = ((committed / totalExpense) * 100.0).roundToInt().coerceIn(0, 100)
+            val discretionaryPercent = (100 - committedPercent).coerceIn(0, 100)
+            return Pair(committedPercent, discretionaryPercent)
+        }
+
+        /**
+         * Groups confirmed monthly income by source (Salary, Freelance, AdSense, Crypto) (FR3, FR20).
+         */
+        fun calculateIncomeSources(confirmedIncomes: List<Income>): List<IncomeSourceSpending> {
+            if (confirmedIncomes.isEmpty()) return emptyList()
+            val sourceTotals = confirmedIncomes.groupBy { it.source }
+                .mapValues { (_, list) -> list.sumOf { it.amountLKR } }
+            val maxIncome = sourceTotals.values.maxOrNull() ?: 1.0
+
+            return sourceTotals.map { (source, sum) ->
+                val name = when (source) {
+                    IncomeSource.SALARY -> "Base Salary"
+                    IncomeSource.FREELANCE -> "Freelance"
+                    IncomeSource.ADSENSE -> "AdSense (USD)"
+                    IncomeSource.CRYPTO -> "Crypto Net P&L"
+                    else -> source.replaceFirstChar {
+                        if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                    }
+                }
+                IncomeSourceSpending(
+                    source = name,
+                    amountLKR = sum,
+                    fraction = if (maxIncome > 0) (sum / maxIncome).toFloat().coerceIn(0.05f, 1f) else 0.05f
+                )
+            }.sortedByDescending { it.amountLKR }
+        }
     }
 }
 
@@ -194,7 +281,26 @@ data class CategorySpending(
 )
 
 /**
- * Immutable UI state for the Dashboard screen.
+ * Category spending summary for visualization (FR19).
+ */
+data class CategorySpending(
+    val name: String,
+    val amountLKR: Double,
+    val fraction: Float,
+    val percentageOfTotal: Int = 0
+)
+
+/**
+ * Income source summary for visualization (FR3, FR20).
+ */
+data class IncomeSourceSpending(
+    val source: String,
+    val amountLKR: Double,
+    val fraction: Float
+)
+
+/**
+ * Immutable UI state for the Dashboard screen (FR17-FR20, FR22).
  */
 data class DashboardUiState(
     val isLoading: Boolean = true,
@@ -210,6 +316,9 @@ data class DashboardUiState(
     val activeGoal: Goal? = null,
     val activeGoalCalculation: GoalCalculation? = null,
     val categorySpendings: List<CategorySpending> = emptyList(),
+    val incomeSources: List<IncomeSourceSpending> = emptyList(),
+    val hasExpenseRecords: Boolean = false,
+    val hasIncomeRecords: Boolean = false,
     val errorMessage: String? = null
 ) {
     // Backward-compatible properties
