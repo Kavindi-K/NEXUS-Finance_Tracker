@@ -1,5 +1,6 @@
 package com.nexus.financetracker.ui.navigation
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -63,6 +64,7 @@ fun AppNavGraph(
     val shouldShowBottomBar = currentRoute in topLevelRoutes
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (shouldShowBottomBar) {
                 AppBottomNavBar(
@@ -75,6 +77,9 @@ fun AppNavGraph(
                             launchSingleTop = true
                             restoreState = true
                         }
+                    },
+                    onQuickAdd = {
+                        navController.navigate(Screen.Expenses.route)
                     }
                 )
             }
