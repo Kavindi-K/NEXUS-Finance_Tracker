@@ -154,24 +154,13 @@ fun IncomeScreen(
                             )
                         }
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            AssistChip(
-                                onClick = { showBreakdownSheet = true },
-                                label = { Text("Confirmed", style = MaterialTheme.typography.labelSmall) },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
-                                )
+                        AssistChip(
+                            onClick = { showBreakdownSheet = true },
+                            label = { Text("Confirmed", style = MaterialTheme.typography.labelSmall) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
                             )
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = "View Breakdown",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                        )
                     }
 
                     Spacer(Modifier.height(6.dp))
