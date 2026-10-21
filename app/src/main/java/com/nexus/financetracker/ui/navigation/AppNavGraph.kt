@@ -79,7 +79,7 @@ fun AppNavGraph(
                         }
                     },
                     onQuickAdd = {
-                        navController.navigate(Screen.Expenses.route)
+                        navController.navigate(Screen.Income.route)
                     }
                 )
             }

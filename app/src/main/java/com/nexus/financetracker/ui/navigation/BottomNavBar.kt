@@ -78,7 +78,7 @@ val bottomNavItems = listOf(
 fun AppBottomNavBar(
     currentRoute: String?,
     onNavigateToDestination: (String) -> Unit,
-    onQuickAdd: () -> Unit = { onNavigateToDestination(Screen.Expenses.route) }
+    onQuickAdd: () -> Unit = { onNavigateToDestination(Screen.Income.route) }
 ) {
     Box(
         modifier = Modifier
