@@ -68,203 +68,210 @@ fun IncomeScreen(
         val pendingList = uiState.incomes.filter { it.status == IncomeStatus.PENDING }
         val confirmedList = uiState.incomes.filter { it.status == IncomeStatus.CONFIRMED }
 
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .padding(bottom = 100.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+            // 1. Confirmed-Only Total Income Banner (Pinned at the top)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             ) {
-                // 1. Confirmed-Only Total Income Banner
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.TrendingUp,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Text(
-                                    text = "Confirmed Income",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-
-                            AssistChip(
-                                onClick = {},
-                                label = { Text("Confirmed Only", style = MaterialTheme.typography.labelSmall) },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
-                                )
-                            )
-                        }
-
-                        Spacer(Modifier.height(8.dp))
-
-                        Text(
-                            text = "LKR %,.2f".format(uiState.totalConfirmedLKR),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-
-                        if (uiState.totalPendingLKR > 0) {
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                text = "Pending (excluded): LKR %,.2f".format(uiState.totalPendingLKR),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                            )
-                        }
-                    }
-                }
-
-                // 2. Filter Chips (All, Confirmed, Pending)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    IncomeFilter.values().forEach { filter ->
-                        val isSelected = uiState.selectedFilter == filter
-                        val label = when (filter) {
-                            IncomeFilter.ALL -> "All (${uiState.incomes.size})"
-                            IncomeFilter.CONFIRMED -> "Confirmed (${uiState.incomes.count { it.status == IncomeStatus.CONFIRMED }})"
-                            IncomeFilter.PENDING -> "Pending (${uiState.incomes.count { it.status == IncomeStatus.PENDING }})"
-                        }
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { viewModel.onFilterSelected(filter) },
-                            label = { Text(label) }
-                        )
-                    }
-                }
-
-                // 3. Loading, Empty State, or Income Content
-                if (uiState.isLoading) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                } else if (uiState.filteredIncomes.isEmpty()) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.medium,
-                        tonalElevation = 1.dp
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(48.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "No income records found",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Text(
-                                    text = "Tap the + button to record confirmed or pending income",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                } else if (uiState.selectedFilter == IncomeFilter.ALL && pendingList.isNotEmpty()) {
-                    // Section 1: Pending Invoices & Milestones (Excluded from totals)
+                Column(modifier = Modifier.padding(18.dp)) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Pending Invoices & Milestones (${pendingList.size})",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFE65100)
-                        )
-                        Text(
-                            text = "Excluded from totals",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "Confirmed Income",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+
+                        AssistChip(
+                            onClick = {},
+                            label = { Text("Confirmed Only", style = MaterialTheme.typography.labelSmall) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+                            )
                         )
                     }
 
-                    pendingList.forEach { income ->
-                        IncomeCard(
-                            income = income,
-                            dateFormatter = dateFormatter,
-                            onEdit = { onEditIncome(income.id) },
-                            onDelete = { viewModel.deleteIncome(income.id) },
-                            onConfirmPayment = { incomeToConfirm = income }
-                        )
-                    }
+                    Spacer(Modifier.height(8.dp))
 
-                    // Section 2: Confirmed Received Income
-                    Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Confirmed Income (${confirmedList.size})",
-                        style = MaterialTheme.typography.titleSmall,
+                        text = "LKR %,.2f".format(uiState.totalConfirmedLKR),
+                        style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
 
-                    confirmedList.forEach { income ->
-                        IncomeCard(
-                            income = income,
-                            dateFormatter = dateFormatter,
-                            onEdit = { onEditIncome(income.id) },
-                            onDelete = { viewModel.deleteIncome(income.id) },
-                            onConfirmPayment = null
+                    if (uiState.totalPendingLKR > 0) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = "Pending (excluded): LKR %,.2f".format(uiState.totalPendingLKR),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                         )
                     }
-                } else {
-                    // Filtered view (Pending or Confirmed)
-                    uiState.filteredIncomes.forEach { income ->
-                        IncomeCard(
-                            income = income,
-                            dateFormatter = dateFormatter,
-                            onEdit = { onEditIncome(income.id) },
-                            onDelete = { viewModel.deleteIncome(income.id) },
-                            onConfirmPayment = if (income.status == IncomeStatus.PENDING) {
-                                { incomeToConfirm = income }
-                            } else null
+                }
+            }
+
+            // 2. Filter Chips (Pinned at the top)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                IncomeFilter.values().forEach { filter ->
+                    val isSelected = uiState.selectedFilter == filter
+                    val label = when (filter) {
+                        IncomeFilter.ALL -> "All (${uiState.incomes.size})"
+                        IncomeFilter.CONFIRMED -> "Confirmed (${uiState.incomes.count { it.status == IncomeStatus.CONFIRMED }})"
+                        IncomeFilter.PENDING -> "Pending (${uiState.incomes.count { it.status == IncomeStatus.PENDING }})"
+                    }
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { viewModel.onFilterSelected(filter) },
+                        label = { Text(label) }
+                    )
+                }
+            }
+
+            // 3. Scrollable List of Income Items (Occupies remaining screen space)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                        .padding(bottom = 80.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (uiState.isLoading) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    } else if (uiState.filteredIncomes.isEmpty()) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            tonalElevation = 1.dp
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(48.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "No income records found",
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                    Text(
+                                        text = "Tap the + button to record confirmed or pending income",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    } else if (uiState.selectedFilter == IncomeFilter.ALL && pendingList.isNotEmpty()) {
+                        // Section 1: Pending Invoices & Milestones (Excluded from totals)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 2.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Pending Invoices & Milestones (${pendingList.size})",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFE65100)
+                            )
+                            Text(
+                                text = "Excluded from totals",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        pendingList.forEach { income ->
+                            IncomeCard(
+                                income = income,
+                                dateFormatter = dateFormatter,
+                                onEdit = { onEditIncome(income.id) },
+                                onDelete = { viewModel.deleteIncome(income.id) },
+                                onConfirmPayment = { incomeToConfirm = income }
+                            )
+                        }
+
+                        // Section 2: Confirmed Received Income
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "Confirmed Income (${confirmedList.size})",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
+
+                        confirmedList.forEach { income ->
+                            IncomeCard(
+                                income = income,
+                                dateFormatter = dateFormatter,
+                                onEdit = { onEditIncome(income.id) },
+                                onDelete = { viewModel.deleteIncome(income.id) },
+                                onConfirmPayment = null
+                            )
+                        }
+                    } else {
+                        // Filtered view (Pending or Confirmed)
+                        uiState.filteredIncomes.forEach { income ->
+                            IncomeCard(
+                                income = income,
+                                dateFormatter = dateFormatter,
+                                onEdit = { onEditIncome(income.id) },
+                                onDelete = { viewModel.deleteIncome(income.id) },
+                                onConfirmPayment = if (income.status == IncomeStatus.PENDING) {
+                                    { incomeToConfirm = income }
+                                } else null
+                            )
+                        }
                     }
                 }
             }
