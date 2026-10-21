@@ -129,6 +129,15 @@ fun AppNavGraph(
                     },
                     onAddExpense = {
                         navController.navigate(Screen.Expenses.route)
+                    },
+                    onNavigateToSettings = {
+                        navController.navigate(Screen.Settings.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 )
             }
