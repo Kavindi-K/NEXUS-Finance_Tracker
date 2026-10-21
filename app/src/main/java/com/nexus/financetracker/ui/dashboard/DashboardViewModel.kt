@@ -274,12 +274,6 @@ class DashboardViewModel @Inject constructor(
     }
 }
 
-data class CategorySpending(
-    val name: String,
-    val amountLKR: Double,
-    val fraction: Float
-)
-
 /**
  * Category spending summary for visualization (FR19).
  */
