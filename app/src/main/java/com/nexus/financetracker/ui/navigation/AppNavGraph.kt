@@ -26,6 +26,7 @@ import com.nexus.financetracker.ui.goal.GoalListScreen
 import com.nexus.financetracker.ui.income.IncomeEntryScreen
 import com.nexus.financetracker.ui.income.IncomeScreen
 import com.nexus.financetracker.ui.income.IncomeViewModel
+import com.nexus.financetracker.ui.alerts.AlertsScreen
 import com.nexus.financetracker.ui.settings.SettingsScreen
 
 /**
@@ -59,7 +60,8 @@ fun AppNavGraph(
         Screen.Income.route,
         Screen.Expenses.route,
         Screen.Goals.route,
-        Screen.Settings.route
+        Screen.Settings.route,
+        Screen.Alerts.route
     )
     val shouldShowBottomBar = currentRoute in topLevelRoutes
 
@@ -235,6 +237,10 @@ fun AppNavGraph(
                         }
                     }
                 )
+            }
+
+            composable(Screen.Alerts.route) {
+                AlertsScreen()
             }
         }
     }
