@@ -10,8 +10,11 @@ import java.util.Date
  */
 interface IncomeRepository {
     fun getIncomes(userId: String): Flow<List<Income>>
+    fun getConfirmedIncomes(userId: String): Flow<List<Income>>
+    fun getTotalConfirmedIncomeLKR(userId: String): Flow<Double>
     fun getIncomesByDateRange(userId: String, startDate: Date, endDate: Date): Flow<List<Income>>
     fun getPendingIncomes(userId: String): Flow<List<Income>>
+    suspend fun getIncomeById(incomeId: String): Income?
     suspend fun addIncome(income: Income): String
     suspend fun updateIncome(income: Income)
     suspend fun deleteIncome(incomeId: String)

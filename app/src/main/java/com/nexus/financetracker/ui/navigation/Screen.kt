@@ -15,9 +15,13 @@ sealed class Screen(val route: String) {
     object Expenses : Screen("expenses")
     object Goals : Screen("goals")
     object Settings : Screen("settings")
+    object Alerts : Screen("alerts")
+    object Reports : Screen("reports")
 
     // Transaction & Detail Screens
-    object AddIncome : Screen("add_income")
+    object AddIncome : Screen("add_income?incomeId={incomeId}") {
+        fun createRoute(incomeId: String? = null) = if (incomeId != null) "add_income?incomeId=$incomeId" else "add_income"
+    }
     object AddExpense : Screen("add_expense")
     object AddTransaction : Screen("add_transaction?type={type}") {
         fun createRoute(type: String) = "add_transaction?type=$type"
@@ -27,7 +31,9 @@ sealed class Screen(val route: String) {
     }
 
     // Goal Sub-Screens
-    object AddGoal : Screen("add_goal")
+    object AddGoal : Screen("add_goal?goalId={goalId}") {
+        fun createRoute(goalId: String? = null) = if (goalId != null) "add_goal?goalId=$goalId" else "add_goal"
+    }
     object GoalDetail : Screen("goal/{id}") {
         fun createRoute(id: String) = "goal/$id"
     }

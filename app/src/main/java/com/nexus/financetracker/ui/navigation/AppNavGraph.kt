@@ -1,5 +1,6 @@
 package com.nexus.financetracker.ui.navigation
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -13,14 +14,22 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.nexus.financetracker.ui.auth.AuthViewModel
 import com.nexus.financetracker.ui.auth.LoginScreen
 import com.nexus.financetracker.ui.auth.RegisterScreen
 import com.nexus.financetracker.ui.dashboard.DashboardScreen
 import com.nexus.financetracker.ui.expense.ExpenseScreen
+import com.nexus.financetracker.ui.goal.AddEditGoalScreen
 import com.nexus.financetracker.ui.goal.GoalListScreen
+import com.nexus.financetracker.ui.income.IncomeEntryScreen
 import com.nexus.financetracker.ui.income.IncomeScreen
+import com.nexus.financetracker.ui.income.IncomeViewModel
+import com.nexus.financetracker.ui.alerts.AlertsScreen
+import com.nexus.financetracker.ui.reports.ReportsScreen
 import com.nexus.financetracker.ui.settings.SettingsScreen
+import com.nexus.financetracker.ui.profile.ProfileScreen
 
 /**
  * Root Navigation Graph with single-activity Material 3 Scaffold and Bottom Navigation.
@@ -53,18 +62,51 @@ fun AppNavGraph(
         Screen.Income.route,
         Screen.Expenses.route,
         Screen.Goals.route,
-        Screen.Settings.route
+        Screen.Settings.route,
+        Screen.Profile.route,
+        Screen.Alerts.route,
+        Screen.Reports.route
     )
     val shouldShowBottomBar = currentRoute in topLevelRoutes
 
+    val onBackToDashboard: () -> Unit = {
+        val popped = navController.popBackStack(Screen.Dashboard.route, inclusive = false)
+        if (!popped) {
+            navController.navigate(Screen.Dashboard.route) {
+                popUpTo(Screen.Dashboard.route) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (shouldShowBottomBar) {
                 AppBottomNavBar(
                     currentRoute = currentRoute,
                     onNavigateToDestination = { targetRoute ->
-                        navController.navigate(targetRoute) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                        if (targetRoute == Screen.Dashboard.route) {
+                            val popped = navController.popBackStack(Screen.Dashboard.route, inclusive = false)
+                            if (!popped) {
+                                navController.navigate(Screen.Dashboard.route) {
+                                    popUpTo(Screen.Dashboard.route) { inclusive = false }
+                                    launchSingleTop = true
+                                }
+                            }
+                        } else {
+                            navController.navigate(targetRoute) {
+                                popUpTo(Screen.Dashboard.route) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    },
+                    onQuickAdd = {
+                        navController.navigate(Screen.Income.route) {
+                            popUpTo(Screen.Dashboard.route) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -112,7 +154,7 @@ fun AppNavGraph(
                 DashboardScreen(
                     onNavigateToGoals = {
                         navController.navigate(Screen.Goals.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(Screen.Dashboard.route) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -120,18 +162,76 @@ fun AppNavGraph(
                         }
                     },
                     onAddIncome = {
-                        navController.navigate(Screen.Income.route)
+                        navController.navigate(Screen.Income.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     },
                     onAddExpense = {
-                        navController.navigate(Screen.Expenses.route)
+                        navController.navigate(Screen.Expenses.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onNavigateToSettings = {
+                        navController.navigate(Screen.Settings.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onNavigateToReports = {
+                        navController.navigate(Screen.Reports.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 )
             }
 
             composable(Screen.Income.route) {
+                val incomeViewModel: IncomeViewModel = hiltViewModel()
                 IncomeScreen(
+                    viewModel = incomeViewModel,
                     onAddIncome = {
-                        navController.navigate(Screen.AddTransaction.createRoute("INCOME"))
+                        navController.navigate(Screen.AddIncome.createRoute())
+                    },
+                    onEditIncome = { incomeId ->
+                        navController.navigate(Screen.AddIncome.createRoute(incomeId))
+                    },
+                    onBack = onBackToDashboard
+                )
+            }
+
+            composable(
+                route = Screen.AddIncome.route,
+                arguments = listOf(
+                    navArgument("incomeId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val incomeId = backStackEntry.arguments?.getString("incomeId")
+                val incomeViewModel: IncomeViewModel = hiltViewModel()
+                IncomeEntryScreen(
+                    viewModel = incomeViewModel,
+                    incomeId = incomeId,
+                    onNavigateBack = {
+                        incomeViewModel.resetForm()
+                        navController.popBackStack()
                     }
                 )
             }
@@ -140,37 +240,66 @@ fun AppNavGraph(
                 ExpenseScreen(
                     onAddExpense = {
                         navController.navigate(Screen.AddTransaction.createRoute("EXPENSE"))
-                    }
+                    },
+                    onBack = onBackToDashboard
                 )
             }
 
             composable(Screen.Goals.route) {
                 GoalListScreen(
-                    onAddGoal = { navController.navigate(Screen.AddGoal.route) },
-                    onBack = {
-                        navController.navigate(Screen.Dashboard.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                        }
+                    onAddGoal = { navController.navigate(Screen.AddGoal.createRoute()) },
+                    onEditGoal = { goalId -> navController.navigate(Screen.AddGoal.createRoute(goalId)) },
+                    onBack = onBackToDashboard
+                )
+            }
+
+            composable(
+                route = Screen.AddGoal.route,
+                arguments = listOf(
+                    navArgument("goalId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
                     }
+                )
+            ) { backStackEntry ->
+                val goalId = backStackEntry.arguments?.getString("goalId")
+                AddEditGoalScreen(
+                    goalId = goalId,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.Profile.route) {
+                ProfileScreen(
+                    onLogout = {
+                        authViewModel.signOut()
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    onBack = onBackToDashboard
                 )
             }
 
             composable(Screen.Settings.route) {
-                SettingsScreen(
-                    userEmail = authViewModel.currentUser?.email,
-                    displayName = authViewModel.currentUser?.displayName,
+                ProfileScreen(
                     onLogout = {
-                        // Sign out of Firebase Auth and clear all session state
                         authViewModel.signOut()
-                        // Completely purge back stack so user cannot return to protected screens
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
-                    }
+                    },
+                    onBack = onBackToDashboard
                 )
+            }
+
+            composable(Screen.Alerts.route) {
+                AlertsScreen(onBack = onBackToDashboard)
+            }
+
+            composable(Screen.Reports.route) {
+                ReportsScreen(onBack = onBackToDashboard)
             }
         }
     }

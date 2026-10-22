@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
  */
 interface GoalRepository {
     fun getGoals(userId: String): Flow<List<Goal>>
+    suspend fun getGoalById(userId: String, goalId: String): Goal?
     suspend fun addGoal(userId: String, goal: Goal): String
     suspend fun updateGoal(userId: String, goal: Goal)
     suspend fun deleteGoal(userId: String, goalId: String)
