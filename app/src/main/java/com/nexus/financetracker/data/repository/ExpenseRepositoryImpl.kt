@@ -25,7 +25,6 @@ class ExpenseRepositoryImpl @Inject constructor(
     override fun getExpenses(userId: String): Flow<List<Expense>> = callbackFlow {
         val listener = expensesCollection
             .whereEqualTo("userId", userId)
-            .orderBy("date", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
@@ -33,7 +32,10 @@ class ExpenseRepositoryImpl @Inject constructor(
                 }
                 val list = snapshot?.documents?.mapNotNull { doc ->
                     doc.toObject(Expense::class.java)?.copy(id = doc.id)
-                } ?: emptyList()
+                }?.sortedWith(
+                    compareByDescending<Expense> { it.date }
+                        .thenByDescending { it.createdAt }
+                ) ?: emptyList()
                 trySend(list)
             }
         awaitClose { listener.remove() }
@@ -66,13 +68,11 @@ class ExpenseRepositoryImpl @Inject constructor(
     override suspend fun getLatestExpense(userId: String): Expense? {
         val snapshot = expensesCollection
             .whereEqualTo("userId", userId)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .limit(1)
             .get()
             .await()
-        return snapshot.documents.firstOrNull()?.let { doc ->
+        return snapshot.documents.mapNotNull { doc ->
             doc.toObject(Expense::class.java)?.copy(id = doc.id)
-        }
+        }.maxByOrNull { it.createdAt }
     }
 
     override suspend fun addExpense(expense: Expense): String {

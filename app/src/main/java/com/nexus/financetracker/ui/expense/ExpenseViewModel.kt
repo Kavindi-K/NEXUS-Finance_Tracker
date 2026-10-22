@@ -14,10 +14,22 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.util.Date
 import javax.inject.Inject
+
+data class ExpenseUiState(
+    val expenses: List<Expense> = emptyList(),
+    val totalExpenseLKR: Double = 0.0,
+    val cardExpenseLKR: Double = 0.0,
+    val cashExpenseLKR: Double = 0.0,
+    val secondaryExpenseLKR: Double = 0.0,
+    val committedExpenseLKR: Double = 0.0,
+    val discretionaryExpenseLKR: Double = 0.0,
+    val categoriesMap: Map<String, String> = emptyMap(),
+    val isLoading: Boolean = true,
+    val errorMessage: String? = null
+)
 
 data class ExpenseFormState(
     val amountText: String = "",
@@ -58,14 +70,63 @@ class ExpenseViewModel @Inject constructor(
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
+    private val _uiState = MutableStateFlow(ExpenseUiState())
+    val uiState: StateFlow<ExpenseUiState> = _uiState.asStateFlow()
+
     private val _formState = MutableStateFlow(ExpenseFormState())
     val formState: StateFlow<ExpenseFormState> = _formState.asStateFlow()
+
+    private var rawExpenses: List<Expense> = emptyList()
 
     val currentUserId: String?
         get() = auth.currentUser?.uid
 
     init {
+        loadExpenses()
         loadCategoriesAndDefaults()
+    }
+
+    /**
+     * Observes real-time expenses from Firestore and updates uiState.
+     */
+    fun loadExpenses() {
+        val userId = currentUserId ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            expenseRepository.getExpenses(userId)
+                .catch { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = e.localizedMessage ?: "Failed to load expenses"
+                    )
+                }
+                .collect { list ->
+                    rawExpenses = list
+                    recomputeUiState()
+                }
+        }
+    }
+
+    private fun recomputeUiState() {
+        val expenses = rawExpenses
+        val total = expenses.sumOf { it.amountLKR }
+        val card = expenses.filter { it.account.equals(ExpenseAccount.CARD, ignoreCase = true) }.sumOf { it.amountLKR }
+        val cash = expenses.filter { it.account.equals(ExpenseAccount.CASH, ignoreCase = true) }.sumOf { it.amountLKR }
+        val secondary = expenses.filter { it.account.equals(ExpenseAccount.SECONDARY, ignoreCase = true) }.sumOf { it.amountLKR }
+        val committed = expenses.filter { it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true) }.sumOf { it.amountLKR }
+        val discretionary = expenses.filter { it.classification.equals(ExpenseClassification.DISCRETIONARY, ignoreCase = true) }.sumOf { it.amountLKR }
+
+        _uiState.value = _uiState.value.copy(
+            expenses = expenses,
+            totalExpenseLKR = total,
+            cardExpenseLKR = card,
+            cashExpenseLKR = cash,
+            secondaryExpenseLKR = secondary,
+            committedExpenseLKR = committed,
+            discretionaryExpenseLKR = discretionary,
+            isLoading = false,
+            errorMessage = null
+        )
     }
 
     /**
@@ -84,11 +145,16 @@ class ExpenseViewModel @Inject constructor(
             categoryRepository.getCategories(userId)
                 .catch { emit(emptyList()) }
                 .collect { customCats ->
-                    val resolvedCategories = if (customCats.isNotEmpty()) {
+                    val combined = if (customCats.isNotEmpty()) {
                         customCats
                     } else {
                         DEFAULT_EXPENSE_CATEGORIES
                     }
+
+                    val catMap = combined.associate { it.id to it.name } +
+                            DEFAULT_EXPENSE_CATEGORIES.associate { it.id to it.name }
+
+                    _uiState.value = _uiState.value.copy(categoriesMap = catMap)
 
                     // 2. Fetch latest expense to pre-populate last-used category & account (FR9/FR10)
                     val latestExpense = try {
@@ -98,12 +164,12 @@ class ExpenseViewModel @Inject constructor(
                     }
 
                     val defaultAccount = latestExpense?.account ?: ExpenseAccount.CARD
-                    val defaultCatId = latestExpense?.categoryId ?: resolvedCategories.firstOrNull()?.id ?: "cat_food"
-                    val defaultCatName = resolvedCategories.find { it.id == defaultCatId }?.name
-                        ?: resolvedCategories.firstOrNull()?.name ?: "Food & Dining"
+                    val defaultCatId = latestExpense?.categoryId ?: combined.firstOrNull()?.id ?: "cat_food"
+                    val defaultCatName = catMap[defaultCatId]
+                        ?: combined.firstOrNull()?.name ?: "Food & Dining"
 
                     _formState.value = _formState.value.copy(
-                        availableCategories = resolvedCategories,
+                        availableCategories = combined,
                         account = defaultAccount,
                         categoryId = defaultCatId,
                         categoryName = defaultCatName,
@@ -112,6 +178,18 @@ class ExpenseViewModel @Inject constructor(
                         isLoadingDefaults = false
                     )
                 }
+        }
+    }
+
+    fun deleteExpense(expenseId: String) {
+        viewModelScope.launch {
+            try {
+                expenseRepository.deleteExpense(expenseId)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = e.localizedMessage ?: "Failed to delete expense"
+                )
+            }
         }
     }
 
@@ -159,7 +237,6 @@ class ExpenseViewModel @Inject constructor(
 
     fun resetForm() {
         val currentCats = _formState.value.availableCategories
-        val fallbackCat = currentCats.firstOrNull()
         _formState.value = _formState.value.copy(
             amountText = "",
             date = Date(),

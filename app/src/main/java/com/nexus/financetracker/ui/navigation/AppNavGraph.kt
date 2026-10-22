@@ -173,13 +173,7 @@ fun AppNavGraph(
                         }
                     },
                     onAddExpense = {
-                        navController.navigate(Screen.Expenses.route) {
-                            popUpTo(Screen.Dashboard.route) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        navController.navigate(Screen.AddExpense.route)
                     },
                     onNavigateToSettings = {
                         navController.navigate(Screen.Settings.route) {
@@ -239,7 +233,9 @@ fun AppNavGraph(
             }
 
             composable(Screen.Expenses.route) {
+                val expenseViewModel: ExpenseViewModel = hiltViewModel()
                 ExpenseScreen(
+                    viewModel = expenseViewModel,
                     onAddExpense = {
                         navController.navigate(Screen.AddExpense.route)
                     },
