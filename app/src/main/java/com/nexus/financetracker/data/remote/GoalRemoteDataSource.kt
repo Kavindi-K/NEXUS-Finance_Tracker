@@ -11,7 +11,6 @@ import javax.inject.Singleton
 
 /**
  * Remote data source — wraps all Firestore operations for goals in top-level "goals" collection.
- * Conforms to Technical Document Section 5.1/5.2.
  */
 @Singleton
 class GoalRemoteDataSource @Inject constructor(

@@ -6,7 +6,6 @@ import java.util.Date
 
 /**
  * Repository interface for recurring items (recurringItems/{itemId}).
- * Coordinated with Member 2.
  */
 interface RecurringItemRepository {
     fun getRecurringItems(userId: String): Flow<List<RecurringItem>>
