@@ -150,11 +150,11 @@ fun AppBottomNavBar(
                         )
                     }
 
-                    // Profile (navigates to Settings & Profile)
+                    // Profile
                     WireframeBottomNavItem(
                         title = "Profile",
-                        isSelected = currentRoute == Screen.Settings.route,
-                        onClick = { onNavigateToDestination(Screen.Settings.route) }
+                        isSelected = currentRoute == Screen.Profile.route || currentRoute == Screen.Settings.route,
+                        onClick = { onNavigateToDestination(Screen.Profile.route) }
                     ) { tint ->
                         Icon(
                             imageVector = Icons.Outlined.PersonOutline,

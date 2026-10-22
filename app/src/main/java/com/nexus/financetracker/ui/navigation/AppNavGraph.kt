@@ -29,6 +29,7 @@ import com.nexus.financetracker.ui.income.IncomeViewModel
 import com.nexus.financetracker.ui.alerts.AlertsScreen
 import com.nexus.financetracker.ui.reports.ReportsScreen
 import com.nexus.financetracker.ui.settings.SettingsScreen
+import com.nexus.financetracker.ui.profile.ProfileScreen
 
 /**
  * Root Navigation Graph with single-activity Material 3 Scaffold and Bottom Navigation.
@@ -62,6 +63,7 @@ fun AppNavGraph(
         Screen.Expenses.route,
         Screen.Goals.route,
         Screen.Settings.route,
+        Screen.Profile.route,
         Screen.Alerts.route,
         Screen.Reports.route
     )
@@ -268,14 +270,22 @@ fun AppNavGraph(
                 )
             }
 
-            composable(Screen.Settings.route) {
-                SettingsScreen(
-                    userEmail = authViewModel.currentUser?.email,
-                    displayName = authViewModel.currentUser?.displayName,
+            composable(Screen.Profile.route) {
+                ProfileScreen(
                     onLogout = {
-                        // Sign out of Firebase Auth and clear all session state
                         authViewModel.signOut()
-                        // Completely purge back stack so user cannot return to protected screens
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    onBack = onBackToDashboard
+                )
+            }
+
+            composable(Screen.Settings.route) {
+                ProfileScreen(
+                    onLogout = {
+                        authViewModel.signOut()
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
