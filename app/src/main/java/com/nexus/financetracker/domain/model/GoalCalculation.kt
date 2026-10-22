@@ -5,12 +5,6 @@ import java.util.Date
 
 /**
  * Represents the calculated financial progress and required savings rate for a savings goal (FR15).
- *
- * Conforms to Technical Document Section 5.2 and Implementation Guide Member 3 - Order 4:
- * - Estimated current savings = openingSavingsLKR + confirmed income (>= startDate) - expenses (>= startDate)
- * - Required monthly savings = max(0, targetAmountLKR - estimatedCurrentSavings) / monthsRemaining
- * - Pending income is strictly excluded
- * - Transactions dated before startDate are excluded to prevent double counting pre-goal savings
  */
 data class GoalCalculation(
     val goal: Goal,
@@ -73,7 +67,7 @@ data class GoalCalculation(
             val monthsRemaining = calculateMonthsRemaining(currentDate, goal.targetDate)
             val isOverdue = currentDate.after(goal.targetDate) && remainingAmount > 0
 
-            // 6. FR15: required monthly savings = max(0, target - estimatedCurrentSavings) / monthsRemaining
+            // 6.required monthly savings = max(0, target - estimatedCurrentSavings) / monthsRemaining
             val requiredMonthlySavings = if (remainingAmount <= 0.0) {
                 0.0
             } else if (monthsRemaining > 0) {

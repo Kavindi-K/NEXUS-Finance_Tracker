@@ -6,7 +6,6 @@ import java.util.Date
 
 /**
  * Repository interface for expenses (expenses/{expenseId}).
- * Coordinated with Member 2.
  */
 interface ExpenseRepository {
     fun getExpenses(userId: String): Flow<List<Expense>>
