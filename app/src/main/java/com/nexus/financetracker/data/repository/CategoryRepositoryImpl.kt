@@ -11,7 +11,6 @@ import javax.inject.Singleton
 
 /**
  * Implementation of CategoryRepository connecting to Firestore "categories" collection.
- * Conforms to Technical Document Section 5.1/5.2.
  */
 @Singleton
 class CategoryRepositoryImpl @Inject constructor(

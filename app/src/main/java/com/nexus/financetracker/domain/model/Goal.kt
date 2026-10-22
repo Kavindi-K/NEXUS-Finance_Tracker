@@ -5,7 +5,6 @@ import java.util.Date
 
 /**
  * Domain model representing a savings goal (goals/{goalId}).
- * Conforms strictly to Technical Document Section 5.2.
  */
 data class Goal(
     @get:Exclude

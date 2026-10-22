@@ -12,7 +12,6 @@ import javax.inject.Singleton
 
 /**
  * Implementation of RecurringItemRepository connecting to Firestore "recurringItems" collection.
- * Conforms to Technical Document Section 5.1/5.2.
  */
 @Singleton
 class RecurringItemRepositoryImpl @Inject constructor(
