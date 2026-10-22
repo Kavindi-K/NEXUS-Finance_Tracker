@@ -58,16 +58,34 @@ class ExpenseRepositoryImpl @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    override suspend fun getExpenseById(expenseId: String): Expense? {
+        val snapshot = expensesCollection.document(expenseId).get().await()
+        return snapshot.toObject(Expense::class.java)?.copy(id = snapshot.id)
+    }
+
+    override suspend fun getLatestExpense(userId: String): Expense? {
+        val snapshot = expensesCollection
+            .whereEqualTo("userId", userId)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .limit(1)
+            .get()
+            .await()
+        return snapshot.documents.firstOrNull()?.let { doc ->
+            doc.toObject(Expense::class.java)?.copy(id = doc.id)
+        }
+    }
+
     override suspend fun addExpense(expense: Expense): String {
-        val docRef = expensesCollection.add(expense).await()
+        val docRef = expensesCollection.add(expense.toFirestoreMap()).await()
         return docRef.id
     }
 
     override suspend fun updateExpense(expense: Expense) {
-        expensesCollection.document(expense.id).set(expense).await()
+        expensesCollection.document(expense.id).set(expense.toFirestoreMap()).await()
     }
 
     override suspend fun deleteExpense(expenseId: String) {
         expensesCollection.document(expenseId).delete().await()
     }
 }
+
