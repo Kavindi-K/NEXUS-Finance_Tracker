@@ -1,11 +1,13 @@
 package com.nexus.financetracker.ui.income
 
 import android.app.DatePickerDialog
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -29,6 +31,11 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+
+// Design System Colors matching Dashboard Wireframe (#132D52)
+private val NavyCardBg = Color(0xFF132D52)
+private val NavyCardBorder = Color(0x33FFFFFF)
+private val TextHeaderSubtle = Color(0xFFBAC7D5)
 
 /**
  * Income Screen — Conforms to FR3-FR8 and Branch 08 feature/income-freelance.
@@ -137,9 +144,11 @@ fun IncomeScreen(
             Card(
                 onClick = { showBreakdownSheet = true },
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
+                    containerColor = NavyCardBg
+                ),
+                border = BorderStroke(1.dp, NavyCardBorder)
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(
@@ -154,26 +163,27 @@ fun IncomeScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                tint = TextHeaderSubtle
                             )
                             Text(
                                 text = if (uiState.isPeriodAllTime) "Total Income Received (All-Time)" else "Total Income Received",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = TextHeaderSubtle
                             )
                         }
 
                         AssistChip(
                             onClick = { showBreakdownSheet = true },
-                            label = { Text("Confirmed", style = MaterialTheme.typography.labelSmall) },
+                            label = { Text("Confirmed", style = MaterialTheme.typography.labelSmall, color = Color.White) },
                             colors = AssistChipDefaults.assistChipColors(
-                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
-                            )
+                                containerColor = Color.White.copy(alpha = 0.15f)
+                            ),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
                         )
                     }
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(8.dp))
 
                     val displayTotal = if (uiState.isPeriodAllTime) uiState.totalConfirmedLKR
                     else (uiState.reconciliation?.reconciledActualLKR ?: uiState.totalConfirmedLKR)
@@ -182,11 +192,11 @@ fun IncomeScreen(
                         text = "LKR %,.2f".format(displayTotal),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = Color.White
                     )
 
                     if (uiState.totalPendingLKR > 0) {
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(8.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -194,14 +204,14 @@ fun IncomeScreen(
                             Icon(
                                 imageVector = Icons.Default.Schedule,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                                tint = TextHeaderSubtle,
                                 modifier = Modifier.size(13.dp)
                             )
                             Text(
                                 text = "+ LKR %,.2f pending payment".format(uiState.totalPendingLKR),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
+                                color = TextHeaderSubtle
                             )
                         }
                     }
