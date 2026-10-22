@@ -3,6 +3,7 @@ package com.nexus.financetracker.ui.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.nexus.financetracker.data.repository.AuthRepository
 import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.repository.GoalRepository
@@ -45,6 +46,7 @@ class DashboardViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val goalRepository: GoalRepository,
     private val categoryRepository: CategoryRepository,
+    private val authRepository: AuthRepository,
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
@@ -58,6 +60,7 @@ class DashboardViewModel @Inject constructor(
     fun loadDashboardSummary() {
         val user = auth.currentUser
         val userId = user?.uid ?: return
+        val currentGreeting = getGreeting()
         val displayName = user.displayName?.takeIf { it.isNotBlank() } ?: "Kavindu"
         val (startOfMonth, endOfMonth) = getMonthRange()
         val monthLabel = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(startOfMonth)
@@ -65,6 +68,7 @@ class DashboardViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             isLoading = true,
             errorMessage = null,
+            greeting = currentGreeting,
             userName = displayName,
             selectedMonthLabel = monthLabel
         )
@@ -74,8 +78,14 @@ class DashboardViewModel @Inject constructor(
                 incomeRepository.getIncomes(userId).catch { emit(emptyList()) },
                 expenseRepository.getExpenses(userId).catch { emit(emptyList()) },
                 goalRepository.getGoals(userId).catch { emit(emptyList()) },
-                categoryRepository.getCategories(userId).catch { emit(emptyList()) }
-            ) { incomes, expenses, goals, categories ->
+                categoryRepository.getCategories(userId).catch { emit(emptyList()) },
+                authRepository.getUserProfile(userId).catch { emit(null) }
+            ) { incomes, expenses, goals, categories, userProfile ->
+                val resolvedName = userProfile?.displayName?.takeIf { it.isNotBlank() }
+                    ?: user.displayName?.takeIf { it.isNotBlank() }
+                    ?: user.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
+                    ?: "User"
+
                 // 1. Current-month confirmed incomes only (FR5, FR20 - pending strictly excluded)
                 val monthConfirmedIncomes = incomes.filter { income ->
                     income.status == IncomeStatus.CONFIRMED &&
@@ -131,7 +141,8 @@ class DashboardViewModel @Inject constructor(
 
                 DashboardUiState(
                     isLoading = false,
-                    userName = displayName,
+                    greeting = getGreeting(),
+                    userName = resolvedName,
                     selectedMonthLabel = monthLabel,
                     totalConfirmedIncomeLKR = totalIncome,
                     totalExpensesLKR = totalExpense,
@@ -160,6 +171,22 @@ class DashboardViewModel @Inject constructor(
     }
 
     companion object {
+        /**
+         * Resolves the greeting string based on the current hour of the day:
+         * - 05:00 - 11:59 -> "Good Morning,"
+         * - 12:00 - 16:59 -> "Good Afternoon,"
+         * - 17:00 - 20:59 -> "Good Evening,"
+         * - 21:00 - 04:59 -> "Good Night,"
+         */
+        fun getGreeting(calendar: Calendar = Calendar.getInstance()): String {
+            return when (calendar.get(Calendar.HOUR_OF_DAY)) {
+                in 5..11 -> "Good Morning,"
+                in 12..16 -> "Good Afternoon,"
+                in 17..20 -> "Good Evening,"
+                else -> "Good Night,"
+            }
+        }
+
         /**
          * Returns the start (1st day 00:00:00) and end (last day 23:59:59) of the current month.
          */
@@ -298,7 +325,8 @@ data class IncomeSourceSpending(
  */
 data class DashboardUiState(
     val isLoading: Boolean = true,
-    val userName: String = "Kavindu",
+    val greeting: String = DashboardViewModel.getGreeting(),
+    val userName: String = "User",
     val selectedMonthLabel: String = "",
     val totalConfirmedIncomeLKR: Double = 0.0,
     val totalExpensesLKR: Double = 0.0,
