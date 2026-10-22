@@ -207,4 +207,19 @@ class DashboardSummaryTest {
         assertEquals(11200.0, calculation.estimatedCurrentSavingsLKR, 0.01)
         assertEquals(478800.0, calculation.remainingAmountLKR, 0.01)
     }
+
+    @Test
+    fun getGreeting_returnsCorrectGreetingBasedOnHourOfDay() {
+        val morningCal = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 8) }
+        val afternoonCal = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 14) }
+        val eveningCal = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 19) }
+        val nightCal = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 23) }
+        val earlyMorningCal = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 3) }
+
+        assertEquals("Good Morning,", DashboardViewModel.getGreeting(morningCal))
+        assertEquals("Good Afternoon,", DashboardViewModel.getGreeting(afternoonCal))
+        assertEquals("Good Evening,", DashboardViewModel.getGreeting(eveningCal))
+        assertEquals("Good Night,", DashboardViewModel.getGreeting(nightCal))
+        assertEquals("Good Night,", DashboardViewModel.getGreeting(earlyMorningCal))
+    }
 }
