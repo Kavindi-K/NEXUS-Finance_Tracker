@@ -53,6 +53,7 @@ fun IncomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
     var incomeToConfirm by remember { mutableStateOf<Income?>(null) }
+    var incomeToDelete by remember { mutableStateOf<Income?>(null) }
     var showBreakdownSheet by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
@@ -141,6 +142,21 @@ fun IncomeScreen(
             }
 
             // 1. Confirmed-Only Total Income Banner (Pinned at the top - tap anywhere for breakdown)
+            val isStreamFiltered = uiState.selectedSource != null
+            val cardTitle = if (isStreamFiltered) {
+                "Total ${IncomeSource.getDisplayName(uiState.selectedSource!!)} Received"
+            } else {
+                "Total Income Received"
+            }
+
+            val displayTotal = when {
+                isStreamFiltered -> uiState.streamConfirmedLKR
+                uiState.isPeriodAllTime -> uiState.totalConfirmedLKR
+                else -> (uiState.reconciliation?.reconciledActualLKR ?: uiState.totalConfirmedLKR)
+            }
+
+            val displayPending = if (isStreamFiltered) uiState.streamPendingLKR else uiState.totalPendingLKR
+
             Card(
                 onClick = { showBreakdownSheet = true },
                 modifier = Modifier.fillMaxWidth(),
@@ -157,6 +173,7 @@ fun IncomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
+                            modifier = Modifier.weight(1f, fill = false),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -166,36 +183,47 @@ fun IncomeScreen(
                                 tint = TextHeaderSubtle
                             )
                             Text(
-                                text = if (uiState.isPeriodAllTime) "Total Income Received (All-Time)" else "Total Income Received",
+                                text = cardTitle,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = TextHeaderSubtle
                             )
                         }
 
-                        AssistChip(
-                            onClick = { showBreakdownSheet = true },
-                            label = { Text("Confirmed", style = MaterialTheme.typography.labelSmall, color = Color.White) },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = Color.White.copy(alpha = 0.15f)
-                            ),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
-                        )
+                        // Confirmed Status Indicator (pure text & dot, no container or button look)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .background(Color(0xFF34D399), CircleShape)
+                            )
+                            Text(
+                                text = "Confirmed",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF34D399),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
 
                     Spacer(Modifier.height(8.dp))
 
-                    val displayTotal = if (uiState.isPeriodAllTime) uiState.totalConfirmedLKR
-                    else (uiState.reconciliation?.reconciledActualLKR ?: uiState.totalConfirmedLKR)
+                    val totalText = when {
+                        displayTotal < 0 -> "- LKR %,.2f".format(kotlin.math.abs(displayTotal))
+                        else -> "LKR %,.2f".format(displayTotal)
+                    }
 
                     Text(
-                        text = "LKR %,.2f".format(displayTotal),
+                        text = totalText,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
 
-                    if (uiState.totalPendingLKR > 0) {
+                    if (displayPending > 0) {
                         Spacer(Modifier.height(8.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -208,11 +236,60 @@ fun IncomeScreen(
                                 modifier = Modifier.size(13.dp)
                             )
                             Text(
-                                text = "+ LKR %,.2f pending payment".format(uiState.totalPendingLKR),
+                                text = "+ LKR %,.2f pending payment".format(displayPending),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Medium,
                                 color = TextHeaderSubtle
                             )
+                        }
+                    }
+                }
+            }
+
+            // Active Stream Filter Bar
+            if (isStreamFiltered) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FilterList,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Stream: ${IncomeSource.getDisplayName(uiState.selectedSource!!)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        TextButton(
+                            onClick = { viewModel.onSourceFilterSelected(null) },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear stream filter",
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("Show All", style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -296,55 +373,61 @@ fun IncomeScreen(
                                 }
                             }
                         } else {
-                        if (uiState.selectedFilter == IncomeFilter.ALL && pendingList.isNotEmpty()) {
-                            // Section 1: Pending Invoices & Milestones (Excluded from totals)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 2.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                        if (uiState.selectedFilter == IncomeFilter.ALL) {
+                            if (pendingList.isNotEmpty()) {
+                                // Section 1: Pending Invoices & Milestones (Excluded from totals)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 2.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Pending Invoices & Milestones (${pendingList.size})",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFE65100)
+                                    )
+                                    Text(
+                                        text = "Excluded from totals",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                pendingList.forEach { income ->
+                                    IncomeCard(
+                                        income = income,
+                                        dateFormatter = dateFormatter,
+                                        onEdit = { onEditIncome(income.id) },
+                                        onDelete = { incomeToDelete = income },
+                                        onConfirmPayment = { incomeToConfirm = income }
+                                    )
+                                }
+                            }
+
+                            if (confirmedList.isNotEmpty()) {
+                                // Section 2: Confirmed Received Income
+                                if (pendingList.isNotEmpty()) {
+                                    Spacer(Modifier.height(4.dp))
+                                }
                                 Text(
-                                    text = "Pending Invoices & Milestones (${pendingList.size})",
+                                    text = "Confirmed Income (${confirmedList.size})",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFE65100)
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
-                                Text(
-                                    text = "Excluded from totals",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
 
-                            pendingList.forEach { income ->
-                                IncomeCard(
-                                    income = income,
-                                    dateFormatter = dateFormatter,
-                                    onEdit = { onEditIncome(income.id) },
-                                    onDelete = { viewModel.deleteIncome(income.id) },
-                                    onConfirmPayment = { incomeToConfirm = income }
-                                )
-                            }
-
-                            // Section 2: Confirmed Received Income
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = "Confirmed Income (${confirmedList.size})",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-
-                            confirmedList.forEach { income ->
-                                IncomeCard(
-                                    income = income,
-                                    dateFormatter = dateFormatter,
-                                    onEdit = { onEditIncome(income.id) },
-                                    onDelete = { viewModel.deleteIncome(income.id) },
-                                    onConfirmPayment = null
-                                )
+                                confirmedList.forEach { income ->
+                                    IncomeCard(
+                                        income = income,
+                                        dateFormatter = dateFormatter,
+                                        onEdit = { onEditIncome(income.id) },
+                                        onDelete = { incomeToDelete = income },
+                                        onConfirmPayment = null
+                                    )
+                                }
                             }
                         } else {
                             // Filtered view (Pending or Confirmed)
@@ -353,7 +436,7 @@ fun IncomeScreen(
                                     income = income,
                                     dateFormatter = dateFormatter,
                                     onEdit = { onEditIncome(income.id) },
-                                    onDelete = { viewModel.deleteIncome(income.id) },
+                                    onDelete = { incomeToDelete = income },
                                     onConfirmPayment = if (income.status == IncomeStatus.PENDING) {
                                         { incomeToConfirm = income }
                                     } else null
@@ -380,12 +463,26 @@ fun IncomeScreen(
         )
     }
 
+    // Confirmation Dialog for Deleting Income
+    incomeToDelete?.let { income ->
+        DeleteIncomeConfirmationDialog(
+            income = income,
+            onDismiss = { incomeToDelete = null },
+            onConfirm = {
+                viewModel.deleteIncome(income.id)
+                incomeToDelete = null
+            }
+        )
+    }
+
     // Modal Bottom Sheet for 4-Source Breakdown & FR20 Estimate Comparison Details
     if (showBreakdownSheet) {
         uiState.reconciliation?.let { reconciliation ->
             IncomeBreakdownBottomSheet(
                 reconciliation = reconciliation,
+                selectedSource = uiState.selectedSource,
                 isAllTime = uiState.isPeriodAllTime,
+                onSelectSource = { source -> viewModel.onSourceFilterSelected(source) },
                 onDismiss = { showBreakdownSheet = false }
             )
         }
@@ -723,6 +820,76 @@ private fun ConfirmPaymentDialog(
 }
 
 /**
+ * Confirmation dialog shown before permanently deleting an income record.
+ */
+@Composable
+private fun DeleteIncomeConfirmationDialog(
+    income: Income,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.DeleteOutline,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(28.dp)
+            )
+        },
+        title = {
+            Text(
+                text = "Delete Income Record?",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val formattedAmount = when {
+                    income.source == IncomeSource.CRYPTO && income.amountLKR < 0 ->
+                        "- LKR %,.2f".format(kotlin.math.abs(income.amountLKR))
+                    else -> "LKR %,.2f".format(income.amountLKR)
+                }
+                Text(
+                    text = "Are you sure you want to delete this $formattedAmount (${IncomeSource.getDisplayName(income.source)}) entry?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (!income.note.isNullOrBlank()) {
+                    Text(
+                        text = "Note: ${income.note}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    text = "This action will permanently remove this transaction from your financial history and update your totals.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                )
+            ) {
+                Text("Delete")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+/**
  * Modern, clean Modal Bottom Sheet for 4-Source Breakdown & FR20 Estimate Details.
  * Keeps the main screen breathing and uncluttered while ensuring full compliance with FR3, FR5, FR20.
  */
@@ -730,7 +897,9 @@ private fun ConfirmPaymentDialog(
 @Composable
 private fun IncomeBreakdownBottomSheet(
     reconciliation: MonthlyReconciliation,
+    selectedSource: String?,
     isAllTime: Boolean,
+    onSelectSource: (String?) -> Unit,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(
@@ -774,17 +943,54 @@ private fun IncomeBreakdownBottomSheet(
                 }
             }
 
-            Text(
-                text = "Income by Stream",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            // Stream section header with reset button if filtered
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Income by Stream",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Tap a stream to filter this month's transactions",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (selectedSource != null) {
+                    TextButton(
+                        onClick = {
+                            onSelectSource(null)
+                            onDismiss()
+                        },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text("Show All", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
 
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 reconciliation.sourceBreakdown.forEach { sourceItem ->
+                    val isSelected = selectedSource == sourceItem.source
                     Surface(
+                        onClick = {
+                            onSelectSource(if (isSelected) null else sourceItem.source)
+                            onDismiss()
+                        },
                         shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                        },
+                        border = if (isSelected) {
+                            BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+                        } else null,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -821,20 +1027,41 @@ private fun IncomeBreakdownBottomSheet(
                                     )
                                 }
 
-                                Text(
-                                    text = sourceItem.displayName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                Column {
+                                    Text(
+                                        text = sourceItem.displayName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    if (isSelected) {
+                                        Text(
+                                            text = "Active filter",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
                             }
 
-                            val isNegative = sourceItem.amountLKR < 0
-                            Text(
-                                text = (if (isNegative) "-LKR %,.2f" else "LKR %,.2f").format(kotlin.math.abs(sourceItem.amountLKR)),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val isNegative = sourceItem.amountLKR < 0
+                                Text(
+                                    text = (if (isNegative) "-LKR %,.2f" else "LKR %,.2f").format(kotlin.math.abs(sourceItem.amountLKR)),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                )
+                            }
                         }
                     }
                 }

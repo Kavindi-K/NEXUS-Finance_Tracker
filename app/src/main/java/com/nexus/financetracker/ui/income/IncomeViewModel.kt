@@ -92,8 +92,11 @@ data class IncomeUiState(
     val filteredIncomes: List<Income> = emptyList(),
     val totalConfirmedLKR: Double = 0.0,
     val totalPendingLKR: Double = 0.0,
+    val streamConfirmedLKR: Double = 0.0,
+    val streamPendingLKR: Double = 0.0,
     val lastSalaryAmount: Double? = null,
     val selectedFilter: IncomeFilter = IncomeFilter.ALL,
+    val selectedSource: String? = null,
     val selectedMonthLabel: String = "",
     val isPeriodAllTime: Boolean = false,
     val reconciliation: MonthlyReconciliation? = null,
@@ -172,6 +175,7 @@ class IncomeViewModel @Inject constructor(
     private fun recomputeState() {
         val allIncomes = rawIncomes
         val isAllTime = _uiState.value.isPeriodAllTime
+        val selectedSource = _uiState.value.selectedSource
         val monthLabelFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
         val monthLabel = monthLabelFormat.format(selectedCalendar.time)
 
@@ -194,12 +198,12 @@ class IncomeViewModel @Inject constructor(
         val overallConfirmedTotal = allIncomes.filter { it.status == IncomeStatus.CONFIRMED }.sumOf { it.amountLKR }
         val overallPendingTotal = allIncomes.filter { it.status == IncomeStatus.PENDING }.sumOf { it.amountLKR }
 
-        // Selected period incomes
+        // Selected period incomes (taking expectedDate for pending into account)
         val periodIncomes = if (isAllTime) {
             allIncomes
         } else {
             allIncomes.filter { income ->
-                val date = income.dateReceived ?: income.createdAt
+                val date = income.dateReceived ?: income.expectedDate ?: income.createdAt
                 !date.before(startOfMonth) && !date.after(endOfMonth)
             }
         }
@@ -268,13 +272,25 @@ class IncomeViewModel @Inject constructor(
             .maxByOrNull { it.dateReceived ?: it.createdAt }
             ?.amountOriginal
 
-        val filtered = applyFilter(periodIncomes, _uiState.value.selectedFilter)
+        // Incomes filtered by stream (if selectedSource != null)
+        val streamIncomes = if (selectedSource != null) {
+            periodIncomes.filter { it.source == selectedSource }
+        } else {
+            periodIncomes
+        }
+
+        val streamConfirmedLKR = streamIncomes.filter { it.status == IncomeStatus.CONFIRMED }.sumOf { it.amountLKR }
+        val streamPendingLKR = streamIncomes.filter { it.status == IncomeStatus.PENDING }.sumOf { it.amountLKR }
+
+        val filtered = applyFilter(streamIncomes, _uiState.value.selectedFilter)
 
         _uiState.value = _uiState.value.copy(
-            incomes = periodIncomes,
+            incomes = streamIncomes,
             filteredIncomes = filtered,
             totalConfirmedLKR = overallConfirmedTotal,
             totalPendingLKR = overallPendingTotal,
+            streamConfirmedLKR = streamConfirmedLKR,
+            streamPendingLKR = streamPendingLKR,
             lastSalaryAmount = lastSalary,
             selectedMonthLabel = monthLabel,
             reconciliation = reconciliation,
@@ -289,6 +305,14 @@ class IncomeViewModel @Inject constructor(
                 _formState.value = _formState.value.copy(amountOriginal = formatted)
             }
         }
+    }
+
+    fun onSourceFilterSelected(source: String?) {
+        _uiState.value = _uiState.value.copy(
+            selectedSource = source,
+            selectedFilter = IncomeFilter.ALL // When selecting a stream, default to ALL so they see both confirmed and pending
+        )
+        recomputeState()
     }
 
     fun onFilterSelected(filter: IncomeFilter) {
