@@ -2,6 +2,7 @@ package com.nexus.financetracker.ui.dashboard
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,11 +21,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nexus.financetracker.R
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -71,34 +75,29 @@ fun DashboardScreen(
     val displayIncome = balanceCurrencyFormat.format(uiState.totalConfirmedIncomeLKR)
     val displaySpent = balanceCurrencyFormat.format(uiState.totalExpensesLKR)
 
+    val displayFirstName = uiState.userName
+        .trim()
+        .split("\\s+".toRegex())
+        .firstOrNull { it.isNotBlank() }
+        ?: "User"
+
     val displayDiscretionaryPercent = uiState.discretionaryPercentage
     val displayCommittedPercent = uiState.committedPercentage
 
+    // Root-level scrollable Column ensures touch and mouse-wheel scrolling works everywhere
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(NavyHeaderBg)
+            .verticalScroll(scrollState)
     ) {
-        // Small white bar at the top for device status bar (time, battery icons)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsTopHeight(WindowInsets.statusBars)
-                .background(Color.White)
-        )
-
-        // Root-level scrollable Column ensures touch and mouse-wheel scrolling works everywhere
+        // --- 1. Top Navy Section (Greeting + Nexus Logo + Total Amount Card) ---
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState)
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
-            // --- 1. Top Navy Section (Greeting + Nexus Logo + Total Amount Card) ---
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
-            ) {
             // Header Row (Good Morning + Nexus Node Logo)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -114,14 +113,14 @@ fun DashboardScreen(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = uiState.userName.ifBlank { "User" },
+                        text = displayFirstName,
                         color = Color.White,
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
 
-                NexusBrandLogo(modifier = Modifier.size(34.dp))
+                NexusBrandLogo(modifier = Modifier.height(52.dp))
             }
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -584,7 +583,6 @@ fun DashboardScreen(
         }
     }
 }
-}
 
 /**
  * Circular progress bar component visually comparing Discretionary vs Committed ratios (FR18).
@@ -759,39 +757,14 @@ private fun BarChartIcon(modifier: Modifier = Modifier) {
 }
 
 /**
- * Nexus 4-Node brand mark matching wireframe top-right header:
- * 4 hollow ring nodes connected by thick rounded pipes.
+ * App Logo loaded from drawables (R.drawable.app_logo) displayed on the Dashboard header.
  */
 @Composable
 private fun NexusBrandLogo(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(34.dp)) {
-        val pad = 6.dp.toPx()
-        val left = pad
-        val right = size.width - pad
-        val top = pad
-        val bottom = size.height - pad
-
-        val outerRadius = 5.2.dp.toPx()
-        val innerRadius = 2.4.dp.toPx()
-        val stroke = 3.2.dp.toPx()
-
-        // Connecting rounded loop / lines
-        drawLine(Color.White, Offset(left, top), Offset(right, top), stroke, StrokeCap.Round)
-        drawLine(Color.White, Offset(left, top), Offset(left, bottom), stroke, StrokeCap.Round)
-        drawLine(Color.White, Offset(right, top), Offset(right, bottom), stroke, StrokeCap.Round)
-        drawLine(Color.White, Offset(left, bottom), Offset(right, bottom), stroke, StrokeCap.Round)
-
-        // 4 Connected Donut Nodes
-        val nodes = listOf(
-            Offset(left, top),
-            Offset(right, top),
-            Offset(left, bottom),
-            Offset(right, bottom)
-        )
-
-        nodes.forEach { node ->
-            drawCircle(Color.White, outerRadius, node)
-            drawCircle(NavyHeaderBg, innerRadius, node)
-        }
-    }
+    Image(
+        painter = painterResource(id = R.drawable.app_logo),
+        contentDescription = "Nexus App Logo",
+        modifier = modifier,
+        contentScale = ContentScale.Fit
+    )
 }
