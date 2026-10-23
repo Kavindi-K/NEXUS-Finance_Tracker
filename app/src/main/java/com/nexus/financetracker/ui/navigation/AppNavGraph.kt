@@ -105,7 +105,7 @@ fun AppNavGraph(
                         }
                     },
                     onQuickAdd = {
-                        navController.navigate(Screen.Income.route) {
+                        navController.navigate(Screen.Expenses.route) {
                             popUpTo(Screen.Dashboard.route) {
                                 saveState = true
                             }

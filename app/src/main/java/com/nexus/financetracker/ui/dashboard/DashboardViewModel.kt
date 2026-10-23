@@ -61,7 +61,7 @@ class DashboardViewModel @Inject constructor(
         val user = auth.currentUser
         val userId = user?.uid ?: return
         val currentGreeting = getGreeting()
-        val displayName = user.displayName?.takeIf { it.isNotBlank() } ?: "Kavindu"
+        val displayName = user.displayName?.trim()?.split("\\s+".toRegex())?.firstOrNull { it.isNotBlank() } ?: "Kavindu"
         val (startOfMonth, endOfMonth) = getMonthRange()
         val monthLabel = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(startOfMonth)
 
@@ -81,10 +81,11 @@ class DashboardViewModel @Inject constructor(
                 categoryRepository.getCategories(userId).catch { emit(emptyList()) },
                 authRepository.getUserProfile(userId).catch { emit(null) }
             ) { incomes, expenses, goals, categories, userProfile ->
-                val resolvedName = userProfile?.displayName?.takeIf { it.isNotBlank() }
+                val rawName = userProfile?.displayName?.takeIf { it.isNotBlank() }
                     ?: user.displayName?.takeIf { it.isNotBlank() }
                     ?: user.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
                     ?: "User"
+                val resolvedName = rawName.trim().split("\\s+".toRegex()).firstOrNull { it.isNotBlank() } ?: "User"
 
                 // 1. Current-month confirmed incomes only (FR5, FR20 - pending strictly excluded)
                 val monthConfirmedIncomes = incomes.filter { income ->

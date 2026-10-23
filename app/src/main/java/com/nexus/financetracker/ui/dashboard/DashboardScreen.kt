@@ -2,6 +2,7 @@ package com.nexus.financetracker.ui.dashboard
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,13 +21,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nexus.financetracker.R
+import com.nexus.financetracker.ui.common.IncomeSourceBarChart
 import java.text.NumberFormat
 import java.util.Locale
+import kotlin.math.roundToInt
 
 // Design System Colors matching exact Figma Wireframe
 private val NavyHeaderBg = Color(0xFF072044)
@@ -55,18 +61,29 @@ fun DashboardScreen(
             maximumFractionDigits = 0
         }
     }
-
-    val displayBalance = if (uiState.netResultLKR >= 0) {
-        "LKR ${currencyFormat.format(uiState.netResultLKR)}"
-    } else {
-        "-LKR ${currencyFormat.format(kotlin.math.abs(uiState.netResultLKR))}"
+    val balanceCurrencyFormat = remember {
+        NumberFormat.getNumberInstance(Locale.US).apply {
+            minimumFractionDigits = 2
+            maximumFractionDigits = 2
+        }
     }
 
-    val displayIncome = currencyFormat.format(uiState.totalConfirmedIncomeLKR)
-    val displaySpent = currencyFormat.format(uiState.totalExpensesLKR)
+    val displayBalance = if (uiState.netResultLKR >= 0) {
+        "LKR ${balanceCurrencyFormat.format(uiState.netResultLKR)}"
+    } else {
+        "-LKR ${balanceCurrencyFormat.format(kotlin.math.abs(uiState.netResultLKR))}"
+    }
 
-    val displayDiscretionaryPercent = uiState.discretionaryPercentage
-    val displayCommittedPercent = uiState.committedPercentage
+    val displayIncome = balanceCurrencyFormat.format(uiState.totalConfirmedIncomeLKR)
+    val displaySpent = balanceCurrencyFormat.format(uiState.totalExpensesLKR)
+
+    val displayFirstName = uiState.userName
+        .trim()
+        .split("\\s+".toRegex())
+        .firstOrNull { it.isNotBlank() }
+        ?: "User"
+
+
 
     // Root-level scrollable Column ensures touch and mouse-wheel scrolling works everywhere
     Column(
@@ -97,14 +114,14 @@ fun DashboardScreen(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = uiState.userName.ifBlank { "User" },
+                        text = displayFirstName,
                         color = Color.White,
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
 
-                NexusBrandLogo(modifier = Modifier.size(34.dp))
+                NexusBrandLogo(modifier = Modifier.height(52.dp))
             }
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -124,7 +141,7 @@ fun DashboardScreen(
                     Text(
                         text = "Total Amount",
                         color = Color(0xFFA0B2C6),
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
 
@@ -133,7 +150,7 @@ fun DashboardScreen(
                     Text(
                         text = displayBalance,
                         color = Color.White,
-                        fontSize = 30.sp,
+                        fontSize = 31.sp,
                         fontWeight = FontWeight.Bold
                     )
 
@@ -145,16 +162,16 @@ fun DashboardScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "▲ Income $displayIncome",
+                            text = "▼ Income LKR $displayIncome",
                             color = TextHeaderSubtle,
-                            fontSize = 13.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
 
                         Text(
-                            text = "▼ Spent $displaySpent",
+                            text = "▲ Spent LKR $displaySpent",
                             color = TextHeaderSubtle,
-                            fontSize = 13.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -257,11 +274,10 @@ fun DashboardScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Circular Progress Bar Component
+                        // Circular Income vs Expenses Graph
                         CircularSpendingProgressBar(
-                            discretionaryPercent = displayDiscretionaryPercent,
-                            committedPercent = displayCommittedPercent,
-                            hasExpenses = uiState.totalExpensesLKR > 0
+                            totalIncome = uiState.totalConfirmedIncomeLKR,
+                            totalExpenses = uiState.totalExpensesLKR
                         )
                     }
                 }
@@ -471,12 +487,20 @@ fun DashboardScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Income by Source",
-                                color = TextPrimaryNavy,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Column {
+                                Text(
+                                    text = "Income by Source",
+                                    color = TextPrimaryNavy,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = uiState.selectedMonthLabel.ifBlank { "Current Month" },
+                                    color = TextSubtleNavy,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                             if (uiState.incomeSources.isNotEmpty()) {
                                 Text(
                                     text = "${uiState.incomeSources.size} streams",
@@ -487,7 +511,7 @@ fun DashboardScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         if (uiState.incomeSources.isEmpty()) {
                             Column(
@@ -512,51 +536,10 @@ fun DashboardScreen(
                                 )
                             }
                         } else {
-                            uiState.incomeSources.forEachIndexed { index, sourceItem ->
-                                if (index > 0) {
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = sourceItem.source,
-                                        color = TextCategoryName,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Normal
-                                    )
-                                    Text(
-                                        text = if (sourceItem.amountLKR >= 0) {
-                                            currencyFormat.format(sourceItem.amountLKR)
-                                        } else {
-                                            "-${currencyFormat.format(kotlin.math.abs(sourceItem.amountLKR))}"
-                                        },
-                                        color = if (sourceItem.amountLKR >= 0) TextPrimaryNavy else MaterialTheme.colorScheme.error,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(6.dp))
-
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(8.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color.White)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(fraction = sourceItem.fraction.coerceIn(0.05f, 1f))
-                                            .fillMaxHeight()
-                                            .background(if (sourceItem.amountLKR >= 0) TextPrimaryNavy else MaterialTheme.colorScheme.error)
-                                    )
-                                }
-                            }
+                            IncomeSourceBarChart(
+                                items = uiState.incomeSources,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
@@ -569,15 +552,19 @@ fun DashboardScreen(
 }
 
 /**
- * Circular progress bar component visually comparing Discretionary vs Committed ratios (FR18).
+ * Circular progress bar component visually comparing Total Income vs Total Expenses.
  */
 @Composable
 private fun CircularSpendingProgressBar(
-    discretionaryPercent: Int,
-    committedPercent: Int,
-    hasExpenses: Boolean,
+    totalIncome: Double,
+    totalExpenses: Double,
     modifier: Modifier = Modifier
 ) {
+    val total = totalIncome + totalExpenses
+    val incomePercent = if (total > 0) ((totalIncome / total) * 100).roundToInt() else 0
+    val expensePercent = if (total > 0) (100 - incomePercent) else 0
+    val hasData = total > 0
+
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -599,27 +586,28 @@ private fun CircularSpendingProgressBar(
                     style = Stroke(width = strokeWidth)
                 )
 
-                // Only draw progress arcs if there are expenses
-                if (hasExpenses && (committedPercent > 0 || discretionaryPercent > 0)) {
-                    // 2. Committed arc (Muted blue-gray)
-                    val committedSweep = (committedPercent / 100f) * 360f
-                    if (committedSweep > 0f) {
+                // Only draw progress arcs if there is transaction data
+                if (hasData) {
+                    val expenseSweep = (expensePercent / 100f) * 360f
+                    val incomeSweep = (incomePercent / 100f) * 360f
+
+                    // 2. Expense arc (Muted blue-gray)
+                    if (expenseSweep > 0f) {
                         drawArc(
                             color = Color(0xFFBAC7D5),
                             startAngle = -90f,
-                            sweepAngle = committedSweep,
+                            sweepAngle = expenseSweep,
                             useCenter = false,
                             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                         )
                     }
 
-                    // 3. Discretionary arc (Deep navy main progress indicator)
-                    val discretionarySweep = (discretionaryPercent / 100f) * 360f
-                    if (discretionarySweep > 0f) {
+                    // 3. Income arc (Deep navy main progress indicator)
+                    if (incomeSweep > 0f) {
                         drawArc(
                             color = TextPrimaryNavy,
-                            startAngle = -90f + committedSweep,
-                            sweepAngle = discretionarySweep,
+                            startAngle = -90f + expenseSweep,
+                            sweepAngle = incomeSweep,
                             useCenter = false,
                             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                         )
@@ -632,13 +620,13 @@ private fun CircularSpendingProgressBar(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "$discretionaryPercent%",
+                    text = if (hasData) "$incomePercent%" else "0%",
                     color = TextPrimaryNavy,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Discretionary",
+                    text = "Income",
                     color = TextSubtleNavy,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
@@ -650,10 +638,10 @@ private fun CircularSpendingProgressBar(
 
         // Ratio Subtitle
         Text(
-            text = if (hasExpenses) {
-                "$discretionaryPercent% Discretionary | $committedPercent% Committed"
+            text = if (hasData) {
+                "$incomePercent% Income | $expensePercent% Expenses"
             } else {
-                "No expenses recorded this month"
+                "No income or expenses recorded this month"
             },
             color = TextSubtleNavy,
             fontSize = 12.sp,
@@ -741,39 +729,14 @@ private fun BarChartIcon(modifier: Modifier = Modifier) {
 }
 
 /**
- * Nexus 4-Node brand mark matching wireframe top-right header:
- * 4 hollow ring nodes connected by thick rounded pipes.
+ * App Logo loaded from drawables (R.drawable.app_logo) displayed on the Dashboard header.
  */
 @Composable
 private fun NexusBrandLogo(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(34.dp)) {
-        val pad = 6.dp.toPx()
-        val left = pad
-        val right = size.width - pad
-        val top = pad
-        val bottom = size.height - pad
-
-        val outerRadius = 5.2.dp.toPx()
-        val innerRadius = 2.4.dp.toPx()
-        val stroke = 3.2.dp.toPx()
-
-        // Connecting rounded loop / lines
-        drawLine(Color.White, Offset(left, top), Offset(right, top), stroke, StrokeCap.Round)
-        drawLine(Color.White, Offset(left, top), Offset(left, bottom), stroke, StrokeCap.Round)
-        drawLine(Color.White, Offset(right, top), Offset(right, bottom), stroke, StrokeCap.Round)
-        drawLine(Color.White, Offset(left, bottom), Offset(right, bottom), stroke, StrokeCap.Round)
-
-        // 4 Connected Donut Nodes
-        val nodes = listOf(
-            Offset(left, top),
-            Offset(right, top),
-            Offset(left, bottom),
-            Offset(right, bottom)
-        )
-
-        nodes.forEach { node ->
-            drawCircle(Color.White, outerRadius, node)
-            drawCircle(NavyHeaderBg, innerRadius, node)
-        }
-    }
+    Image(
+        painter = painterResource(id = R.drawable.app_logo),
+        contentDescription = "Nexus App Logo",
+        modifier = modifier,
+        contentScale = ContentScale.Fit
+    )
 }
