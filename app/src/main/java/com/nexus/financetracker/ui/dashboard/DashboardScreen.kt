@@ -55,33 +55,50 @@ fun DashboardScreen(
             maximumFractionDigits = 0
         }
     }
-
-    val displayBalance = if (uiState.netResultLKR >= 0) {
-        "LKR ${currencyFormat.format(uiState.netResultLKR)}"
-    } else {
-        "-LKR ${currencyFormat.format(kotlin.math.abs(uiState.netResultLKR))}"
+    val balanceCurrencyFormat = remember {
+        NumberFormat.getNumberInstance(Locale.US).apply {
+            minimumFractionDigits = 2
+            maximumFractionDigits = 2
+        }
     }
 
-    val displayIncome = currencyFormat.format(uiState.totalConfirmedIncomeLKR)
-    val displaySpent = currencyFormat.format(uiState.totalExpensesLKR)
+    val displayBalance = if (uiState.netResultLKR >= 0) {
+        "LKR ${balanceCurrencyFormat.format(uiState.netResultLKR)}"
+    } else {
+        "-LKR ${balanceCurrencyFormat.format(kotlin.math.abs(uiState.netResultLKR))}"
+    }
+
+    val displayIncome = balanceCurrencyFormat.format(uiState.totalConfirmedIncomeLKR)
+    val displaySpent = balanceCurrencyFormat.format(uiState.totalExpensesLKR)
 
     val displayDiscretionaryPercent = uiState.discretionaryPercentage
     val displayCommittedPercent = uiState.committedPercentage
 
-    // Root-level scrollable Column ensures touch and mouse-wheel scrolling works everywhere
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(NavyHeaderBg)
-            .verticalScroll(scrollState)
     ) {
-        // --- 1. Top Navy Section (Greeting + Nexus Logo + Total Amount Card) ---
-        Column(
+        // Small white bar at the top for device status bar (time, battery icons)
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .windowInsetsTopHeight(WindowInsets.statusBars)
+                .background(Color.White)
+        )
+
+        // Root-level scrollable Column ensures touch and mouse-wheel scrolling works everywhere
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
         ) {
+            // --- 1. Top Navy Section (Greeting + Nexus Logo + Total Amount Card) ---
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
             // Header Row (Good Morning + Nexus Node Logo)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -124,7 +141,7 @@ fun DashboardScreen(
                     Text(
                         text = "Total Amount",
                         color = Color(0xFFA0B2C6),
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
 
@@ -133,7 +150,7 @@ fun DashboardScreen(
                     Text(
                         text = displayBalance,
                         color = Color.White,
-                        fontSize = 30.sp,
+                        fontSize = 31.sp,
                         fontWeight = FontWeight.Bold
                     )
 
@@ -145,16 +162,16 @@ fun DashboardScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "▲ Income $displayIncome",
+                            text = "▼ Income LKR $displayIncome",
                             color = TextHeaderSubtle,
-                            fontSize = 13.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
 
                         Text(
-                            text = "▼ Spent $displaySpent",
+                            text = "▲ Spent LKR $displaySpent",
                             color = TextHeaderSubtle,
-                            fontSize = 13.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -566,6 +583,7 @@ fun DashboardScreen(
             }
         }
     }
+}
 }
 
 /**
