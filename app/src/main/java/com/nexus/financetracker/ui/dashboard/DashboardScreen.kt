@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexus.financetracker.R
 import java.text.NumberFormat
 import java.util.Locale
+import kotlin.math.roundToInt
 
 // Design System Colors matching exact Figma Wireframe
 private val NavyHeaderBg = Color(0xFF072044)
@@ -81,8 +82,7 @@ fun DashboardScreen(
         .firstOrNull { it.isNotBlank() }
         ?: "User"
 
-    val displayDiscretionaryPercent = uiState.discretionaryPercentage
-    val displayCommittedPercent = uiState.committedPercentage
+
 
     // Root-level scrollable Column ensures touch and mouse-wheel scrolling works everywhere
     Column(
@@ -273,11 +273,10 @@ fun DashboardScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Circular Progress Bar Component
+                        // Circular Income vs Expenses Graph
                         CircularSpendingProgressBar(
-                            discretionaryPercent = displayDiscretionaryPercent,
-                            committedPercent = displayCommittedPercent,
-                            hasExpenses = uiState.totalExpensesLKR > 0
+                            totalIncome = uiState.totalConfirmedIncomeLKR,
+                            totalExpenses = uiState.totalExpensesLKR
                         )
                     }
                 }
@@ -585,15 +584,19 @@ fun DashboardScreen(
 }
 
 /**
- * Circular progress bar component visually comparing Discretionary vs Committed ratios (FR18).
+ * Circular progress bar component visually comparing Total Income vs Total Expenses.
  */
 @Composable
 private fun CircularSpendingProgressBar(
-    discretionaryPercent: Int,
-    committedPercent: Int,
-    hasExpenses: Boolean,
+    totalIncome: Double,
+    totalExpenses: Double,
     modifier: Modifier = Modifier
 ) {
+    val total = totalIncome + totalExpenses
+    val incomePercent = if (total > 0) ((totalIncome / total) * 100).roundToInt() else 0
+    val expensePercent = if (total > 0) (100 - incomePercent) else 0
+    val hasData = total > 0
+
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -615,27 +618,28 @@ private fun CircularSpendingProgressBar(
                     style = Stroke(width = strokeWidth)
                 )
 
-                // Only draw progress arcs if there are expenses
-                if (hasExpenses && (committedPercent > 0 || discretionaryPercent > 0)) {
-                    // 2. Committed arc (Muted blue-gray)
-                    val committedSweep = (committedPercent / 100f) * 360f
-                    if (committedSweep > 0f) {
+                // Only draw progress arcs if there is transaction data
+                if (hasData) {
+                    val expenseSweep = (expensePercent / 100f) * 360f
+                    val incomeSweep = (incomePercent / 100f) * 360f
+
+                    // 2. Expense arc (Muted blue-gray)
+                    if (expenseSweep > 0f) {
                         drawArc(
                             color = Color(0xFFBAC7D5),
                             startAngle = -90f,
-                            sweepAngle = committedSweep,
+                            sweepAngle = expenseSweep,
                             useCenter = false,
                             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                         )
                     }
 
-                    // 3. Discretionary arc (Deep navy main progress indicator)
-                    val discretionarySweep = (discretionaryPercent / 100f) * 360f
-                    if (discretionarySweep > 0f) {
+                    // 3. Income arc (Deep navy main progress indicator)
+                    if (incomeSweep > 0f) {
                         drawArc(
                             color = TextPrimaryNavy,
-                            startAngle = -90f + committedSweep,
-                            sweepAngle = discretionarySweep,
+                            startAngle = -90f + expenseSweep,
+                            sweepAngle = incomeSweep,
                             useCenter = false,
                             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                         )
@@ -648,13 +652,13 @@ private fun CircularSpendingProgressBar(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "$discretionaryPercent%",
+                    text = if (hasData) "$incomePercent%" else "0%",
                     color = TextPrimaryNavy,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Discretionary",
+                    text = "Income",
                     color = TextSubtleNavy,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
@@ -666,10 +670,10 @@ private fun CircularSpendingProgressBar(
 
         // Ratio Subtitle
         Text(
-            text = if (hasExpenses) {
-                "$discretionaryPercent% Discretionary | $committedPercent% Committed"
+            text = if (hasData) {
+                "$incomePercent% Income | $expensePercent% Expenses"
             } else {
-                "No expenses recorded this month"
+                "No income or expenses recorded this month"
             },
             color = TextSubtleNavy,
             fontSize = 12.sp,
