@@ -71,14 +71,14 @@ val bottomNavItems = listOf(
 /**
  * Custom Bottom Navigation Bar matching the exact Figma wireframe design:
  * - Pure white container with thin top border
- * - 4 symmetric items: Home, Expenses, Alerts, Profile
+ * - 4 symmetric items: Home, Income, Alerts, Profile
  * - Central elevated Navy circular Floating Action Button with white plus icon
  */
 @Composable
 fun AppBottomNavBar(
     currentRoute: String?,
     onNavigateToDestination: (String) -> Unit,
-    onQuickAdd: () -> Unit = { onNavigateToDestination(Screen.Income.route) }
+    onQuickAdd: () -> Unit = { onNavigateToDestination(Screen.Expenses.route) }
 ) {
     Box(
         modifier = Modifier
@@ -124,13 +124,18 @@ fun AppBottomNavBar(
                         )
                     }
 
-                    // Expenses
+                    // Income
                     WireframeBottomNavItem(
-                        title = "Expenses",
-                        isSelected = currentRoute == Screen.Expenses.route,
-                        onClick = { onNavigateToDestination(Screen.Expenses.route) }
+                        title = "Income",
+                        isSelected = currentRoute == Screen.Income.route,
+                        onClick = { onNavigateToDestination(Screen.Income.route) }
                     ) { tint ->
-                        ExpensesNavIcon(tint = tint)
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                            contentDescription = "Income",
+                            tint = tint,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
 
                     // Gap in the center reserved for the elevated Floating Action Button
