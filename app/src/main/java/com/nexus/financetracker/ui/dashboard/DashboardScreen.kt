@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexus.financetracker.R
+import com.nexus.financetracker.ui.common.IncomeSourceBarChart
 import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -486,12 +487,20 @@ fun DashboardScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Income by Source",
-                                color = TextPrimaryNavy,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Column {
+                                Text(
+                                    text = "Income by Source",
+                                    color = TextPrimaryNavy,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = uiState.selectedMonthLabel.ifBlank { "Current Month" },
+                                    color = TextSubtleNavy,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                             if (uiState.incomeSources.isNotEmpty()) {
                                 Text(
                                     text = "${uiState.incomeSources.size} streams",
@@ -502,7 +511,7 @@ fun DashboardScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         if (uiState.incomeSources.isEmpty()) {
                             Column(
@@ -527,51 +536,10 @@ fun DashboardScreen(
                                 )
                             }
                         } else {
-                            uiState.incomeSources.forEachIndexed { index, sourceItem ->
-                                if (index > 0) {
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = sourceItem.source,
-                                        color = TextCategoryName,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Normal
-                                    )
-                                    Text(
-                                        text = if (sourceItem.amountLKR >= 0) {
-                                            currencyFormat.format(sourceItem.amountLKR)
-                                        } else {
-                                            "-${currencyFormat.format(kotlin.math.abs(sourceItem.amountLKR))}"
-                                        },
-                                        color = if (sourceItem.amountLKR >= 0) TextPrimaryNavy else MaterialTheme.colorScheme.error,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(6.dp))
-
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(8.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color.White)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(fraction = sourceItem.fraction.coerceIn(0.05f, 1f))
-                                            .fillMaxHeight()
-                                            .background(if (sourceItem.amountLKR >= 0) TextPrimaryNavy else MaterialTheme.colorScheme.error)
-                                    )
-                                }
-                            }
+                            IncomeSourceBarChart(
+                                items = uiState.incomeSources,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
