@@ -2,6 +2,7 @@ package com.nexus.financetracker.di
 
 import android.content.Context
 import androidx.room.Room
+import com.nexus.financetracker.data.local.dao.ExpenseDao
 import com.nexus.financetracker.data.local.dao.GoalDao
 import com.nexus.financetracker.data.local.dao.TransactionDao
 import com.nexus.financetracker.data.local.database.AppDatabase
@@ -38,4 +39,8 @@ object DatabaseModule {
 
     @Provides
     fun provideGoalDao(db: AppDatabase): GoalDao = db.goalDao()
+
+    @Provides
+    fun provideExpenseDao(db: AppDatabase): ExpenseDao = db.expenseDao()
 }
+
