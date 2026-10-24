@@ -11,7 +11,6 @@ import javax.inject.Singleton
 
 /**
  * Remote data source — wraps all Firestore operations for goals in top-level "goals" collection.
- * Conforms to Technical Document Section 5.1/5.2.
  */
 @Singleton
 class GoalRemoteDataSource @Inject constructor(
@@ -54,7 +53,8 @@ class GoalRemoteDataSource @Inject constructor(
             "startDate" to withUser.startDate,
             "targetDate" to withUser.targetDate,
             "isActive" to withUser.isActive,
-            "createdAt" to withUser.createdAt
+            "createdAt" to withUser.createdAt,
+            "priority" to withUser.priority
         )
         val ref = goalsCollection.add(data).await()
         return ref.id
@@ -62,7 +62,7 @@ class GoalRemoteDataSource @Inject constructor(
 
     suspend fun updateGoal(userId: String, goal: Goal) {
         val withUser = if (goal.userId.isEmpty()) goal.copy(userId = userId) else goal
-        val data = hashMapOf(
+        val updates = hashMapOf<String, Any>(
             "userId" to withUser.userId,
             "title" to withUser.title,
             "targetAmountLKR" to withUser.targetAmountLKR,
@@ -70,9 +70,9 @@ class GoalRemoteDataSource @Inject constructor(
             "startDate" to withUser.startDate,
             "targetDate" to withUser.targetDate,
             "isActive" to withUser.isActive,
-            "createdAt" to withUser.createdAt
+            "priority" to withUser.priority
         )
-        goalsCollection.document(goal.id).set(data).await()
+        goalsCollection.document(goal.id).update(updates).await()
     }
 
     suspend fun deleteGoal(userId: String, goalId: String) {

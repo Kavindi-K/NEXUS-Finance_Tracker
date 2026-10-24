@@ -2,15 +2,20 @@ package com.nexus.financetracker.ui.dashboard
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import coil.compose.SubcomposeAsyncImage
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,13 +25,19 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nexus.financetracker.R
+import com.nexus.financetracker.ui.common.IncomeSourceBarChart
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
 import java.util.Locale
+import kotlin.math.roundToInt
 
 // Design System Colors matching exact Figma Wireframe
 private val NavyHeaderBg = Color(0xFF072044)
@@ -45,6 +56,7 @@ fun DashboardScreen(
     onAddExpense: () -> Unit,
     onNavigateToSettings: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -55,18 +67,30 @@ fun DashboardScreen(
             maximumFractionDigits = 0
         }
     }
+    val balanceCurrencyFormat = remember {
+        NumberFormat.getNumberInstance(Locale.US).apply {
+            minimumFractionDigits = 2
+            maximumFractionDigits = 2
+        }
+    }
+    val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
 
     val displayBalance = if (uiState.netResultLKR >= 0) {
-        "LKR ${currencyFormat.format(uiState.netResultLKR)}"
+        "LKR ${balanceCurrencyFormat.format(uiState.netResultLKR)}"
     } else {
-        "-LKR ${currencyFormat.format(kotlin.math.abs(uiState.netResultLKR))}"
+        "-LKR ${balanceCurrencyFormat.format(kotlin.math.abs(uiState.netResultLKR))}"
     }
 
-    val displayIncome = currencyFormat.format(uiState.totalConfirmedIncomeLKR)
-    val displaySpent = currencyFormat.format(uiState.totalExpensesLKR)
+    val displayIncome = balanceCurrencyFormat.format(uiState.totalConfirmedIncomeLKR)
+    val displaySpent = balanceCurrencyFormat.format(uiState.totalExpensesLKR)
 
-    val displayDiscretionaryPercent = uiState.discretionaryPercentage
-    val displayCommittedPercent = uiState.committedPercentage
+    val displayFirstName = uiState.userName
+        .trim()
+        .split("\\s+".toRegex())
+        .firstOrNull { it.isNotBlank() }
+        ?: "User"
+
+
 
     // Root-level scrollable Column ensures touch and mouse-wheel scrolling works everywhere
     Column(
@@ -82,29 +106,60 @@ fun DashboardScreen(
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
-            // Header Row (Good Morning + Nexus Node Logo)
+            // Header Row (Avatar + Good Morning on left, Nexus Logo on right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = uiState.greeting.ifBlank { "Good Morning," },
-                        color = TextHeaderSubtle,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = uiState.userName.ifBlank { "User" },
-                        color = Color.White,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF1E3A8A))
+                            .border(1.5.dp, Color(0xFF60A5FA), CircleShape)
+                            .clickable(onClick = onNavigateToProfile),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (!uiState.userPhotoUrl.isNullOrBlank()) {
+                            SubcomposeAsyncImage(
+                                model = uiState.userPhotoUrl,
+                                contentDescription = "Profile Photo",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text(
+                                text = displayFirstName.firstOrNull()?.uppercase() ?: "U",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Column {
+                        Text(
+                            text = uiState.greeting.ifBlank { "Good Morning," },
+                            color = TextHeaderSubtle,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = displayFirstName,
+                            color = Color.White,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
-                NexusBrandLogo(modifier = Modifier.size(34.dp))
+                NexusBrandLogo(modifier = Modifier.height(50.dp))
             }
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -124,7 +179,7 @@ fun DashboardScreen(
                     Text(
                         text = "Total Amount",
                         color = Color(0xFFA0B2C6),
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
 
@@ -133,7 +188,7 @@ fun DashboardScreen(
                     Text(
                         text = displayBalance,
                         color = Color.White,
-                        fontSize = 30.sp,
+                        fontSize = 31.sp,
                         fontWeight = FontWeight.Bold
                     )
 
@@ -145,16 +200,16 @@ fun DashboardScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "▲ Income $displayIncome",
+                            text = "▼ Income LKR $displayIncome",
                             color = TextHeaderSubtle,
-                            fontSize = 13.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
 
                         Text(
-                            text = "▼ Spent $displaySpent",
+                            text = "▲ Spent LKR $displaySpent",
                             color = TextHeaderSubtle,
-                            fontSize = 13.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -257,16 +312,15 @@ fun DashboardScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Circular Progress Bar Component
+                        // Circular Income vs Expenses Graph
                         CircularSpendingProgressBar(
-                            discretionaryPercent = displayDiscretionaryPercent,
-                            committedPercent = displayCommittedPercent,
-                            hasExpenses = uiState.totalExpensesLKR > 0
+                            totalIncome = uiState.totalConfirmedIncomeLKR,
+                            totalExpenses = uiState.totalExpensesLKR
                         )
                     }
                 }
 
-                // Card 2: Financial Goal (FR15, FR17)
+                // Card 2: Financial Goal (Priority Goals only)
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -279,51 +333,153 @@ fun DashboardScreen(
                             .fillMaxWidth()
                             .padding(16.dp)
                     ) {
-                        val activeGoal = uiState.activeGoal
-                        val calc = uiState.activeGoalCalculation
-
-                        if (activeGoal != null) {
-                            Text(
-                                text = "Goal · ${activeGoal.title}",
-                                color = TextPrimaryNavy,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            // Progress Bar
-                            val progressFraction = calc?.progressFraction?.coerceIn(0f, 1f) ?: 0f
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(8.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color.White)
+                        val priorityGoals = uiState.priorityGoals
+                        if (priorityGoals.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                if (progressFraction > 0f) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(fraction = progressFraction)
-                                            .fillMaxHeight()
-                                            .background(TextPrimaryNavy)
+                                Text(
+                                    text = if (priorityGoals.size == 1) "Priority Goal" else "Priority Goals",
+                                    color = TextPrimaryNavy,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0xFFFEE2E2)
+                                ) {
+                                    Text(
+                                        text = "HIGH PRIORITY",
+                                        color = Color(0xFFDC2626),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                            val progressPercentStr = calc?.let { "%.0f%%".format(it.progressPercentage) } ?: "0%"
-                            val needAmountStr = calc?.let { "Need LKR ${currencyFormat.format(it.remainingAmountLKR)}" } ?: ""
-                            Text(
-                                text = if (needAmountStr.isNotBlank()) "$progressPercentStr complete | $needAmountStr" else "$progressPercentStr complete",
-                                color = TextSubtleNavy,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                            priorityGoals.forEachIndexed { index, item ->
+                                if (index > 0) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    HorizontalDivider(color = Color(0xFFCBD5E1), thickness = 0.8.dp)
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                }
+
+                                val goal = item.goal
+                                val calc = item.calculation
+                                val progressFraction = calc.progressFraction.coerceIn(0f, 1f)
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = goal.title,
+                                        color = TextPrimaryNavy,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    Text(
+                                        text = "Target: LKR ${currencyFormat.format(goal.targetAmountLKR)}",
+                                        color = TextSubtleNavy,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Progress Bar
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(10.dp)
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(Color.White)
+                                ) {
+                                    if (progressFraction > 0f) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(fraction = progressFraction)
+                                                .fillMaxHeight()
+                                                .clip(RoundedCornerShape(5.dp))
+                                                .background(TextPrimaryNavy)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                val progressPercentStr = "%.0f%%".format(calc.progressPercentage)
+                                val needAmountStr = "Need LKR ${currencyFormat.format(calc.remainingAmountLKR)}"
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "$progressPercentStr complete",
+                                        color = TextPrimaryNavy,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = needAmountStr,
+                                        color = TextSubtleNavy,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Deadline & Days Remaining Row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CalendarMonth,
+                                            contentDescription = null,
+                                            tint = TextSubtleNavy,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Text(
+                                            text = "Deadline: ${dateFormat.format(goal.targetDate)}",
+                                            fontSize = 12.sp,
+                                            color = TextSubtleNavy,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = if (calc.daysRemaining < 0) Color(0xFFFEE2E2) else TextPrimaryNavy
+                                    ) {
+                                        Text(
+                                            text = calc.daysRemainingText,
+                                            color = if (calc.daysRemaining < 0) Color(0xFFDC2626) else Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
+                            }
                         } else {
                             Text(
-                                text = "Financial Goal",
+                                text = "Priority Financial Goal",
                                 color = TextPrimaryNavy,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold
@@ -332,7 +488,7 @@ fun DashboardScreen(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
-                                text = "No active goal set",
+                                text = "No high-priority goal set",
                                 color = TextSubtleNavy,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium
@@ -341,7 +497,7 @@ fun DashboardScreen(
                             Spacer(modifier = Modifier.height(4.dp))
 
                             Text(
-                                text = "+ Tap here to set a savings goal",
+                                text = "+ Tap here to set a high-priority goal",
                                 color = TextPrimaryNavy,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
@@ -471,12 +627,20 @@ fun DashboardScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Income by Source",
-                                color = TextPrimaryNavy,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Column {
+                                Text(
+                                    text = "Income by Source",
+                                    color = TextPrimaryNavy,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = uiState.selectedMonthLabel.ifBlank { "Current Month" },
+                                    color = TextSubtleNavy,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                             if (uiState.incomeSources.isNotEmpty()) {
                                 Text(
                                     text = "${uiState.incomeSources.size} streams",
@@ -487,7 +651,7 @@ fun DashboardScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         if (uiState.incomeSources.isEmpty()) {
                             Column(
@@ -512,51 +676,10 @@ fun DashboardScreen(
                                 )
                             }
                         } else {
-                            uiState.incomeSources.forEachIndexed { index, sourceItem ->
-                                if (index > 0) {
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = sourceItem.source,
-                                        color = TextCategoryName,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Normal
-                                    )
-                                    Text(
-                                        text = if (sourceItem.amountLKR >= 0) {
-                                            currencyFormat.format(sourceItem.amountLKR)
-                                        } else {
-                                            "-${currencyFormat.format(kotlin.math.abs(sourceItem.amountLKR))}"
-                                        },
-                                        color = if (sourceItem.amountLKR >= 0) TextPrimaryNavy else MaterialTheme.colorScheme.error,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(6.dp))
-
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(8.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color.White)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(fraction = sourceItem.fraction.coerceIn(0.05f, 1f))
-                                            .fillMaxHeight()
-                                            .background(if (sourceItem.amountLKR >= 0) TextPrimaryNavy else MaterialTheme.colorScheme.error)
-                                    )
-                                }
-                            }
+                            IncomeSourceBarChart(
+                                items = uiState.incomeSources,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
@@ -569,15 +692,19 @@ fun DashboardScreen(
 }
 
 /**
- * Circular progress bar component visually comparing Discretionary vs Committed ratios (FR18).
+ * Circular progress bar component visually comparing Total Income vs Total Expenses.
  */
 @Composable
 private fun CircularSpendingProgressBar(
-    discretionaryPercent: Int,
-    committedPercent: Int,
-    hasExpenses: Boolean,
+    totalIncome: Double,
+    totalExpenses: Double,
     modifier: Modifier = Modifier
 ) {
+    val total = totalIncome + totalExpenses
+    val incomePercent = if (total > 0) ((totalIncome / total) * 100).roundToInt() else 0
+    val expensePercent = if (total > 0) (100 - incomePercent) else 0
+    val hasData = total > 0
+
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -599,27 +726,28 @@ private fun CircularSpendingProgressBar(
                     style = Stroke(width = strokeWidth)
                 )
 
-                // Only draw progress arcs if there are expenses
-                if (hasExpenses && (committedPercent > 0 || discretionaryPercent > 0)) {
-                    // 2. Committed arc (Muted blue-gray)
-                    val committedSweep = (committedPercent / 100f) * 360f
-                    if (committedSweep > 0f) {
+                // Only draw progress arcs if there is transaction data
+                if (hasData) {
+                    val expenseSweep = (expensePercent / 100f) * 360f
+                    val incomeSweep = (incomePercent / 100f) * 360f
+
+                    // 2. Expense arc (Muted blue-gray)
+                    if (expenseSweep > 0f) {
                         drawArc(
                             color = Color(0xFFBAC7D5),
                             startAngle = -90f,
-                            sweepAngle = committedSweep,
+                            sweepAngle = expenseSweep,
                             useCenter = false,
                             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                         )
                     }
 
-                    // 3. Discretionary arc (Deep navy main progress indicator)
-                    val discretionarySweep = (discretionaryPercent / 100f) * 360f
-                    if (discretionarySweep > 0f) {
+                    // 3. Income arc (Deep navy main progress indicator)
+                    if (incomeSweep > 0f) {
                         drawArc(
                             color = TextPrimaryNavy,
-                            startAngle = -90f + committedSweep,
-                            sweepAngle = discretionarySweep,
+                            startAngle = -90f + expenseSweep,
+                            sweepAngle = incomeSweep,
                             useCenter = false,
                             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                         )
@@ -632,13 +760,13 @@ private fun CircularSpendingProgressBar(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "$discretionaryPercent%",
+                    text = if (hasData) "$incomePercent%" else "0%",
                     color = TextPrimaryNavy,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Discretionary",
+                    text = "Income",
                     color = TextSubtleNavy,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
@@ -650,10 +778,10 @@ private fun CircularSpendingProgressBar(
 
         // Ratio Subtitle
         Text(
-            text = if (hasExpenses) {
-                "$discretionaryPercent% Discretionary | $committedPercent% Committed"
+            text = if (hasData) {
+                "$incomePercent% Income | $expensePercent% Expenses"
             } else {
-                "No expenses recorded this month"
+                "No income or expenses recorded this month"
             },
             color = TextSubtleNavy,
             fontSize = 12.sp,
@@ -741,39 +869,14 @@ private fun BarChartIcon(modifier: Modifier = Modifier) {
 }
 
 /**
- * Nexus 4-Node brand mark matching wireframe top-right header:
- * 4 hollow ring nodes connected by thick rounded pipes.
+ * App Logo loaded from drawables (R.drawable.app_logo) displayed on the Dashboard header.
  */
 @Composable
 private fun NexusBrandLogo(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(34.dp)) {
-        val pad = 6.dp.toPx()
-        val left = pad
-        val right = size.width - pad
-        val top = pad
-        val bottom = size.height - pad
-
-        val outerRadius = 5.2.dp.toPx()
-        val innerRadius = 2.4.dp.toPx()
-        val stroke = 3.2.dp.toPx()
-
-        // Connecting rounded loop / lines
-        drawLine(Color.White, Offset(left, top), Offset(right, top), stroke, StrokeCap.Round)
-        drawLine(Color.White, Offset(left, top), Offset(left, bottom), stroke, StrokeCap.Round)
-        drawLine(Color.White, Offset(right, top), Offset(right, bottom), stroke, StrokeCap.Round)
-        drawLine(Color.White, Offset(left, bottom), Offset(right, bottom), stroke, StrokeCap.Round)
-
-        // 4 Connected Donut Nodes
-        val nodes = listOf(
-            Offset(left, top),
-            Offset(right, top),
-            Offset(left, bottom),
-            Offset(right, bottom)
-        )
-
-        nodes.forEach { node ->
-            drawCircle(Color.White, outerRadius, node)
-            drawCircle(NavyHeaderBg, innerRadius, node)
-        }
-    }
+    Image(
+        painter = painterResource(id = R.drawable.app_logo),
+        contentDescription = "Nexus App Logo",
+        modifier = modifier,
+        contentScale = ContentScale.Fit
+    )
 }

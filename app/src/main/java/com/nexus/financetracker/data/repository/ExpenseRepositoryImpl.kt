@@ -13,7 +13,6 @@ import javax.inject.Singleton
 
 /**
  * Implementation of ExpenseRepository connecting to Firestore "expenses" collection.
- * Conforms to Technical Document Section 5.1/5.2.
  */
 @Singleton
 class ExpenseRepositoryImpl @Inject constructor(

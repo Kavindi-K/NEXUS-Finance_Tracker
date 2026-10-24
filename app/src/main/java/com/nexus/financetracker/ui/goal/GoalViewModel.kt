@@ -8,6 +8,7 @@ import com.nexus.financetracker.data.repository.GoalRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
 import com.nexus.financetracker.domain.model.Goal
 import com.nexus.financetracker.domain.model.GoalCalculation
+import com.nexus.financetracker.domain.model.GoalPriority
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -87,6 +88,7 @@ class GoalViewModel @Inject constructor(
             _formState.value = AddEditGoalState(
                 startDate = now,
                 targetDate = cal.timeInMillis,
+                priority = GoalPriority.MEDIUM,
                 isEditing = false,
                 existingGoal = null
             )
@@ -130,9 +132,17 @@ class GoalViewModel @Inject constructor(
             openingSavings = savingsStr,
             startDate = goal.startDate.time,
             targetDate = goal.targetDate.time,
+            priority = goal.priority,
             isEditing = true,
             existingGoal = goal,
             isSaving = false,
+            generalError = null
+        )
+    }
+
+    fun onPriorityChanged(value: String) {
+        _formState.value = _formState.value.copy(
+            priority = value.lowercase(),
             generalError = null
         )
     }
@@ -253,7 +263,8 @@ class GoalViewModel @Inject constructor(
                         targetAmountLKR = targetAmount!!,
                         openingSavingsLKR = openingSavings ?: 0.0,
                         startDate = startDate,
-                        targetDate = Date(current.targetDate)
+                        targetDate = Date(current.targetDate),
+                        priority = current.priority
                     )
                     goalRepository.updateGoal(userId, updated)
                 } else {
@@ -265,7 +276,8 @@ class GoalViewModel @Inject constructor(
                         startDate = startDate,
                         targetDate = Date(current.targetDate),
                         isActive = true,
-                        createdAt = Date()
+                        createdAt = Date(),
+                        priority = current.priority
                     )
                     goalRepository.addGoal(userId, newGoal)
                 }
@@ -323,6 +335,7 @@ data class AddEditGoalState(
     val openingSavings: String = "",
     val startDate: Long = System.currentTimeMillis(),
     val targetDate: Long = System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000,
+    val priority: String = GoalPriority.MEDIUM,
     val titleError: String? = null,
     val targetAmountError: String? = null,
     val openingSavingsError: String? = null,

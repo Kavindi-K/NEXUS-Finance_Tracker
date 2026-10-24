@@ -13,9 +13,11 @@ import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseClassification
 import com.nexus.financetracker.domain.model.Goal
 import com.nexus.financetracker.domain.model.GoalCalculation
+import com.nexus.financetracker.domain.model.GoalPriority
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
+import com.nexus.financetracker.domain.model.UserProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -61,7 +63,7 @@ class DashboardViewModel @Inject constructor(
         val user = auth.currentUser
         val userId = user?.uid ?: return
         val currentGreeting = getGreeting()
-        val displayName = user.displayName?.takeIf { it.isNotBlank() } ?: "Kavindu"
+        val displayName = UserProfile.formatCapitalizedName(user.displayName?.trim()?.split("\\s+".toRegex())?.firstOrNull { it.isNotBlank() } ?: "Kavindu")
         val (startOfMonth, endOfMonth) = getMonthRange()
         val monthLabel = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(startOfMonth)
 
@@ -81,10 +83,11 @@ class DashboardViewModel @Inject constructor(
                 categoryRepository.getCategories(userId).catch { emit(emptyList()) },
                 authRepository.getUserProfile(userId).catch { emit(null) }
             ) { incomes, expenses, goals, categories, userProfile ->
-                val resolvedName = userProfile?.displayName?.takeIf { it.isNotBlank() }
+                val rawName = userProfile?.displayName?.takeIf { it.isNotBlank() }
                     ?: user.displayName?.takeIf { it.isNotBlank() }
                     ?: user.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
                     ?: "User"
+                val resolvedName = UserProfile.formatCapitalizedName(rawName.trim().split("\\s+".toRegex()).firstOrNull { it.isNotBlank() } ?: "User")
 
                 // 1. Current-month confirmed incomes only (FR5, FR20 - pending strictly excluded)
                 val monthConfirmedIncomes = incomes.filter { income ->
@@ -118,15 +121,21 @@ class DashboardViewModel @Inject constructor(
                     .filter { it.classification.equals(ExpenseClassification.DISCRETIONARY, ignoreCase = true) }
                     .sumOf { it.amountLKR }
 
-                // 5. Active goal summary (FR15, FR17)
-                val activeGoal = goals.firstOrNull { it.isActive }
-                val goalCalculation = activeGoal?.let { goal ->
-                    GoalCalculation.calculate(
+                // 5. Active priority goal summary (FR15, FR17)
+                // Only priority (HIGH) active goals are displayed on the dashboard
+                val priorityGoals = goals.filter { it.isActive && it.priority.equals(GoalPriority.HIGH, ignoreCase = true) }
+                val priorityGoalItems = priorityGoals.map { goal ->
+                    PriorityGoalItem(
                         goal = goal,
-                        incomes = incomes,
-                        expenses = expenses
+                        calculation = GoalCalculation.calculate(
+                            goal = goal,
+                            incomes = incomes,
+                            expenses = expenses
+                        )
                     )
                 }
+                val activeGoal = priorityGoalItems.firstOrNull()?.goal
+                val goalCalculation = priorityGoalItems.firstOrNull()?.calculation
 
                 // 6. Category spending visualization with ID-to-name resolution (FR19 / Order 8)
                 val categorySpendings = calculateCategorySpending(
@@ -143,6 +152,7 @@ class DashboardViewModel @Inject constructor(
                     isLoading = false,
                     greeting = getGreeting(),
                     userName = resolvedName,
+                    userPhotoUrl = userProfile?.photoUrl,
                     selectedMonthLabel = monthLabel,
                     totalConfirmedIncomeLKR = totalIncome,
                     totalExpensesLKR = totalExpense,
@@ -153,6 +163,7 @@ class DashboardViewModel @Inject constructor(
                     discretionaryPercentage = discretionaryPercent,
                     activeGoal = activeGoal,
                     activeGoalCalculation = goalCalculation,
+                    priorityGoals = priorityGoalItems,
                     categorySpendings = categorySpendings,
                     incomeSources = incomeSources,
                     hasExpenseRecords = monthExpenses.isNotEmpty(),
@@ -321,12 +332,21 @@ data class IncomeSourceSpending(
 )
 
 /**
+ * Priority goal item containing Goal and real-time calculation.
+ */
+data class PriorityGoalItem(
+    val goal: Goal,
+    val calculation: GoalCalculation
+)
+
+/**
  * Immutable UI state for the Dashboard screen (FR17-FR20, FR22).
  */
 data class DashboardUiState(
     val isLoading: Boolean = true,
     val greeting: String = DashboardViewModel.getGreeting(),
     val userName: String = "User",
+    val userPhotoUrl: String? = null,
     val selectedMonthLabel: String = "",
     val totalConfirmedIncomeLKR: Double = 0.0,
     val totalExpensesLKR: Double = 0.0,
@@ -337,6 +357,7 @@ data class DashboardUiState(
     val discretionaryPercentage: Int = 0,
     val activeGoal: Goal? = null,
     val activeGoalCalculation: GoalCalculation? = null,
+    val priorityGoals: List<PriorityGoalItem> = emptyList(),
     val categorySpendings: List<CategorySpending> = emptyList(),
     val incomeSources: List<IncomeSourceSpending> = emptyList(),
     val hasExpenseRecords: Boolean = false,

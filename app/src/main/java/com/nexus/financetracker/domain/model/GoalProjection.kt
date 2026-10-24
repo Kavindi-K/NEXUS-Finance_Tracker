@@ -6,7 +6,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Pace status of a savings goal relative to its target deadline (FR16).
+ * Pace status of a savings goal relative to its target deadline.
  */
 enum class PaceStatus {
     INSUFFICIENT_HISTORY,
@@ -18,14 +18,7 @@ enum class PaceStatus {
 }
 
 /**
- * Domain model representing a goal's projected completion date and observed savings pace (FR16).
- *
- * Conforms to Technical Document Sections 2.3, 6.5 and Implementation Guide Member 3 - Order 5:
- * - Trailing actual savings rate derived from transaction history since goal startDate
- * - Projected completion date = currentDate + (remainingAmount / monthlySavingsRate)
- * - Flags whether projected date falls before, on, or after deadline in neutral language
- * - Handles insufficient history, zero/negative rate, and overdue targets
- * - Clearly marked as an estimate
+ * Domain model representing a goal's projected completion date and observed savings pace.
  */
 data class GoalProjection(
     val monthlySavingsRateLKR: Double,

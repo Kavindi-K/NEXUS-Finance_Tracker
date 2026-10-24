@@ -5,12 +5,6 @@ import java.util.Date
 
 /**
  * Represents the calculated financial progress and required savings rate for a savings goal (FR15).
- *
- * Conforms to Technical Document Section 5.2 and Implementation Guide Member 3 - Order 4:
- * - Estimated current savings = openingSavingsLKR + confirmed income (>= startDate) - expenses (>= startDate)
- * - Required monthly savings = max(0, targetAmountLKR - estimatedCurrentSavings) / monthsRemaining
- * - Pending income is strictly excluded
- * - Transactions dated before startDate are excluded to prevent double counting pre-goal savings
  */
 data class GoalCalculation(
     val goal: Goal,
@@ -24,6 +18,7 @@ data class GoalCalculation(
     val cumulativeExpenseLKR: Double,
     val isCompleted: Boolean,
     val isOverdue: Boolean,
+    val daysRemaining: Long = 0L,
     val projection: GoalProjection = GoalProjection.project(
         goal = goal,
         cumulativeConfirmedIncomeLKR = cumulativeConfirmedIncomeLKR,
@@ -36,6 +31,13 @@ data class GoalCalculation(
     val projectedCompletionDate: Date? get() = projection.projectedDate
     val paceStatus: PaceStatus get() = projection.paceStatus
     val paceMessage: String get() = projection.statusMessage
+    val daysRemainingText: String
+        get() = when {
+            daysRemaining > 1L -> "$daysRemaining days left"
+            daysRemaining == 1L -> "1 day left"
+            daysRemaining == 0L -> "Due today"
+            else -> "${-daysRemaining} days overdue"
+        }
     companion object {
         /**
          * Computes the real-time financial trajectory for the given goal against the user's
@@ -73,7 +75,7 @@ data class GoalCalculation(
             val monthsRemaining = calculateMonthsRemaining(currentDate, goal.targetDate)
             val isOverdue = currentDate.after(goal.targetDate) && remainingAmount > 0
 
-            // 6. FR15: required monthly savings = max(0, target - estimatedCurrentSavings) / monthsRemaining
+            // 6.required monthly savings = max(0, target - estimatedCurrentSavings) / monthsRemaining
             val requiredMonthlySavings = if (remainingAmount <= 0.0) {
                 0.0
             } else if (monthsRemaining > 0) {
@@ -105,6 +107,8 @@ data class GoalCalculation(
                 currentDate = currentDate
             )
 
+            val daysRemaining = calculateDaysRemaining(currentDate, goal.targetDate)
+
             return GoalCalculation(
                 goal = goal,
                 estimatedCurrentSavingsLKR = estimatedCurrentSavings,
@@ -117,6 +121,7 @@ data class GoalCalculation(
                 cumulativeExpenseLKR = cumulativeExpense,
                 isCompleted = estimatedCurrentSavings >= goal.targetAmountLKR,
                 isOverdue = isOverdue,
+                daysRemaining = daysRemaining,
                 projection = projection
             )
         }
@@ -143,6 +148,29 @@ data class GoalCalculation(
             }
 
             return maxOf(1, months)
+        }
+
+        /**
+         * Calculates full days remaining between referenceDate and targetDate at midnight boundary.
+         * Returns positive number if targetDate is in future, 0 if due today, negative if overdue.
+         */
+        fun calculateDaysRemaining(referenceDate: Date, targetDate: Date): Long {
+            val refCal = Calendar.getInstance().apply {
+                time = referenceDate
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val targetCal = Calendar.getInstance().apply {
+                time = targetDate
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val diffHours = (targetCal.timeInMillis - refCal.timeInMillis).toDouble() / (1000.0 * 60 * 60)
+            return kotlin.math.round(diffHours / 24.0).toLong()
         }
     }
 }

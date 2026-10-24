@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.CalendarToday
@@ -25,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
 import java.text.SimpleDateFormat
@@ -74,6 +76,7 @@ fun IncomeEntryScreen(
     val isSalary = formState.source == IncomeSource.SALARY
     val isFreelance = formState.source == IncomeSource.FREELANCE
     val isCrypto = formState.source == IncomeSource.CRYPTO
+    val isOther = formState.source == IncomeSource.OTHER
 
     val screenTitle = if (formState.isEditMode) "Edit Income" else "Record Income"
     val submitButtonText = if (formState.isEditMode) "Update Income" else "Save Income"
@@ -158,10 +161,15 @@ fun IncomeEntryScreen(
             ) {
                 IncomeSource.ALL.forEach { source ->
                     val isSelected = formState.source == source
+                    val chipLabel = if (source == IncomeSource.OTHER) "+ Other" else IncomeSource.getDisplayName(source)
                     FilterChip(
                         selected = isSelected,
                         onClick = { viewModel.onSourceChanged(source) },
-                        label = { Text(IncomeSource.getDisplayName(source)) }
+                        label = { Text(chipLabel) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                        )
                     )
                 }
             }
@@ -183,10 +191,25 @@ fun IncomeEntryScreen(
                         Icon(
                             Icons.Default.CheckCircle,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     },
-                    label = { Text("Confirmed (Received)") },
+                    label = {
+                        Text(
+                            text = "Confirmed (Received)",
+                            maxLines = 1,
+                            softWrap = false,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     modifier = Modifier.weight(1f)
                 )
 
@@ -197,11 +220,40 @@ fun IncomeEntryScreen(
                         Icon(
                             Icons.Default.HourglassEmpty,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     },
-                    label = { Text("Pending (Expected)") },
+                    label = {
+                        Text(
+                            text = "Pending (Expected)",
+                            maxLines = 1,
+                            softWrap = false,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Custom Source Title / Category (Shown when '+ Other' is selected)
+            if (isOther) {
+                OutlinedTextField(
+                    value = formState.customSourceTitle,
+                    onValueChange = viewModel::onCustomSourceTitleChanged,
+                    label = { Text("Income Title / Source") },
+                    placeholder = { Text("e.g. Gift, Dividends, Consulting, Rental") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    supportingText = { Text("Specify what this income is for") }
                 )
             }
 
@@ -337,6 +389,7 @@ fun IncomeEntryScreen(
                 isFreelance -> "Milestone amount in LKR"
                 isCrypto -> if (formState.isCryptoLoss) "Recording a realized loss (-LKR)" else "Recording a realized gain (+LKR)"
                 isAdSense -> "Original USD payout amount"
+                isOther -> "Amount in LKR"
                 else -> "Enter amount"
             }
 
@@ -466,7 +519,12 @@ fun IncomeEntryScreen(
 
             // Note Field (Customized label for Freelance client/project reference)
             val noteLabel = if (isFreelance) "Client or Project Reference (Optional)" else "Note (Optional)"
-            val notePlaceholder = if (isFreelance) "e.g. Acme Corp - Phase 2 milestone" else "e.g. Monthly salary deposit"
+            val notePlaceholder = when {
+                isFreelance -> "e.g. Acme Corp - Phase 2 milestone"
+                isSalary -> "e.g. Monthly salary deposit"
+                isOther -> "e.g. Additional details"
+                else -> "e.g. Transaction details"
+            }
 
             OutlinedTextField(
                 value = formState.note,

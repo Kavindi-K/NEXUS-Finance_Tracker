@@ -18,7 +18,8 @@ data class GoalEntity(
     val startDate: Long,
     val targetDate: Long,
     val isActive: Boolean,
-    val createdAt: Long
+    val createdAt: Long,
+    val priority: String = "medium"
 ) {
     fun toDomain(): Goal = Goal(
         id = id,
@@ -29,7 +30,8 @@ data class GoalEntity(
         startDate = Date(startDate),
         targetDate = Date(targetDate),
         isActive = isActive,
-        createdAt = Date(createdAt)
+        createdAt = Date(createdAt),
+        priority = priority
     )
 
     companion object {
@@ -42,7 +44,8 @@ data class GoalEntity(
             startDate = g.startDate.time,
             targetDate = g.targetDate.time,
             isActive = g.isActive,
-            createdAt = g.createdAt.time
+            createdAt = g.createdAt.time,
+            priority = g.priority
         )
     }
 }
