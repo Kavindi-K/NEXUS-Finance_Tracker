@@ -50,6 +50,7 @@ data class MonthlyReconciliation(
     val freelanceLKR: Double = 0.0,
     val adsenseLKR: Double = 0.0,
     val cryptoNetLKR: Double = 0.0,
+    val otherLKR: Double = 0.0,
     val sourceBreakdown: List<IncomeSourceTotal> = emptyList()
 )
 
@@ -71,6 +72,7 @@ data class IncomeFormState(
     val isCryptoLoss: Boolean = false,
     val dateReceived: Date = Date(),
     val expectedDate: Date = Date(),
+    val customSourceTitle: String = "",
     val note: String = "",
     val isLoading: Boolean = false,
     val isSubmitting: Boolean = false,
@@ -92,8 +94,11 @@ data class IncomeUiState(
     val filteredIncomes: List<Income> = emptyList(),
     val totalConfirmedLKR: Double = 0.0,
     val totalPendingLKR: Double = 0.0,
+    val streamConfirmedLKR: Double = 0.0,
+    val streamPendingLKR: Double = 0.0,
     val lastSalaryAmount: Double? = null,
     val selectedFilter: IncomeFilter = IncomeFilter.ALL,
+    val selectedSource: String? = null,
     val selectedMonthLabel: String = "",
     val isPeriodAllTime: Boolean = false,
     val reconciliation: MonthlyReconciliation? = null,
@@ -172,6 +177,7 @@ class IncomeViewModel @Inject constructor(
     private fun recomputeState() {
         val allIncomes = rawIncomes
         val isAllTime = _uiState.value.isPeriodAllTime
+        val selectedSource = _uiState.value.selectedSource
         val monthLabelFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
         val monthLabel = monthLabelFormat.format(selectedCalendar.time)
 
@@ -194,12 +200,12 @@ class IncomeViewModel @Inject constructor(
         val overallConfirmedTotal = allIncomes.filter { it.status == IncomeStatus.CONFIRMED }.sumOf { it.amountLKR }
         val overallPendingTotal = allIncomes.filter { it.status == IncomeStatus.PENDING }.sumOf { it.amountLKR }
 
-        // Selected period incomes
+        // Selected period incomes (taking expectedDate for pending into account)
         val periodIncomes = if (isAllTime) {
             allIncomes
         } else {
             allIncomes.filter { income ->
-                val date = income.dateReceived ?: income.createdAt
+                val date = income.dateReceived ?: income.expectedDate ?: income.createdAt
                 !date.before(startOfMonth) && !date.after(endOfMonth)
             }
         }
@@ -209,10 +215,11 @@ class IncomeViewModel @Inject constructor(
 
         val salaryTotal = periodConfirmed.filter { it.source == IncomeSource.SALARY }.sumOf { it.amountLKR }
         val freelanceTotal = periodConfirmed.filter { it.source == IncomeSource.FREELANCE }.sumOf { it.amountLKR }
-        val adsenseTotal = periodConfirmed.filter { it.source == IncomeSource.ADSENSE }.sumOf { it.amountLKR }
         val cryptoNetTotal = periodConfirmed.filter { it.source == IncomeSource.CRYPTO }.sumOf { it.amountLKR }
+        val adsenseTotal = periodConfirmed.filter { it.source == IncomeSource.ADSENSE }.sumOf { it.amountLKR }
+        val otherTotal = periodConfirmed.filter { it.source == IncomeSource.OTHER }.sumOf { it.amountLKR }
 
-        val positiveDenominator = maxOf(1.0, salaryTotal + freelanceTotal + adsenseTotal + maxOf(0.0, cryptoNetTotal))
+        val positiveDenominator = maxOf(1.0, salaryTotal + freelanceTotal + adsenseTotal + otherTotal + maxOf(0.0, cryptoNetTotal))
         val sourceBreakdown = listOf(
             IncomeSourceTotal(
                 source = IncomeSource.SALARY,
@@ -227,16 +234,22 @@ class IncomeViewModel @Inject constructor(
                 percentage = if (freelanceTotal > 0) ((freelanceTotal / positiveDenominator) * 100).toInt() else 0
             ),
             IncomeSourceTotal(
+                source = IncomeSource.CRYPTO,
+                displayName = "Crypto (Net P&L)",
+                amountLKR = cryptoNetTotal,
+                percentage = if (cryptoNetTotal > 0) ((cryptoNetTotal / positiveDenominator) * 100).toInt() else 0
+            ),
+            IncomeSourceTotal(
                 source = IncomeSource.ADSENSE,
                 displayName = "AdSense (USD)",
                 amountLKR = adsenseTotal,
                 percentage = if (adsenseTotal > 0) ((adsenseTotal / positiveDenominator) * 100).toInt() else 0
             ),
             IncomeSourceTotal(
-                source = IncomeSource.CRYPTO,
-                displayName = "Crypto (Net P&L)",
-                amountLKR = cryptoNetTotal,
-                percentage = if (cryptoNetTotal > 0) ((cryptoNetTotal / positiveDenominator) * 100).toInt() else 0
+                source = IncomeSource.OTHER,
+                displayName = "Other Income",
+                amountLKR = otherTotal,
+                percentage = if (otherTotal > 0) ((otherTotal / positiveDenominator) * 100).toInt() else 0
             )
         )
 
@@ -260,6 +273,7 @@ class IncomeViewModel @Inject constructor(
             freelanceLKR = freelanceTotal,
             adsenseLKR = adsenseTotal,
             cryptoNetLKR = cryptoNetTotal,
+            otherLKR = otherTotal,
             sourceBreakdown = sourceBreakdown
         )
 
@@ -268,13 +282,25 @@ class IncomeViewModel @Inject constructor(
             .maxByOrNull { it.dateReceived ?: it.createdAt }
             ?.amountOriginal
 
-        val filtered = applyFilter(periodIncomes, _uiState.value.selectedFilter)
+        // Incomes filtered by stream (if selectedSource != null)
+        val streamIncomes = if (selectedSource != null) {
+            periodIncomes.filter { it.source == selectedSource }
+        } else {
+            periodIncomes
+        }
+
+        val streamConfirmedLKR = streamIncomes.filter { it.status == IncomeStatus.CONFIRMED }.sumOf { it.amountLKR }
+        val streamPendingLKR = streamIncomes.filter { it.status == IncomeStatus.PENDING }.sumOf { it.amountLKR }
+
+        val filtered = applyFilter(streamIncomes, _uiState.value.selectedFilter)
 
         _uiState.value = _uiState.value.copy(
-            incomes = periodIncomes,
+            incomes = streamIncomes,
             filteredIncomes = filtered,
             totalConfirmedLKR = overallConfirmedTotal,
             totalPendingLKR = overallPendingTotal,
+            streamConfirmedLKR = streamConfirmedLKR,
+            streamPendingLKR = streamPendingLKR,
             lastSalaryAmount = lastSalary,
             selectedMonthLabel = monthLabel,
             reconciliation = reconciliation,
@@ -289,6 +315,14 @@ class IncomeViewModel @Inject constructor(
                 _formState.value = _formState.value.copy(amountOriginal = formatted)
             }
         }
+    }
+
+    fun onSourceFilterSelected(source: String?) {
+        _uiState.value = _uiState.value.copy(
+            selectedSource = source,
+            selectedFilter = IncomeFilter.ALL // When selecting a stream, default to ALL so they see both confirmed and pending
+        )
+        recomputeState()
     }
 
     fun onFilterSelected(filter: IncomeFilter) {
@@ -316,6 +350,15 @@ class IncomeViewModel @Inject constructor(
                 if (existing != null) {
                     val isCrypto = existing.source == IncomeSource.CRYPTO
                     val isLoss = isCrypto && existing.amountOriginal < 0
+                    val (sourceTitle, noteBody) = if (existing.source == IncomeSource.OTHER && existing.note != null) {
+                        if (existing.note.contains(" • ")) {
+                            existing.note.substringBefore(" • ") to existing.note.substringAfter(" • ")
+                        } else {
+                            existing.note to ""
+                        }
+                    } else {
+                        "" to (existing.note ?: "")
+                    }
                     _formState.value = IncomeFormState(
                         editingIncomeId = existing.id,
                         originalCreatedAt = existing.createdAt,
@@ -327,7 +370,8 @@ class IncomeViewModel @Inject constructor(
                         isCryptoLoss = isLoss,
                         dateReceived = existing.dateReceived ?: existing.createdAt,
                         expectedDate = existing.expectedDate ?: Date(),
-                        note = existing.note ?: "",
+                        customSourceTitle = sourceTitle,
+                        note = noteBody,
                         isLoading = false,
                         isSubmitting = false,
                         error = null
@@ -369,6 +413,10 @@ class IncomeViewModel @Inject constructor(
             }
             IncomeSource.CRYPTO -> {
                 // Crypto: Realized profit and loss in LKR
+                SourceDefaults(currency = "LKR", exchangeRate = "1.0", amount = "", status = IncomeStatus.CONFIRMED)
+            }
+            IncomeSource.OTHER -> {
+                // Other / Custom Income: Simple LKR form
                 SourceDefaults(currency = "LKR", exchangeRate = "1.0", amount = "", status = IncomeStatus.CONFIRMED)
             }
             else -> SourceDefaults(currency = "LKR", exchangeRate = "1.0", amount = "", status = IncomeStatus.CONFIRMED)
@@ -454,6 +502,10 @@ class IncomeViewModel @Inject constructor(
         _formState.value = _formState.value.copy(note = note)
     }
 
+    fun onCustomSourceTitleChanged(title: String) {
+        _formState.value = _formState.value.copy(customSourceTitle = title, error = null)
+    }
+
     fun resetForm() {
         val lastSalary = _uiState.value.lastSalaryAmount
         val prefill = lastSalary?.let {
@@ -468,7 +520,8 @@ class IncomeViewModel @Inject constructor(
             amountOriginal = prefill,
             currency = "LKR",
             exchangeRate = "1.0",
-            isCryptoLoss = false
+            isCryptoLoss = false,
+            customSourceTitle = ""
         )
     }
 
@@ -527,6 +580,19 @@ class IncomeViewModel @Inject constructor(
         val editingId = state.editingIncomeId
         val createdAt = state.originalCreatedAt ?: Date()
 
+        val finalNote = if (state.source == IncomeSource.OTHER) {
+            when {
+                state.customSourceTitle.isNotBlank() && state.note.isNotBlank() ->
+                    "${state.customSourceTitle.trim()} • ${state.note.trim()}"
+                state.customSourceTitle.isNotBlank() ->
+                    state.customSourceTitle.trim()
+                else ->
+                    state.note.trim().takeIf { it.isNotBlank() }
+            }
+        } else {
+            state.note.trim().takeIf { it.isNotBlank() }
+        }
+
         val income = Income(
             id = editingId ?: "",
             userId = userId,
@@ -538,7 +604,7 @@ class IncomeViewModel @Inject constructor(
             amountLKR = computedLKR,
             dateReceived = if (state.status == IncomeStatus.CONFIRMED) state.dateReceived else null,
             expectedDate = if (state.status == IncomeStatus.PENDING) state.expectedDate else null,
-            note = state.note.trim().takeIf { it.isNotBlank() },
+            note = finalNote,
             createdAt = createdAt,
             updatedAt = if (isEdit) Date() else null
         )

@@ -64,7 +64,7 @@ service cloud.firestore {
       return onlyKeys(d, ['userId', 'source', 'status', 'amountOriginal', 'currency',
         'exchangeRate', 'amountLKR', 'dateReceived', 'expectedDate',
         'note', 'createdAt', 'updatedAt'])
-        && d.source in ['salary', 'freelance', 'adsense', 'crypto']
+        && d.source in ['salary', 'freelance', 'adsense', 'crypto', 'other']
         && d.status in ['confirmed', 'pending']
         && d.amountOriginal is number && d.exchangeRate is number
         && d.exchangeRate > 0 && d.amountLKR is number
