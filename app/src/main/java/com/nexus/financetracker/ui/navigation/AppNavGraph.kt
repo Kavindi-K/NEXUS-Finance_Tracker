@@ -23,6 +23,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.nexus.financetracker.ui.auth.AuthViewModel
+import com.nexus.financetracker.ui.auth.ForgotPasswordScreen
 import com.nexus.financetracker.ui.auth.LoginScreen
 import com.nexus.financetracker.ui.auth.RegisterScreen
 import com.nexus.financetracker.ui.splash.SplashScreen
@@ -175,6 +176,9 @@ fun AppNavGraph(
                     },
                     onNavigateToRegister = {
                         navController.navigate(Screen.Register.route)
+                    },
+                    onNavigateToForgotPassword = {
+                        navController.navigate(Screen.ForgotPassword.route)
                     }
                 )
             }
@@ -213,6 +217,12 @@ fun AppNavGraph(
                         }
                     },
                     onNavigateToLogin = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.ForgotPassword.route) {
+                ForgotPasswordScreen(
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
