@@ -293,11 +293,12 @@ class DashboardViewModel @Inject constructor(
             val maxIncome = sourceTotals.values.maxOrNull() ?: 1.0
 
             return sourceTotals.map { (source, sum) ->
-                val name = when (source) {
-                    IncomeSource.SALARY -> "Base Salary"
-                    IncomeSource.FREELANCE -> "Freelance"
-                    IncomeSource.ADSENSE -> "AdSense (USD)"
-                    IncomeSource.CRYPTO -> "Crypto Net P&L"
+                val name = when (source.lowercase().trim()) {
+                    IncomeSource.SALARY, "salary" -> "Salary"
+                    IncomeSource.FREELANCE, "freelance" -> "Freelance"
+                    IncomeSource.CRYPTO, "crypto" -> "Crypto"
+                    IncomeSource.ADSENSE, "adsense" -> "AdSense"
+                    "other", "other_income", "other income" -> "Other"
                     else -> source.replaceFirstChar {
                         if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
                     }
@@ -307,7 +308,10 @@ class DashboardViewModel @Inject constructor(
                     amountLKR = sum,
                     fraction = if (maxIncome > 0) (sum / maxIncome).toFloat().coerceIn(0.05f, 1f) else 0.05f
                 )
-            }.sortedByDescending { it.amountLKR }
+            }.sortedWith(
+                compareBy<IncomeSourceSpending> { IncomeSource.getSourceOrder(it.source) }
+                    .thenByDescending { it.amountLKR }
+            )
         }
     }
 }

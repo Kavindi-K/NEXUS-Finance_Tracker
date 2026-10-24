@@ -105,6 +105,26 @@ object IncomeSource {
         OTHER -> "Other"
         else -> source.replaceFirstChar { it.uppercase() }
     }
+
+    /**
+     * Determines the display order of income streams matching the standard sequence:
+     * 1. Base Salary
+     * 2. Freelance
+     * 3. Crypto (Net P&L)
+     * 4. AdSense (USD)
+     * 5. Other Income
+     */
+    fun getSourceOrder(sourceKeyOrName: String): Int {
+        val lower = sourceKeyOrName.lowercase().trim()
+        return when {
+            lower == SALARY || lower.contains("salary") -> 1
+            lower == FREELANCE || lower.contains("freelance") -> 2
+            lower == CRYPTO || lower.contains("crypto") -> 3
+            lower == ADSENSE || lower.contains("adsense") -> 4
+            lower.contains("other") -> 5
+            else -> 6
+        }
+    }
 }
 
 object IncomeStatus {
