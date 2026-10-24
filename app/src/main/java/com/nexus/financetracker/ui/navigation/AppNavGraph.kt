@@ -1,5 +1,10 @@
 package com.nexus.financetracker.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -141,7 +146,27 @@ fun AppNavGraph(
             }
 
             // --- Authentication Flow ---
-            composable(Screen.Login.route) {
+            composable(
+                route = Screen.Login.route,
+                enterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Up,
+                        animationSpec = tween(durationMillis = 500, easing = EaseOutCubic)
+                    ) + fadeIn(animationSpec = tween(400))
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(300))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(300))
+                },
+                popExitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Down,
+                        animationSpec = tween(durationMillis = 400)
+                    )
+                }
+            ) {
                 LoginScreen(
                     onLoginSuccess = {
                         navController.navigate(Screen.Dashboard.route) {
@@ -154,7 +179,33 @@ fun AppNavGraph(
                 )
             }
 
-            composable(Screen.Register.route) {
+            composable(
+                route = Screen.Register.route,
+                enterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(durationMillis = 400, easing = EaseOutCubic)
+                    ) + fadeIn(animationSpec = tween(300))
+                },
+                exitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(durationMillis = 400)
+                    ) + fadeOut(animationSpec = tween(300))
+                },
+                popEnterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = tween(durationMillis = 400, easing = EaseOutCubic)
+                    ) + fadeIn(animationSpec = tween(300))
+                },
+                popExitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = tween(durationMillis = 400)
+                    ) + fadeOut(animationSpec = tween(300))
+                }
+            ) {
                 RegisterScreen(
                     onRegisterSuccess = {
                         navController.navigate(Screen.Dashboard.route) {
