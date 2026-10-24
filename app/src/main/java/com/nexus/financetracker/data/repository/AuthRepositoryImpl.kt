@@ -1,6 +1,7 @@
 package com.nexus.financetracker.data.repository
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.nexus.financetracker.domain.model.UserProfile
 import kotlinx.coroutines.channels.awaitClose
@@ -44,6 +45,13 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun saveUserProfile(profile: UserProfile): Result<Unit> = runCatching {
         firestore.collection("users").document(profile.uid).set(profile).await()
+        runCatching {
+            auth.currentUser?.updateProfile(
+                UserProfileChangeRequest.Builder()
+                    .setDisplayName(profile.displayName)
+                    .build()
+            )?.await()
+        }
     }
 
     /**
@@ -70,6 +78,13 @@ class AuthRepositoryImpl @Inject constructor(
         val updatedProfile = profile.copy(uid = uid, email = email)
         val profileResult = runCatching {
             firestore.collection("users").document(uid).set(updatedProfile).await()
+            runCatching {
+                auth.currentUser?.updateProfile(
+                    UserProfileChangeRequest.Builder()
+                        .setDisplayName(updatedProfile.displayName)
+                        .build()
+                )?.await()
+            }
         }
 
         if (profileResult.isFailure) {

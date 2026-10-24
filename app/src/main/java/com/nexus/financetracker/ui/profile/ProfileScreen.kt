@@ -2,6 +2,7 @@ package com.nexus.financetracker.ui.profile
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -9,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -19,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -31,7 +34,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
     onLogout: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToSettings: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
@@ -170,7 +174,7 @@ fun ProfileScreen(
                         Spacer(Modifier.height(12.dp))
 
                         Text(
-                            text = profile?.displayName?.ifBlank { "NEXUS User" } ?: "NEXUS User",
+                            text = profile?.capitalizedDisplayName?.ifBlank { "NEXUS User" } ?: "NEXUS User",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -255,6 +259,7 @@ fun ProfileScreen(
                                 leadingIcon = {
                                     Icon(Icons.Outlined.Person, contentDescription = null)
                                 },
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                                 isError = uiState.nameError != null,
                                 supportingText = {
                                     uiState.nameError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -420,7 +425,7 @@ fun ProfileScreen(
                             ProfileDetailRow(
                                 icon = Icons.Outlined.Person,
                                 label = "Full Name",
-                                value = profile?.displayName?.ifBlank { "Not specified" } ?: "Not specified"
+                                value = profile?.capitalizedDisplayName?.ifBlank { "Not specified" } ?: "Not specified"
                             )
 
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -450,9 +455,11 @@ fun ProfileScreen(
                     }
                 }
 
-                // 3. Security & App Settings
+                // 3. Account & System Card (with Settings entry)
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigateToSettings() },
                     shape = MaterialTheme.shapes.medium,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
@@ -462,7 +469,7 @@ fun ProfileScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text(
                             text = "Account & System",
@@ -472,33 +479,44 @@ fun ProfileScreen(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Text("Base Currency", style = MaterialTheme.typography.bodyMedium)
-                            Text("LKR (Rs)", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                        }
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Data Synchronization", style = MaterialTheme.typography.bodyMedium)
-                            Surface(
-                                shape = MaterialTheme.shapes.small,
-                                color = Color(0xFFE8F5E9)
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = "Cloud + Offline Cache",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFF2E7D32),
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                Icon(
+                                    imageVector = Icons.Outlined.Settings,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Settings",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = "Notifications, theme, biometric & currency",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "Open Settings",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }

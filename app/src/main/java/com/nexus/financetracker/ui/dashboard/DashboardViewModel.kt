@@ -17,6 +17,7 @@ import com.nexus.financetracker.domain.model.GoalPriority
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
+import com.nexus.financetracker.domain.model.UserProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,7 +63,7 @@ class DashboardViewModel @Inject constructor(
         val user = auth.currentUser
         val userId = user?.uid ?: return
         val currentGreeting = getGreeting()
-        val displayName = user.displayName?.trim()?.split("\\s+".toRegex())?.firstOrNull { it.isNotBlank() } ?: "Kavindu"
+        val displayName = UserProfile.formatCapitalizedName(user.displayName?.trim()?.split("\\s+".toRegex())?.firstOrNull { it.isNotBlank() } ?: "Kavindu")
         val (startOfMonth, endOfMonth) = getMonthRange()
         val monthLabel = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(startOfMonth)
 
@@ -86,7 +87,7 @@ class DashboardViewModel @Inject constructor(
                     ?: user.displayName?.takeIf { it.isNotBlank() }
                     ?: user.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
                     ?: "User"
-                val resolvedName = rawName.trim().split("\\s+".toRegex()).firstOrNull { it.isNotBlank() } ?: "User"
+                val resolvedName = UserProfile.formatCapitalizedName(rawName.trim().split("\\s+".toRegex()).firstOrNull { it.isNotBlank() } ?: "User")
 
                 // 1. Current-month confirmed incomes only (FR5, FR20 - pending strictly excluded)
                 val monthConfirmedIncomes = incomes.filter { income ->

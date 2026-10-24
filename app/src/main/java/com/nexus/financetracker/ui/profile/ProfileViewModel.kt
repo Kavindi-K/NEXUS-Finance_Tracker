@@ -79,7 +79,7 @@ class ProfileViewModel @Inject constructor(
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             profile = profile,
-                            nameInput = if (!_uiState.value.isEditing) profile.displayName else _uiState.value.nameInput,
+                            nameInput = if (!_uiState.value.isEditing) profile.capitalizedDisplayName.ifBlank { profile.displayName } else _uiState.value.nameInput,
                             phoneInput = if (!_uiState.value.isEditing) profile.phoneNumber else _uiState.value.phoneInput,
                             formattedCreatedAt = formattedDate,
                             errorMessage = null
@@ -98,7 +98,7 @@ class ProfileViewModel @Inject constructor(
         val currentProfile = _uiState.value.profile
         _uiState.value = _uiState.value.copy(
             isEditing = true,
-            nameInput = currentProfile?.displayName ?: "",
+            nameInput = currentProfile?.capitalizedDisplayName?.ifBlank { currentProfile.displayName } ?: "",
             phoneInput = currentProfile?.phoneNumber ?: "",
             newPasswordInput = "",
             confirmPasswordInput = "",
@@ -246,13 +246,13 @@ class ProfileViewModel @Inject constructor(
 
         val existingProfile = _uiState.value.profile ?: return
         val normalizedPhone = normalizePhone(_uiState.value.phoneInput)
-        val trimmedName = _uiState.value.nameInput.trim()
+        val formattedName = UserProfile.formatCapitalizedName(_uiState.value.nameInput)
         val pwdToUpdate = _uiState.value.newPasswordInput
 
         // Notice: email and createdAt are strictly preserved.
         // As required: do not change Auth email by updating Firestore alone.
         val updatedProfile = existingProfile.copy(
-            displayName = trimmedName,
+            displayName = formattedName,
             phoneNumber = normalizedPhone
         )
 

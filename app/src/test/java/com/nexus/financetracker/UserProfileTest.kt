@@ -83,6 +83,14 @@ class UserProfileTest {
     }
 
     @Test
+    fun formatCapitalizedName_capitalizesEachWord() {
+        assertEquals("Kavidu Gunarathna", UserProfile.formatCapitalizedName("kavidu gunarathna"))
+        assertEquals("Kavidu", UserProfile.formatCapitalizedName("kavidu"))
+        assertEquals("Kavidu Gunarathna", UserProfile.formatCapitalizedName("   kavidu   gunarathna   "))
+        assertEquals("Kavidu Gunarathna", UserProfile.formatCapitalizedName("Kavidu Gunarathna"))
+    }
+
+    @Test
     fun profilePhoneValidation_acceptsSriLankanMobileFormats() {
         // Valid 07X mobile formats
         val (nameErr1, phoneErr1) = validateProfileInputs("Kavindu Silva", "0771234567")

@@ -83,7 +83,7 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             uiState = uiState.copy(isLoading = true, errorMessage = null)
             val profile = UserProfile(
-                displayName = fullName.trim(),
+                displayName = UserProfile.formatCapitalizedName(fullName),
                 email = normalizedEmail,
                 phoneNumber = normalizedPhone
             )
