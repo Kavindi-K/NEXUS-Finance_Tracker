@@ -1,5 +1,6 @@
 package com.nexus.financetracker.ui.goal
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,16 +14,29 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexus.financetracker.domain.model.Goal
+import com.nexus.financetracker.domain.model.GoalPriority
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
+
+// Design System Colors matching exact Figma Wireframe Theme
+private val GoalNavyDark = Color(0xFF072044)         // Deep navy for title & primary emphasis
+private val GoalNavyPrimary = Color(0xFF0B3B6F)      // Sapphire navy
+private val GoalLightCardBg = Color(0xFFE2E8F0)      // Light blue-grey container matching Dashboard cards
+private val GoalSubtleNavy = Color(0xFF64748B)       // Muted slate label text
+private val GoalWhite = Color(0xFFFFFFFF)            // Pure white for progress track
+private val GoalNavyTextSubtle = Color(0xFFBAC7D5)   // Muted silver/slate on navy containers
 
 /**
  * Screen displaying the user's list of savings goals.
@@ -41,29 +55,30 @@ fun GoalListScreen(
     val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
 
     Scaffold(
+        containerColor = GoalWhite,
         topBar = {
             TopAppBar(
-                title = { Text("Savings Goals", fontWeight = FontWeight.Bold) },
+                title = { Text("Savings Goals", fontWeight = FontWeight.Bold, color = GoalNavyDark) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = GoalNavyDark)
                     }
                 },
                 actions = {
                     IconButton(onClick = viewModel::loadGoals) {
-                        Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh", tint = GoalNavyDark)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = GoalWhite
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddGoal,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                containerColor = GoalNavyDark,
+                contentColor = Color.White
             ) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = "Add Goal")
             }
@@ -76,7 +91,7 @@ fun GoalListScreen(
         ) {
             when {
                 uiState.isLoading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = GoalNavyPrimary)
                 }
 
                 uiState.errorMessage != null && uiState.goals.isEmpty() -> {
@@ -109,22 +124,24 @@ fun GoalListScreen(
                         Icon(
                             imageVector = Icons.Default.Savings,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            tint = GoalNavyPrimary.copy(alpha = 0.6f),
                             modifier = Modifier.size(72.dp)
                         )
                         Text(
                             text = "No Savings Goals Yet",
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = GoalNavyDark
                         )
                         Text(
                             text = "Define a quantified target like Kavindu's MacBook Pro M4 (LKR 490,000) with a target deadline to take control of your financial trajectory.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = GoalSubtleNavy,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                         Button(
                             onClick = onAddGoal,
+                            colors = ButtonDefaults.buttonColors(containerColor = GoalNavyDark),
                             modifier = Modifier.padding(top = 8.dp)
                         ) {
                             Icon(imageVector = Icons.Default.Add, contentDescription = null)
@@ -138,7 +155,7 @@ fun GoalListScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(items = uiState.goals, key = { it.id }) { goal ->
                             GoalCard(
@@ -164,53 +181,87 @@ private fun GoalCard(
     dateFormat: SimpleDateFormat,
     onEdit: () -> Unit
 ) {
-    ElevatedCard(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onEdit() },
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = GoalLightCardBg),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // 1. Header Row: Title, Active, Priority & Edit Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = goal.title,
-                        style = MaterialTheme.typography.titleMedium,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = GoalNavyDark
                     )
-                    if (goal.isActive) {
-                        Text(
-                            text = "Active Goal",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (goal.isActive) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = GoalWhite.copy(alpha = 0.9f)
+                            ) {
+                                Text(
+                                    text = "Active",
+                                    fontSize = 11.sp,
+                                    color = GoalNavyPrimary,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        val (badgeBg, badgeFg) = when (goal.priority.lowercase()) {
+                            GoalPriority.HIGH -> Color(0xFFFEE2E2) to Color(0xFFDC2626)
+                            GoalPriority.LOW -> GoalWhite.copy(alpha = 0.9f) to Color(0xFF475569)
+                            else -> Color(0xFFFEF3C7) to Color(0xFFD97706)
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = badgeBg
+                        ) {
+                            Text(
+                                text = "${GoalPriority.getDisplayName(goal.priority)} Priority",
+                                fontSize = 11.sp,
+                                color = badgeFg,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
-                IconButton(onClick = onEdit) {
+
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(36.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Edit Goal",
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = GoalNavyDark,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            // Financial Summary: Target & Estimated Current Savings (FR15)
+            // 2. Financial Summary: Target Amount & Estimated Current Savings (FR15)
             val currentSavings = calculation?.estimatedCurrentSavingsLKR ?: goal.openingSavingsLKR
             val remaining = calculation?.remainingAmountLKR ?: maxOf(0.0, goal.targetAmountLKR - goal.openingSavingsLKR)
             val progressFraction = calculation?.progressFraction ?: if (goal.targetAmountLKR > 0) {
@@ -222,136 +273,158 @@ private fun GoalCard(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
                     Text(
                         text = "Target Amount",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontSize = 12.sp,
+                        color = GoalSubtleNavy,
+                        fontWeight = FontWeight.Medium
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "LKR ${currencyFormat.format(goal.targetAmountLKR)}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GoalNavyDark
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "Estimated Savings*",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "Estimated Savings",
+                        fontSize = 12.sp,
+                        color = GoalSubtleNavy,
+                        fontWeight = FontWeight.Medium
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "LKR ${currencyFormat.format(currentSavings)}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GoalNavyDark
                     )
                 }
             }
 
-            // Real-time Progress Bar (FR15, FR17)
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                LinearProgressIndicator(
-                    progress = { progressFraction },
+            // 3. Real-time Progress Bar (FR15, FR17)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(8.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(GoalWhite)
+                ) {
+                    if (progressFraction > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(fraction = progressFraction)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(GoalNavyDark)
+                        )
+                    }
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "%.1f%% Complete".format(progressPercent),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GoalNavyDark
                     )
                     Text(
                         text = "Need LKR ${currencyFormat.format(remaining)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = GoalSubtleNavy
                     )
                 }
             }
 
-            // Rates Comparison: Required / Month vs Your Average / Month (FR15, Section 6.5)
+            // 4. Rates Comparison: Required / Month vs Your Average / Month (FR15, Section 6.5)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = GoalNavyDark,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                         Text(
                             text = "Required / Month",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            fontSize = 11.sp,
+                            color = GoalNavyTextSubtle,
+                            fontWeight = FontWeight.Medium
                         )
+                        Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = calculation?.let { "LKR ${currencyFormat.format(it.requiredMonthlySavingsLKR)}" }
                                 ?: "Calculating...",
-                            style = MaterialTheme.typography.titleSmall,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = Color.White
                         )
                     }
                 }
 
                 Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = GoalNavyDark,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                         Text(
                             text = "Your Average / Month",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                            fontSize = 11.sp,
+                            color = GoalNavyTextSubtle,
+                            fontWeight = FontWeight.Medium
                         )
+                        Spacer(modifier = Modifier.height(3.dp))
                         val avgRate = calculation?.actualMonthlyAverageLKR ?: 0.0
                         Text(
                             text = "LKR ${currencyFormat.format(avgRate)}",
-                            style = MaterialTheme.typography.titleSmall,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.secondary
+                            color = Color.White
                         )
                     }
                 }
             }
 
-            // Pace Status & Projected Completion Date (FR16, Section 6.5)
+            // 5. Pace Status & Projected Completion Date (FR16, Section 6.5)
             val projection = calculation?.projection
             if (projection != null) {
                 val (containerColor, contentColor) = when (projection.paceStatus) {
-                    com.nexus.financetracker.domain.model.PaceStatus.AHEAD_OF_PACE,
-                    com.nexus.financetracker.domain.model.PaceStatus.ON_TRACK,
-                    com.nexus.financetracker.domain.model.PaceStatus.COMPLETED ->
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) to MaterialTheme.colorScheme.primary
+                    com.nexus.financetracker.domain.model.PaceStatus.COMPLETED,
+                    com.nexus.financetracker.domain.model.PaceStatus.AHEAD_OF_PACE ->
+                        Color(0xFFDCFCE7) to Color(0xFF15803D) // Green for Goal Achieved
+                    com.nexus.financetracker.domain.model.PaceStatus.ON_TRACK ->
+                        Color(0xFFFFEDD5) to Color(0xFFC2410C) // Orange for On Track
                     com.nexus.financetracker.domain.model.PaceStatus.BEHIND_PACE,
                     com.nexus.financetracker.domain.model.PaceStatus.OVERDUE ->
-                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f) to MaterialTheme.colorScheme.error
+                        Color(0xFFFEE2E2) to Color(0xFFDC2626) // Red for Slightly Behind & Overdue
                     com.nexus.financetracker.domain.model.PaceStatus.INSUFFICIENT_HISTORY ->
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f) to MaterialTheme.colorScheme.onSurfaceVariant
+                        GoalWhite to Color(0xFF475569)
                 }
 
                 Surface(
-                    shape = MaterialTheme.shapes.small,
+                    shape = RoundedCornerShape(10.dp),
                     color = containerColor,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         Text(
@@ -363,19 +436,21 @@ private fun GoalCard(
                                 com.nexus.financetracker.domain.model.PaceStatus.OVERDUE -> "Deadline Passed"
                                 com.nexus.financetracker.domain.model.PaceStatus.INSUFFICIENT_HISTORY -> "Pace Projection"
                             },
-                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = contentColor
                         )
                         Text(
                             text = projection.statusMessage,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface
+                            fontSize = 11.sp,
+                            color = Color(0xFF1E293B),
+                            lineHeight = 15.sp
                         )
                     }
                 }
             }
 
+            // 6. Deadline Row & Days Left
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -388,21 +463,31 @@ private fun GoalCard(
                     Icon(
                         imageVector = Icons.Default.CalendarMonth,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = GoalSubtleNavy,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
                         text = "Deadline: ${dateFormat.format(goal.targetDate)}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontSize = 12.sp,
+                        color = GoalSubtleNavy,
+                        fontWeight = FontWeight.Medium
                     )
                 }
 
-                Text(
-                    text = "*Estimate, not bank balance",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
+                val daysText = calculation?.daysRemainingText ?: goal.daysRemainingText
+                val isOverdue = (calculation?.daysRemaining ?: goal.daysRemaining) < 0
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (isOverdue) Color(0xFFFEE2E2) else GoalNavyDark
+                ) {
+                    Text(
+                        text = daysText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isOverdue) Color(0xFFDC2626) else Color.White,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
             }
         }
     }

@@ -462,4 +462,58 @@ class GoalCalculationTest {
         // Required / Month for 10 months horizon = 332,900 / 10 = 33,290.0 LKR/mo
         assertEquals(33290.0, calculation.requiredMonthlySavingsLKR, 0.01)
     }
+
+    @Test
+    fun calculateDaysRemaining_correctlyComputesDaysAndFormattedText() {
+        val baseCal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 23, 10, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val refDate = baseCal.time
+
+        // 1. Future: 10 days away
+        val futureCal10 = Calendar.getInstance().apply {
+            set(2026, Calendar.NOVEMBER, 2, 18, 30, 0)
+        }
+        val days10 = GoalCalculation.calculateDaysRemaining(refDate, futureCal10.time)
+        assertEquals(10L, days10)
+
+        // 2. Tomorrow: 1 day away
+        val tomorrowCal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 24, 8, 0, 0)
+        }
+        val days1 = GoalCalculation.calculateDaysRemaining(refDate, tomorrowCal.time)
+        assertEquals(1L, days1)
+
+        // 3. Today
+        val todayLaterCal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 23, 23, 59, 0)
+        }
+        val days0 = GoalCalculation.calculateDaysRemaining(refDate, todayLaterCal.time)
+        assertEquals(0L, days0)
+
+        // 4. Overdue by 3 days
+        val pastCal3 = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 20, 12, 0, 0)
+        }
+        val daysPast = GoalCalculation.calculateDaysRemaining(refDate, pastCal3.time)
+        assertEquals(-3L, daysPast)
+
+        // 5. Test GoalCalculation helper texts
+        val goalFuture = Goal(title = "Test", targetDate = futureCal10.time)
+        val calcFuture = GoalCalculation.calculate(goal = goalFuture, incomes = emptyList(), expenses = emptyList(), currentDate = refDate)
+        assertEquals("10 days left", calcFuture.daysRemainingText)
+
+        val goalTomorrow = Goal(title = "Test", targetDate = tomorrowCal.time)
+        val calcTomorrow = GoalCalculation.calculate(goal = goalTomorrow, incomes = emptyList(), expenses = emptyList(), currentDate = refDate)
+        assertEquals("1 day left", calcTomorrow.daysRemainingText)
+
+        val goalToday = Goal(title = "Test", targetDate = todayLaterCal.time)
+        val calcToday = GoalCalculation.calculate(goal = goalToday, incomes = emptyList(), expenses = emptyList(), currentDate = refDate)
+        assertEquals("Due today", calcToday.daysRemainingText)
+
+        val goalPast = Goal(title = "Test", targetDate = pastCal3.time)
+        val calcPast = GoalCalculation.calculate(goal = goalPast, incomes = emptyList(), expenses = emptyList(), currentDate = refDate)
+        assertEquals("3 days overdue", calcPast.daysRemainingText)
+    }
 }
