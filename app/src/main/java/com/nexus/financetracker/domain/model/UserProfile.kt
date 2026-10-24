@@ -20,6 +20,17 @@ data class UserProfile(
         get() = formatCapitalizedName(displayName)
 
     companion object {
+        val PHONE_REGEX = Regex("^(\\+94[0-9]{9}|0[0-9]{9}|[1-9][0-9]{8})$")
+
+        fun cleanPhoneNumber(phone: String): String {
+            return phone.replace(Regex("[\\s\\-().]"), "")
+        }
+
+        fun isValidPhoneNumber(phone: String): Boolean {
+            val clean = cleanPhoneNumber(phone)
+            return clean.matches(PHONE_REGEX)
+        }
+
         fun formatCapitalizedName(name: String): String {
             return name.trim()
                 .split("\\s+".toRegex())

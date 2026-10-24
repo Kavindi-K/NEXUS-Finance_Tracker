@@ -36,16 +36,11 @@ class UserProfileTest {
             else -> null
         }
 
-        val stripped = phone.replace(Regex("[\\s\\-().]"), "").trimStart('+')
+        val clean = UserProfile.cleanPhoneNumber(phone)
         val phoneErr = when {
-            stripped.isBlank() -> "Phone number is required"
-            !stripped.all { it.isDigit() } -> "Phone number must contain only digits (spaces and dashes are allowed)"
-            else -> {
-                val normalised = normalizePhone(phone)
-                if (!sriLankanMobilePattern.matcher(normalised).matches()) {
-                    "Enter a valid Sri Lankan mobile number (e.g. 0771234567)"
-                } else null
-            }
+            clean.isBlank() -> "Phone number is required"
+            !UserProfile.isValidPhoneNumber(phone) -> "Enter a valid phone number (e.g. +94778654657, 0116754378, or 748796654)"
+            else -> null
         }
 
         return Pair(nameErr, phoneErr)
@@ -91,20 +86,39 @@ class UserProfileTest {
     }
 
     @Test
-    fun profilePhoneValidation_acceptsSriLankanMobileFormats() {
-        // Valid 07X mobile formats
-        val (nameErr1, phoneErr1) = validateProfileInputs("Kavindu Silva", "0771234567")
-        assertNull(nameErr1)
+    fun profilePhoneValidation_acceptsAllThreePatterns() {
+        // Pattern 1: Starts with +94 followed by 9 digits
+        val (_, phoneErr1) = validateProfileInputs("Kavindu Silva", "+94778654657")
         assertNull(phoneErr1)
-        assertEquals("+94771234567", normalizePhone("0771234567"))
+        assertTrue(UserProfile.isValidPhoneNumber("+94778654657"))
+        assertEquals("+94778654657", UserProfile.cleanPhoneNumber("+94778654657"))
 
-        val (_, phoneErr2) = validateProfileInputs("Kavindu Silva", "+94719876543")
+        // Pattern 2: Starts with 0 followed by 9 digits (including 011, 077, etc.)
+        val (_, phoneErr2) = validateProfileInputs("Kavindu Silva", "0116754378")
         assertNull(phoneErr2)
-        assertEquals("+94719876543", normalizePhone("+94719876543"))
+        assertTrue(UserProfile.isValidPhoneNumber("0116754378"))
+        assertEquals("0116754378", UserProfile.cleanPhoneNumber("0116754378"))
 
-        val (_, phoneErr3) = validateProfileInputs("Kavindu Silva", " 078-345-6789 ")
+        val (_, phoneErr2Mobile) = validateProfileInputs("Kavindu Silva", "0771234567")
+        assertNull(phoneErr2Mobile)
+        assertTrue(UserProfile.isValidPhoneNumber("0771234567"))
+
+        // Pattern 3: Without 0 and 9 numbers
+        val (_, phoneErr3) = validateProfileInputs("Kavindu Silva", "748796654")
         assertNull(phoneErr3)
-        assertEquals("+94783456789", normalizePhone(" 078-345-6789 "))
+        assertTrue(UserProfile.isValidPhoneNumber("748796654"))
+        assertEquals("748796654", UserProfile.cleanPhoneNumber("748796654"))
+
+        // With spaces and dashes
+        val (_, phoneErrDashes) = validateProfileInputs("Kavindu Silva", " 078-345-6789 ")
+        assertNull(phoneErrDashes)
+        assertTrue(UserProfile.isValidPhoneNumber(" 078-345-6789 "))
+        assertEquals("0783456789", UserProfile.cleanPhoneNumber(" 078-345-6789 "))
+
+        val (_, phoneErrPlusDashes) = validateProfileInputs("Kavindu Silva", "+94 77 865 4657")
+        assertNull(phoneErrPlusDashes)
+        assertTrue(UserProfile.isValidPhoneNumber("+94 77 865 4657"))
+        assertEquals("+94778654657", UserProfile.cleanPhoneNumber("+94 77 865 4657"))
     }
 
     @Test
@@ -113,15 +127,23 @@ class UserProfileTest {
         assertEquals("Phone number is required", phoneErrBlank)
 
         val (_, phoneErrLetters) = validateProfileInputs("Kavindu", "077abc1234")
-        assertEquals("Phone number must contain only digits (spaces and dashes are allowed)", phoneErrLetters)
+        assertEquals("Enter a valid phone number (e.g. +94778654657, 0116754378, or 748796654)", phoneErrLetters)
 
-        // Invalid prefix (e.g. 011 is landline, only 07X mobile allowed)
-        val (_, phoneErrLandline) = validateProfileInputs("Kavindu", "0112345678")
-        assertEquals("Enter a valid Sri Lankan mobile number (e.g. 0771234567)", phoneErrLandline)
+        // Invalid: starts with 0 but only 9 digits total (only 8 digits after 0)
+        val (_, phoneErrZeroShort) = validateProfileInputs("Kavindu", "077123456")
+        assertEquals("Enter a valid phone number (e.g. +94778654657, 0116754378, or 748796654)", phoneErrZeroShort)
 
-        // Invalid length
+        // Invalid: too short
         val (_, phoneErrShort) = validateProfileInputs("Kavindu", "077123")
-        assertEquals("Enter a valid Sri Lankan mobile number (e.g. 0771234567)", phoneErrShort)
+        assertEquals("Enter a valid phone number (e.g. +94778654657, 0116754378, or 748796654)", phoneErrShort)
+
+        // Invalid: too long
+        val (_, phoneErrLong) = validateProfileInputs("Kavindu", "077123456789")
+        assertEquals("Enter a valid phone number (e.g. +94778654657, 0116754378, or 748796654)", phoneErrLong)
+
+        // Invalid: wrong international code
+        val (_, phoneErrWrongCode) = validateProfileInputs("Kavindu", "+12345678901")
+        assertEquals("Enter a valid phone number (e.g. +94778654657, 0116754378, or 748796654)", phoneErrWrongCode)
     }
 
     @Test

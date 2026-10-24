@@ -296,17 +296,13 @@ fun ProfileScreen(
                                 value = uiState.phoneInput,
                                 onValueChange = { viewModel.onPhoneChanged(it) },
                                 label = { Text("Phone Number") },
-                                placeholder = { Text("0771234567 or +94771234567") },
+                                placeholder = { Text("+94778654657, 0116754378, or 748796654") },
                                 leadingIcon = {
                                     Icon(Icons.Outlined.Phone, contentDescription = null)
                                 },
                                 isError = uiState.phoneError != null,
                                 supportingText = {
-                                    if (uiState.phoneError != null) {
-                                        Text(uiState.phoneError!!, color = MaterialTheme.colorScheme.error)
-                                    } else {
-                                        Text("Sri Lankan mobile (+94) format")
-                                    }
+                                    uiState.phoneError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                                 },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                                 singleLine = true,
@@ -455,88 +451,90 @@ fun ProfileScreen(
                     }
                 }
 
-                // 3. Account & System Card (with Settings entry)
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onNavigateToSettings() },
-                    shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                    )
-                ) {
-                    Column(
+                // 3. Account & System & Actions (Visible only in View mode)
+                if (!uiState.isEditing) {
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Text(
-                            text = "Account & System",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            .clickable { onNavigateToSettings() },
+                        shape = MaterialTheme.shapes.medium,
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                         )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Settings,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Settings",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = "Notifications, theme, biometric & currency",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = "Open Settings",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
+                            Text(
+                                text = "Account & System",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
                             )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Settings,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Settings",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = "Notifications, theme, biometric & currency",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = "Open Settings",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
-                }
 
-                // 4. Sign Out Button
-                OutlinedButton(
-                    onClick = { showLogoutDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Logout,
-                        contentDescription = "Sign Out",
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Sign Out of NEXUS", fontWeight = FontWeight.SemiBold)
+                    // 4. Sign Out Button
+                    OutlinedButton(
+                        onClick = { showLogoutDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = "Sign Out",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Sign Out of NEXUS", fontWeight = FontWeight.SemiBold)
+                    }
                 }
 
                 Spacer(Modifier.height(16.dp))

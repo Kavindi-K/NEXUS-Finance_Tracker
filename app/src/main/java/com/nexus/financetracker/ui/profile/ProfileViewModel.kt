@@ -198,20 +198,14 @@ class ProfileViewModel @Inject constructor(
         } else null
 
         val rawPhone = _uiState.value.phoneInput
-        val stripped = rawPhone.replace(Regex("[\\s\\-().]"), "").trimStart('+')
-        val phoneErr = if (stripped.isBlank()) {
+        val clean = UserProfile.cleanPhoneNumber(rawPhone)
+        val phoneErr = if (clean.isBlank()) {
             hasError = true
             "Phone number is required"
-        } else if (!stripped.all { it.isDigit() }) {
+        } else if (!UserProfile.isValidPhoneNumber(rawPhone)) {
             hasError = true
-            "Phone number must contain only digits (spaces and dashes are allowed)"
-        } else {
-            val normalised = normalizePhone(rawPhone)
-            if (!normalised.matches(Regex("^\\+947[0-9]{8}$"))) {
-                hasError = true
-                "Enter a valid Sri Lankan mobile number (e.g. 0771234567)"
-            } else null
-        }
+            "Enter a valid phone number (e.g. +94778654657, 0116754378, or 748796654)"
+        } else null
 
         val pwd = _uiState.value.newPasswordInput
         val confirmPwd = _uiState.value.confirmPasswordInput
@@ -245,7 +239,7 @@ class ProfileViewModel @Inject constructor(
         if (!validateInputs()) return
 
         val existingProfile = _uiState.value.profile ?: return
-        val normalizedPhone = normalizePhone(_uiState.value.phoneInput)
+        val cleanPhone = UserProfile.cleanPhoneNumber(_uiState.value.phoneInput)
         val formattedName = UserProfile.formatCapitalizedName(_uiState.value.nameInput)
         val pwdToUpdate = _uiState.value.newPasswordInput
 
@@ -253,7 +247,7 @@ class ProfileViewModel @Inject constructor(
         // As required: do not change Auth email by updating Firestore alone.
         val updatedProfile = existingProfile.copy(
             displayName = formattedName,
-            phoneNumber = normalizedPhone
+            phoneNumber = cleanPhone
         )
 
         viewModelScope.launch {

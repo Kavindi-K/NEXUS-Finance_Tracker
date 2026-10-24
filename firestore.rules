@@ -47,7 +47,7 @@ service cloud.firestore {
         && d.displayName is string && d.displayName.size() > 0
         && d.email == request.auth.token.email
         && d.phoneNumber is string
-        && d.phoneNumber.matches('^\\+[1-9][0-9]{7,14}$')
+        && d.phoneNumber.matches('^(\\+94[0-9]{9}|0[0-9]{9}|[1-9][0-9]{8})$')
         && d.createdAt is timestamp;
     }
 

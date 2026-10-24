@@ -74,7 +74,8 @@ fun RegisterScreen(
         OutlinedTextField(
             value = phone,
             onValueChange = { phone = it },
-            label = { Text("Phone Number (e.g. 0771234567)") },
+            label = { Text("Phone Number") },
+            placeholder = { Text("+94778654657, 0116754378, or 748796654") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
