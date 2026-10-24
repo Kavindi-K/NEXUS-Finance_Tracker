@@ -537,15 +537,25 @@ private fun IncomeCard(
     val icon: ImageVector = when (income.source) {
         IncomeSource.SALARY -> Icons.Default.Work
         IncomeSource.FREELANCE -> Icons.Default.Laptop
-        IncomeSource.ADSENSE -> Icons.Default.AdsClick
         IncomeSource.CRYPTO -> Icons.Default.CurrencyBitcoin
+        IncomeSource.ADSENSE -> Icons.Default.AdsClick
+        IncomeSource.OTHER -> Icons.Default.AccountBalanceWallet
         else -> Icons.Default.AttachMoney
     }
 
     // In a dedicated stream view, avoid repeating the stream name (e.g. "AdSense").
     // Prioritize the user's note/description, or a specific payout title.
-    val displayTitle = if (isStreamView) {
-        if (!income.note.isNullOrBlank()) {
+    val (displayTitle, subtitleNote) = if (income.source == IncomeSource.OTHER) {
+        val noteContent = income.note
+        if (noteContent != null && noteContent.contains(" • ")) {
+            noteContent.substringBefore(" • ") to noteContent.substringAfter(" • ")
+        } else if (!noteContent.isNullOrBlank()) {
+            noteContent to null
+        } else {
+            "Other Income" to null
+        }
+    } else if (isStreamView) {
+        val title = if (!income.note.isNullOrBlank()) {
             income.note
         } else {
             when (income.source) {
@@ -556,11 +566,12 @@ private fun IncomeCard(
                 else -> "Income Payout"
             }
         }
+        title to null
     } else {
-        IncomeSource.getDisplayName(income.source)
+        IncomeSource.getDisplayName(income.source) to income.note
     }
 
-    val showNoteAsSubtitle = !isStreamView && !income.note.isNullOrBlank()
+    val showNoteAsSubtitle = !isStreamView && !subtitleNote.isNullOrBlank()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -621,7 +632,7 @@ private fun IncomeCard(
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
-                                text = income.note!!,
+                                text = subtitleNote!!,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1
@@ -1060,8 +1071,9 @@ private fun IncomeBreakdownBottomSheet(
                                 val (icon, iconBg, iconTint) = when (sourceItem.source) {
                                     IncomeSource.SALARY -> Triple(Icons.Default.Work, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
                                     IncomeSource.FREELANCE -> Triple(Icons.Default.Laptop, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-                                    IncomeSource.ADSENSE -> Triple(Icons.Default.AdsClick, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
                                     IncomeSource.CRYPTO -> Triple(Icons.Default.CurrencyBitcoin, Color(0xFFFFF3E0), Color(0xFFE65100))
+                                    IncomeSource.ADSENSE -> Triple(Icons.Default.AdsClick, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
+                                    IncomeSource.OTHER -> Triple(Icons.Default.AccountBalanceWallet, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
                                     else -> Triple(Icons.Default.AttachMoney, MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
 
@@ -1143,8 +1155,9 @@ private fun StreamHeroCard(
     val icon = when (source) {
         IncomeSource.SALARY -> Icons.Default.Work
         IncomeSource.FREELANCE -> Icons.Default.Laptop
-        IncomeSource.ADSENSE -> Icons.Default.AdsClick
         IncomeSource.CRYPTO -> Icons.Default.CurrencyBitcoin
+        IncomeSource.ADSENSE -> Icons.Default.AdsClick
+        IncomeSource.OTHER -> Icons.Default.AccountBalanceWallet
         else -> Icons.Default.AttachMoney
     }
 
