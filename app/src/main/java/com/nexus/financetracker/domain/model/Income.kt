@@ -97,7 +97,7 @@ object IncomeSource {
     val ALL = listOf(SALARY, FREELANCE, ADSENSE, CRYPTO)
 
     fun getDisplayName(source: String): String = when (source) {
-        SALARY -> "Salary"
+        SALARY -> "Base Salary"
         FREELANCE -> "Freelance"
         ADSENSE -> "AdSense"
         CRYPTO -> "Realized Crypto"
