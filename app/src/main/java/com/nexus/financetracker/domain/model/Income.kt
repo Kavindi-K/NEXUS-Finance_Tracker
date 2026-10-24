@@ -96,12 +96,31 @@ object IncomeSource {
 
     val ALL = listOf(SALARY, FREELANCE, ADSENSE, CRYPTO)
 
-    fun getDisplayName(source: String): String = when (source) {
-        SALARY -> "Salary"
-        FREELANCE -> "Freelance"
-        ADSENSE -> "AdSense"
-        CRYPTO -> "Realized Crypto"
-        else -> source.replaceFirstChar { it.uppercase() }
+    fun getDisplayName(source: String): String = when (source.lowercase().trim()) {
+        SALARY, "salary", "base salary" -> "Salary"
+        FREELANCE, "freelance" -> "Freelance"
+        ADSENSE, "adsense" -> "AdSense"
+        CRYPTO, "crypto" -> "Crypto"
+        else -> "Other"
+    }
+
+    /**
+     * Determines the display order of income streams matching the standard sequence:
+     * 1. Salary
+     * 2. Freelance
+     * 3. Crypto
+     * 4. AdSense
+     * 5. Other
+     */
+    fun getSourceOrder(sourceKeyOrName: String): Int {
+        val lower = sourceKeyOrName.lowercase().trim()
+        return when {
+            lower == SALARY || lower.contains("salary") -> 1
+            lower == FREELANCE || lower.contains("freelance") -> 2
+            lower == CRYPTO || lower.contains("crypto") -> 3
+            lower == ADSENSE || lower.contains("adsense") -> 4
+            else -> 5
+        }
     }
 }
 

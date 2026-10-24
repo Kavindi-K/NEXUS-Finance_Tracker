@@ -8,6 +8,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import com.nexus.financetracker.domain.model.IncomeSource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,10 +56,36 @@ fun IncomeSourceBarChart(
 ) {
     if (items.isEmpty()) return
 
-    val maxAmount = items.maxOfOrNull { it.amountLKR }?.coerceAtLeast(1.0) ?: 1.0
+    val sortedItems = remember(items) {
+        items.map { item ->
+            val cleanName = when {
+                item.source.contains("salary", ignoreCase = true) -> "Salary"
+                item.source.contains("freelance", ignoreCase = true) -> "Freelance"
+                item.source.contains("crypto", ignoreCase = true) -> "Crypto"
+                item.source.contains("adsense", ignoreCase = true) -> "AdSense"
+                else -> "Other"
+            }
+            Pair(cleanName, item.amountLKR)
+        }.groupBy({ it.first }, { it.second })
+        .map { (name, amounts) ->
+            val totalSum = amounts.sum()
+            IncomeSourceSpending(
+                source = name,
+                amountLKR = totalSum,
+                fraction = 1f
+            )
+        }.sortedWith(
+            compareBy<IncomeSourceSpending> { IncomeSource.getSourceOrder(it.source) }
+                .thenByDescending { it.amountLKR }
+        )
+    }
+
+    val maxAmount = sortedItems.maxOfOrNull { it.amountLKR }?.coerceAtLeast(1.0) ?: 1.0
     val yTop = maxAmount
     val yMid = maxAmount / 2.0
-    val chartHeight = 150.dp
+    val labelAreaHeight = 20.dp
+    val plotHeight = 120.dp
+    val totalChartHeight = labelAreaHeight + plotHeight
 
     Column(modifier = modifier) {
         // Y-Axis title
@@ -73,33 +101,42 @@ fun IncomeSourceBarChart(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(chartHeight)
+                .height(totalChartHeight)
         ) {
-            // Y-Axis tick labels on the left
-            Column(
+            // Y-Axis tick labels on the left (aligned with grid lines)
+            Box(
                 modifier = Modifier
-                    .fillMaxHeight()
+                    .width(36.dp)
+                    .height(totalChartHeight)
                     .padding(end = 8.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.End
+                contentAlignment = Alignment.TopEnd
             ) {
                 Text(
                     text = formatCompactLkr(yTop),
                     color = ChartMuted,
                     fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier
+                        .offset(y = labelAreaHeight - 7.dp)
+                        .align(Alignment.TopEnd)
                 )
                 Text(
                     text = formatCompactLkr(yMid),
                     color = ChartMuted,
                     fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier
+                        .offset(y = labelAreaHeight + plotHeight / 2f - 7.dp)
+                        .align(Alignment.TopEnd)
                 )
                 Text(
                     text = "0",
                     color = ChartMuted,
                     fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier
+                        .offset(y = labelAreaHeight + plotHeight - 8.dp)
+                        .align(Alignment.TopEnd)
                 )
             }
 
@@ -107,18 +144,22 @@ fun IncomeSourceBarChart(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight()
+                    .height(totalChartHeight)
             ) {
                 // Background horizontal grid lines
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val lineColor = ChartGrid.copy(alpha = 0.45f)
                     val strokeW = 1.dp.toPx()
-                    // Top line
-                    drawLine(lineColor, Offset(0f, 0f), Offset(size.width, 0f), strokeWidth = strokeW)
-                    // Mid line
-                    drawLine(lineColor, Offset(0f, size.height / 2f), Offset(size.width, size.height / 2f), strokeWidth = strokeW)
-                    // Baseline (X-axis)
-                    drawLine(ChartNavy, Offset(0f, size.height - 1.dp.toPx()), Offset(size.width, size.height - 1.dp.toPx()), strokeWidth = strokeW * 2f)
+                    val topY = labelAreaHeight.toPx()
+                    val midY = (labelAreaHeight + plotHeight / 2f).toPx()
+                    val baseY = (labelAreaHeight + plotHeight).toPx()
+
+                    // Top line (yTop)
+                    drawLine(lineColor, Offset(0f, topY), Offset(size.width, topY), strokeWidth = strokeW)
+                    // Mid line (yMid)
+                    drawLine(lineColor, Offset(0f, midY), Offset(size.width, midY), strokeWidth = strokeW)
+                    // Baseline (X-axis, 0)
+                    drawLine(ChartNavy, Offset(0f, baseY), Offset(size.width, baseY), strokeWidth = strokeW * 1.5f)
                 }
 
                 // Vertical bars horizontally scrollable
@@ -130,13 +171,14 @@ fun IncomeSourceBarChart(
                     horizontalArrangement = Arrangement.spacedBy(22.dp),
                     verticalAlignment = Alignment.Bottom
                 ) {
-                    items.forEach { item ->
-                        val barFraction = (item.amountLKR / maxAmount).toFloat().coerceIn(0.04f, 1f)
+                    sortedItems.forEach { item ->
+                        val barFraction = (item.amountLKR / maxAmount).toFloat().coerceIn(0f, 1f)
+                        val barHeight = (plotHeight * barFraction).coerceAtLeast(if (item.amountLKR > 0) 3.dp else 0.dp)
 
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Bottom,
-                            modifier = Modifier.fillMaxHeight()
+                            modifier = Modifier.height(totalChartHeight)
                         ) {
                             // Amount label above bar
                             Text(
@@ -147,13 +189,13 @@ fun IncomeSourceBarChart(
                                 maxLines = 1
                             )
 
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(3.dp))
 
-                            // Vertical bar
+                            // Vertical bar reaching exact value on Y-axis
                             Box(
                                 modifier = Modifier
                                     .width(36.dp)
-                                    .fillMaxHeight(fraction = barFraction * 0.78f)
+                                    .height(barHeight)
                                     .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                                     .background(ChartNavy)
                             )
@@ -169,7 +211,7 @@ fun IncomeSourceBarChart(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 38.dp) // Offset for Y-axis labels width
+                .padding(start = 36.dp) // Offset for Y-axis labels width
         ) {
             Row(
                 modifier = Modifier
@@ -178,7 +220,7 @@ fun IncomeSourceBarChart(
                     .padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(22.dp)
             ) {
-                items.forEach { item ->
+                sortedItems.forEach { item ->
                     Box(
                         modifier = Modifier.width(36.dp),
                         contentAlignment = Alignment.TopCenter
@@ -202,7 +244,7 @@ fun IncomeSourceBarChart(
 
         // X-Axis Title
         Text(
-            text = "Income Source →",
+            text = "Income Source",
             color = ChartMuted,
             fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
