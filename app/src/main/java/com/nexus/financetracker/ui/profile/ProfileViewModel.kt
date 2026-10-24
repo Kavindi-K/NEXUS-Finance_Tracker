@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
+import com.nexus.financetracker.data.remote.CloudinaryImageUploader
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
 data class ProfileUiState(
@@ -29,6 +31,7 @@ data class ProfileUiState(
     val passwordError: String? = null,
     val confirmPasswordError: String? = null,
     val isSaving: Boolean = false,
+    val isUploadingPhoto: Boolean = false,
     val userMessage: String? = null,
     val errorMessage: String? = null,
     val formattedCreatedAt: String = ""
@@ -36,7 +39,8 @@ data class ProfileUiState(
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val cloudinaryUploader: CloudinaryImageUploader
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -280,6 +284,79 @@ class ProfileViewModel @Inject constructor(
                     isSaving = false,
                     errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Failed to save profile"
                 )
+            }
+        }
+    }
+
+    fun uploadProfilePhoto(uri: android.net.Uri) {
+        val uid = currentUserId ?: run {
+            android.util.Log.e("ProfilePhoto", "currentUserId is null in uploadProfilePhoto")
+            return
+        }
+        android.util.Log.d("ProfilePhoto", "uploadProfilePhoto called for $uid with uri: $uri")
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUploadingPhoto = true, errorMessage = null, userMessage = null) }
+            val uploadResult = cloudinaryUploader.uploadProfileImage(uri, uid)
+            uploadResult.onSuccess { secureUrl ->
+                android.util.Log.d("ProfilePhoto", "Cloudinary upload success: $secureUrl")
+                val currentProfile = _uiState.value.profile
+                if (currentProfile != null) {
+                    val updatedProfile = currentProfile.copy(photoUrl = secureUrl)
+                    val saveResult = authRepository.saveUserProfile(updatedProfile)
+                    if (saveResult.isSuccess) {
+                        android.util.Log.d("ProfilePhoto", "Profile saved with photoUrl in Firestore")
+                        _uiState.update {
+                            it.copy(
+                                isUploadingPhoto = false,
+                                profile = updatedProfile,
+                                userMessage = "Profile photo updated successfully!"
+                            )
+                        }
+                    } else {
+                        android.util.Log.e("ProfilePhoto", "Failed to save profile: ${saveResult.exceptionOrNull()?.localizedMessage}")
+                        _uiState.update {
+                            it.copy(
+                                isUploadingPhoto = false,
+                                errorMessage = "Photo uploaded, but could not update profile: ${saveResult.exceptionOrNull()?.localizedMessage}"
+                            )
+                        }
+                    }
+                } else {
+                    _uiState.update { it.copy(isUploadingPhoto = false) }
+                }
+            }.onFailure { error ->
+                android.util.Log.e("ProfilePhoto", "Cloudinary upload failed: ${error.localizedMessage}", error)
+                _uiState.update {
+                    it.copy(
+                        isUploadingPhoto = false,
+                        errorMessage = "Failed to upload photo: ${error.localizedMessage ?: "Network error"}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun removeProfilePhoto() {
+        val currentProfile = _uiState.value.profile ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUploadingPhoto = true, errorMessage = null, userMessage = null) }
+            val updatedProfile = currentProfile.copy(photoUrl = null)
+            val saveResult = authRepository.saveUserProfile(updatedProfile)
+            if (saveResult.isSuccess) {
+                _uiState.update {
+                    it.copy(
+                        isUploadingPhoto = false,
+                        profile = updatedProfile,
+                        userMessage = "Profile photo removed"
+                    )
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isUploadingPhoto = false,
+                        errorMessage = saveResult.exceptionOrNull()?.localizedMessage ?: "Failed to remove photo"
+                    )
+                }
             }
         }
     }

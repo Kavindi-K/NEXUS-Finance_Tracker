@@ -41,13 +41,14 @@ service cloud.firestore {
     }
 
     function validUser(d, uid) {
-      return onlyKeys(d, ['uid', 'displayName', 'email', 'phoneNumber', 'createdAt'])
+      return onlyKeys(d, ['uid', 'displayName', 'email', 'phoneNumber', 'createdAt', 'photoUrl'])
         && d.keys().hasAll(['uid', 'displayName', 'email', 'phoneNumber', 'createdAt'])
         && d.uid == uid
         && d.displayName is string && d.displayName.size() > 0
         && d.email == request.auth.token.email
         && d.phoneNumber is string
         && d.phoneNumber.matches('^(\\+94[0-9]{9}|0[0-9]{9}|[1-9][0-9]{8})$')
+        && (!('photoUrl' in d) || d.photoUrl == null || (d.photoUrl is string && d.photoUrl.size() <= 1000))
         && d.createdAt is timestamp;
     }
 

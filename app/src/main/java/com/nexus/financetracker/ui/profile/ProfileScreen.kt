@@ -27,6 +27,12 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.SubcomposeAsyncImage
 import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,6 +47,18 @@ fun ProfileScreen(
     val scrollState = rememberScrollState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showPhotoOptionsDialog by remember { mutableStateOf(false) }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        android.util.Log.d("ProfilePhoto", "Picked photo URI: $uri")
+        if (uri != null) {
+            viewModel.uploadProfilePhoto(uri)
+        } else {
+            android.util.Log.w("ProfilePhoto", "Photo picker returned null URI (cancelled)")
+        }
+    }
 
     // Show feedback messages
     LaunchedEffect(uiState.userMessage) {
@@ -55,6 +73,71 @@ fun ProfileScreen(
             snackbarHostState.showSnackbar(it)
             viewModel.clearUserMessage()
         }
+    }
+
+    if (showPhotoOptionsDialog) {
+        AlertDialog(
+            onDismissRequest = { showPhotoOptionsDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.PhotoCamera,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = { Text("Profile Photo", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "Update your profile picture across NEXUS.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(Modifier.height(4.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            showPhotoOptionsDialog = false
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Outlined.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Choose from Gallery")
+                    }
+
+                    if (!uiState.profile?.photoUrl.isNullOrBlank()) {
+                        OutlinedButton(
+                            onClick = {
+                                showPhotoOptionsDialog = false
+                                viewModel.removeProfilePhoto()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Remove Photo")
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showPhotoOptionsDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     if (showLogoutDialog) {
@@ -149,26 +232,100 @@ fun ProfileScreen(
                             .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(80.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF1E3A8A))
-                                .border(2.dp, Color(0xFF60A5FA), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val initials = profile?.displayName?.trim()?.split(" ")
-                                ?.mapNotNull { it.firstOrNull()?.toString() }
-                                ?.take(2)
-                                ?.joinToString("")
-                                ?.uppercase() ?: "U"
+                        val initials = profile?.displayName?.trim()?.split(" ")
+                            ?.mapNotNull { it.firstOrNull()?.toString() }
+                            ?.take(2)
+                            ?.joinToString("")
+                            ?.uppercase() ?: "U"
 
-                            Text(
-                                text = initials.ifBlank { "N" },
-                                color = Color.White,
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(top = 2.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(86.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF1E3A8A))
+                                    .border(2.5.dp, Color(0xFF60A5FA), CircleShape)
+                                    .clickable(enabled = !uiState.isUploadingPhoto) {
+                                        showPhotoOptionsDialog = true
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (!profile?.photoUrl.isNullOrBlank()) {
+                                    SubcomposeAsyncImage(
+                                        model = profile.photoUrl,
+                                        contentDescription = "Profile Photo",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize(),
+                                        loading = {
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(24.dp),
+                                                    color = Color(0xFF60A5FA),
+                                                    strokeWidth = 2.dp
+                                                )
+                                            }
+                                        },
+                                        error = {
+                                            Text(
+                                                text = initials.ifBlank { "N" },
+                                                color = Color.White,
+                                                fontSize = 28.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    )
+                                } else {
+                                    Text(
+                                        text = initials.ifBlank { "N" },
+                                        color = Color.White,
+                                        fontSize = 28.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                if (uiState.isUploadingPhoto) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Color.Black.copy(alpha = 0.55f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(32.dp),
+                                            color = Color.White,
+                                            strokeWidth = 3.dp
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Camera edit badge at bottom right
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .offset(x = 2.dp, y = 2.dp)
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF2563EB))
+                                    .border(2.dp, Color(0xFF0D254C), CircleShape)
+                                    .clickable(enabled = !uiState.isUploadingPhoto) {
+                                        showPhotoOptionsDialog = true
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.PhotoCamera,
+                                    contentDescription = "Change Photo",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
 
                         Spacer(Modifier.height(12.dp))

@@ -6,9 +6,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import coil.compose.SubcomposeAsyncImage
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -53,6 +56,7 @@ fun DashboardScreen(
     onAddExpense: () -> Unit,
     onNavigateToSettings: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -102,29 +106,60 @@ fun DashboardScreen(
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
-            // Header Row (Good Morning + Nexus Node Logo)
+            // Header Row (Avatar + Good Morning on left, Nexus Logo on right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = uiState.greeting.ifBlank { "Good Morning," },
-                        color = TextHeaderSubtle,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = displayFirstName,
-                        color = Color.White,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF1E3A8A))
+                            .border(1.5.dp, Color(0xFF60A5FA), CircleShape)
+                            .clickable(onClick = onNavigateToProfile),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (!uiState.userPhotoUrl.isNullOrBlank()) {
+                            SubcomposeAsyncImage(
+                                model = uiState.userPhotoUrl,
+                                contentDescription = "Profile Photo",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text(
+                                text = displayFirstName.firstOrNull()?.uppercase() ?: "U",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Column {
+                        Text(
+                            text = uiState.greeting.ifBlank { "Good Morning," },
+                            color = TextHeaderSubtle,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = displayFirstName,
+                            color = Color.White,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
-                NexusBrandLogo(modifier = Modifier.height(52.dp))
+                NexusBrandLogo(modifier = Modifier.height(50.dp))
             }
 
             Spacer(modifier = Modifier.height(18.dp))

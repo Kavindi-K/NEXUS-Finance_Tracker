@@ -13,6 +13,7 @@ data class UserProfile(
     val displayName: String = "",
     val email: String = "",
     val phoneNumber: String = "",
+    val photoUrl: String? = null,
     val createdAt: Date = Date()
 ) {
     @get:Exclude

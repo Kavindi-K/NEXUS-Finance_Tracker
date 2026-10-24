@@ -198,6 +198,15 @@ fun AppNavGraph(
                             launchSingleTop = true
                             restoreState = true
                         }
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate(Screen.Profile.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 )
             }

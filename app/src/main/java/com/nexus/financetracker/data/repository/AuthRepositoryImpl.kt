@@ -46,11 +46,12 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun saveUserProfile(profile: UserProfile): Result<Unit> = runCatching {
         firestore.collection("users").document(profile.uid).set(profile).await()
         runCatching {
-            auth.currentUser?.updateProfile(
-                UserProfileChangeRequest.Builder()
-                    .setDisplayName(profile.displayName)
-                    .build()
-            )?.await()
+            val reqBuilder = UserProfileChangeRequest.Builder()
+                .setDisplayName(profile.displayName)
+            if (!profile.photoUrl.isNullOrBlank()) {
+                reqBuilder.setPhotoUri(android.net.Uri.parse(profile.photoUrl))
+            }
+            auth.currentUser?.updateProfile(reqBuilder.build())?.await()
         }
     }
 

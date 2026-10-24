@@ -220,5 +220,17 @@ class UserProfileTest {
         assertNull(blankPwd)
         assertNull(blankConfirm)
     }
+
+    @Test
+    fun userProfile_supportsOptionalPhotoUrl() {
+        val profileWithoutPhoto = UserProfile(uid = "u1")
+        assertNull(profileWithoutPhoto.photoUrl)
+
+        val profileWithPhoto = UserProfile(
+            uid = "u1",
+            photoUrl = "https://res.cloudinary.com/ddfougzkl/image/upload/v1234/nexus_profiles/avatar_u1.jpg"
+        )
+        assertEquals("https://res.cloudinary.com/ddfougzkl/image/upload/v1234/nexus_profiles/avatar_u1.jpg", profileWithPhoto.photoUrl)
+    }
 }
 
