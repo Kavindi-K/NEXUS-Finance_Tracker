@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
+import com.nexus.financetracker.data.remote.CloudinaryImageUploader
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
 data class ProfileUiState(
@@ -29,6 +31,7 @@ data class ProfileUiState(
     val passwordError: String? = null,
     val confirmPasswordError: String? = null,
     val isSaving: Boolean = false,
+    val isUploadingPhoto: Boolean = false,
     val userMessage: String? = null,
     val errorMessage: String? = null,
     val formattedCreatedAt: String = ""
@@ -36,7 +39,8 @@ data class ProfileUiState(
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val cloudinaryUploader: CloudinaryImageUploader
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -79,7 +83,7 @@ class ProfileViewModel @Inject constructor(
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             profile = profile,
-                            nameInput = if (!_uiState.value.isEditing) profile.displayName else _uiState.value.nameInput,
+                            nameInput = if (!_uiState.value.isEditing) profile.capitalizedDisplayName.ifBlank { profile.displayName } else _uiState.value.nameInput,
                             phoneInput = if (!_uiState.value.isEditing) profile.phoneNumber else _uiState.value.phoneInput,
                             formattedCreatedAt = formattedDate,
                             errorMessage = null
@@ -98,7 +102,7 @@ class ProfileViewModel @Inject constructor(
         val currentProfile = _uiState.value.profile
         _uiState.value = _uiState.value.copy(
             isEditing = true,
-            nameInput = currentProfile?.displayName ?: "",
+            nameInput = currentProfile?.capitalizedDisplayName?.ifBlank { currentProfile.displayName } ?: "",
             phoneInput = currentProfile?.phoneNumber ?: "",
             newPasswordInput = "",
             confirmPasswordInput = "",
@@ -198,20 +202,14 @@ class ProfileViewModel @Inject constructor(
         } else null
 
         val rawPhone = _uiState.value.phoneInput
-        val stripped = rawPhone.replace(Regex("[\\s\\-().]"), "").trimStart('+')
-        val phoneErr = if (stripped.isBlank()) {
+        val clean = UserProfile.cleanPhoneNumber(rawPhone)
+        val phoneErr = if (clean.isBlank()) {
             hasError = true
             "Phone number is required"
-        } else if (!stripped.all { it.isDigit() }) {
+        } else if (!UserProfile.isValidPhoneNumber(rawPhone)) {
             hasError = true
-            "Phone number must contain only digits (spaces and dashes are allowed)"
-        } else {
-            val normalised = normalizePhone(rawPhone)
-            if (!normalised.matches(Regex("^\\+947[0-9]{8}$"))) {
-                hasError = true
-                "Enter a valid Sri Lankan mobile number (e.g. 0771234567)"
-            } else null
-        }
+            "Enter a valid phone number (e.g. +94778654657, 0116754378, or 748796654)"
+        } else null
 
         val pwd = _uiState.value.newPasswordInput
         val confirmPwd = _uiState.value.confirmPasswordInput
@@ -245,15 +243,15 @@ class ProfileViewModel @Inject constructor(
         if (!validateInputs()) return
 
         val existingProfile = _uiState.value.profile ?: return
-        val normalizedPhone = normalizePhone(_uiState.value.phoneInput)
-        val trimmedName = _uiState.value.nameInput.trim()
+        val cleanPhone = UserProfile.cleanPhoneNumber(_uiState.value.phoneInput)
+        val formattedName = UserProfile.formatCapitalizedName(_uiState.value.nameInput)
         val pwdToUpdate = _uiState.value.newPasswordInput
 
         // Notice: email and createdAt are strictly preserved.
         // As required: do not change Auth email by updating Firestore alone.
         val updatedProfile = existingProfile.copy(
-            displayName = trimmedName,
-            phoneNumber = normalizedPhone
+            displayName = formattedName,
+            phoneNumber = cleanPhone
         )
 
         viewModelScope.launch {
@@ -286,6 +284,79 @@ class ProfileViewModel @Inject constructor(
                     isSaving = false,
                     errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Failed to save profile"
                 )
+            }
+        }
+    }
+
+    fun uploadProfilePhoto(uri: android.net.Uri) {
+        val uid = currentUserId ?: run {
+            android.util.Log.e("ProfilePhoto", "currentUserId is null in uploadProfilePhoto")
+            return
+        }
+        android.util.Log.d("ProfilePhoto", "uploadProfilePhoto called for $uid with uri: $uri")
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUploadingPhoto = true, errorMessage = null, userMessage = null) }
+            val uploadResult = cloudinaryUploader.uploadProfileImage(uri, uid)
+            uploadResult.onSuccess { secureUrl ->
+                android.util.Log.d("ProfilePhoto", "Cloudinary upload success: $secureUrl")
+                val currentProfile = _uiState.value.profile
+                if (currentProfile != null) {
+                    val updatedProfile = currentProfile.copy(photoUrl = secureUrl)
+                    val saveResult = authRepository.saveUserProfile(updatedProfile)
+                    if (saveResult.isSuccess) {
+                        android.util.Log.d("ProfilePhoto", "Profile saved with photoUrl in Firestore")
+                        _uiState.update {
+                            it.copy(
+                                isUploadingPhoto = false,
+                                profile = updatedProfile,
+                                userMessage = "Profile photo updated successfully!"
+                            )
+                        }
+                    } else {
+                        android.util.Log.e("ProfilePhoto", "Failed to save profile: ${saveResult.exceptionOrNull()?.localizedMessage}")
+                        _uiState.update {
+                            it.copy(
+                                isUploadingPhoto = false,
+                                errorMessage = "Photo uploaded, but could not update profile: ${saveResult.exceptionOrNull()?.localizedMessage}"
+                            )
+                        }
+                    }
+                } else {
+                    _uiState.update { it.copy(isUploadingPhoto = false) }
+                }
+            }.onFailure { error ->
+                android.util.Log.e("ProfilePhoto", "Cloudinary upload failed: ${error.localizedMessage}", error)
+                _uiState.update {
+                    it.copy(
+                        isUploadingPhoto = false,
+                        errorMessage = "Failed to upload photo: ${error.localizedMessage ?: "Network error"}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun removeProfilePhoto() {
+        val currentProfile = _uiState.value.profile ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUploadingPhoto = true, errorMessage = null, userMessage = null) }
+            val updatedProfile = currentProfile.copy(photoUrl = null)
+            val saveResult = authRepository.saveUserProfile(updatedProfile)
+            if (saveResult.isSuccess) {
+                _uiState.update {
+                    it.copy(
+                        isUploadingPhoto = false,
+                        profile = updatedProfile,
+                        userMessage = "Profile photo removed"
+                    )
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isUploadingPhoto = false,
+                        errorMessage = saveResult.exceptionOrNull()?.localizedMessage ?: "Failed to remove photo"
+                    )
+                }
             }
         }
     }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -30,6 +31,7 @@ import com.nexus.financetracker.ui.alerts.AlertsScreen
 import com.nexus.financetracker.ui.reports.ReportsScreen
 import com.nexus.financetracker.ui.settings.SettingsScreen
 import com.nexus.financetracker.ui.profile.ProfileScreen
+import com.nexus.financetracker.ui.profile.ProfileViewModel
 
 /**
  * Root Navigation Graph with single-activity Material 3 Scaffold and Bottom Navigation.
@@ -196,6 +198,15 @@ fun AppNavGraph(
                             launchSingleTop = true
                             restoreState = true
                         }
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate(Screen.Profile.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 )
             }
@@ -278,19 +289,36 @@ fun AppNavGraph(
                             popUpTo(0) { inclusive = true }
                         }
                     },
-                    onBack = onBackToDashboard
+                    onBack = onBackToDashboard,
+                    onNavigateToSettings = {
+                        navController.navigate(Screen.Settings.route) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
 
             composable(Screen.Settings.route) {
-                ProfileScreen(
+                val profileViewModel: ProfileViewModel = hiltViewModel()
+                val profileUiState by profileViewModel.uiState.collectAsState()
+                SettingsScreen(
+                    userEmail = profileUiState.profile?.email,
+                    displayName = profileUiState.profile?.capitalizedDisplayName,
                     onLogout = {
                         authViewModel.signOut()
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
-                    onBack = onBackToDashboard
+                    onBack = {
+                        val popped = navController.popBackStack()
+                        if (!popped) {
+                            navController.navigate(Screen.Profile.route) {
+                                popUpTo(Screen.Dashboard.route) { saveState = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
                 )
             }
 
