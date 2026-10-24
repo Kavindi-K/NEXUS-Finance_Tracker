@@ -1,5 +1,6 @@
 package com.nexus.financetracker.ui.goal
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.nexus.financetracker.domain.model.GoalPriority
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -211,7 +213,58 @@ fun AddEditGoalScreen(
                         onClick = { showTargetDatePicker = true }
                     )
 
-                    // 6. Savings Calculation Info Box
+                    // 6. Priority Level (High, Medium, Low)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Priority Level",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GoalNavyDark
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val priorities = listOf(
+                                Triple(GoalPriority.HIGH, "High", Color(0xFFDC2626)),
+                                Triple(GoalPriority.MEDIUM, "Medium", Color(0xFF2563EB)),
+                                Triple(GoalPriority.LOW, "Low", Color(0xFF64748B))
+                            )
+
+                            priorities.forEach { (pKey, pLabel, pColor) ->
+                                val isSelected = formState.priority.equals(pKey, ignoreCase = true)
+                                Surface(
+                                    onClick = { viewModel.onPriorityChanged(pKey) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelected) pColor.copy(alpha = 0.12f) else GoalFieldBackground,
+                                    border = if (isSelected) BorderStroke(1.5.dp, pColor) else null,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = pLabel,
+                                            fontSize = 14.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) pColor else GoalNavyDark.copy(alpha = 0.7f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Text(
+                            text = if (formState.priority.equals(GoalPriority.HIGH, ignoreCase = true)) {
+                                "★ High priority goals are displayed on your Dashboard graphs."
+                            } else {
+                                "Only High priority goals are displayed on the Dashboard."
+                            },
+                            fontSize = 11.sp,
+                            color = GoalCalculationSubtext
+                        )
+                    }
+
+                    // 7. Savings Calculation Info Box
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

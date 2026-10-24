@@ -13,6 +13,7 @@ import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseClassification
 import com.nexus.financetracker.domain.model.Goal
 import com.nexus.financetracker.domain.model.GoalCalculation
+import com.nexus.financetracker.domain.model.GoalPriority
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
@@ -119,15 +120,21 @@ class DashboardViewModel @Inject constructor(
                     .filter { it.classification.equals(ExpenseClassification.DISCRETIONARY, ignoreCase = true) }
                     .sumOf { it.amountLKR }
 
-                // 5. Active goal summary (FR15, FR17)
-                val activeGoal = goals.firstOrNull { it.isActive }
-                val goalCalculation = activeGoal?.let { goal ->
-                    GoalCalculation.calculate(
+                // 5. Active priority goal summary (FR15, FR17)
+                // Only priority (HIGH) active goals are displayed on the dashboard
+                val priorityGoals = goals.filter { it.isActive && it.priority.equals(GoalPriority.HIGH, ignoreCase = true) }
+                val priorityGoalItems = priorityGoals.map { goal ->
+                    PriorityGoalItem(
                         goal = goal,
-                        incomes = incomes,
-                        expenses = expenses
+                        calculation = GoalCalculation.calculate(
+                            goal = goal,
+                            incomes = incomes,
+                            expenses = expenses
+                        )
                     )
                 }
+                val activeGoal = priorityGoalItems.firstOrNull()?.goal
+                val goalCalculation = priorityGoalItems.firstOrNull()?.calculation
 
                 // 6. Category spending visualization with ID-to-name resolution (FR19 / Order 8)
                 val categorySpendings = calculateCategorySpending(
@@ -154,6 +161,7 @@ class DashboardViewModel @Inject constructor(
                     discretionaryPercentage = discretionaryPercent,
                     activeGoal = activeGoal,
                     activeGoalCalculation = goalCalculation,
+                    priorityGoals = priorityGoalItems,
                     categorySpendings = categorySpendings,
                     incomeSources = incomeSources,
                     hasExpenseRecords = monthExpenses.isNotEmpty(),
@@ -322,6 +330,14 @@ data class IncomeSourceSpending(
 )
 
 /**
+ * Priority goal item containing Goal and real-time calculation.
+ */
+data class PriorityGoalItem(
+    val goal: Goal,
+    val calculation: GoalCalculation
+)
+
+/**
  * Immutable UI state for the Dashboard screen (FR17-FR20, FR22).
  */
 data class DashboardUiState(
@@ -338,6 +354,7 @@ data class DashboardUiState(
     val discretionaryPercentage: Int = 0,
     val activeGoal: Goal? = null,
     val activeGoalCalculation: GoalCalculation? = null,
+    val priorityGoals: List<PriorityGoalItem> = emptyList(),
     val categorySpendings: List<CategorySpending> = emptyList(),
     val incomeSources: List<IncomeSourceSpending> = emptyList(),
     val hasExpenseRecords: Boolean = false,
