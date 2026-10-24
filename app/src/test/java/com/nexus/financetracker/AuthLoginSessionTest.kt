@@ -82,4 +82,30 @@ class AuthLoginSessionTest {
         // No session: require login
         assertEquals("login", determineStartDestination(isLoggedIn = false))
     }
+
+    @Test
+    fun forgotPasswordValidation_detectsBlankAndInvalidEmails() {
+        fun validateResetEmail(email: String): String? {
+            val trimmed = email.trim()
+            if (trimmed.isBlank()) return "Email address is required"
+            if (!emailPattern.matcher(trimmed).matches()) return "Enter a valid email address"
+            return null
+        }
+
+        assertEquals("Email address is required", validateResetEmail(""))
+        assertEquals("Email address is required", validateResetEmail("   "))
+        assertEquals("Enter a valid email address", validateResetEmail("plainaddress"))
+        assertEquals("Enter a valid email address", validateResetEmail("@missingusername.com"))
+        assertEquals("Enter a valid email address", validateResetEmail("missingdomain@.com"))
+        assertNull(validateResetEmail("user@example.com"))
+        assertNull(validateResetEmail("  kavindu.dev@nexus.org  "))
+    }
+
+    @Test
+    fun forgotPasswordEmail_normalizesBeforeSending() {
+        val input = "  User.Name@Example.COM  "
+        val normalized = input.trim().lowercase()
+        assertEquals("user.name@example.com", normalized)
+        assertTrue(emailPattern.matcher(normalized).matches())
+    }
 }

@@ -122,6 +122,10 @@ class AuthRepositoryImpl @Inject constructor(
         user.updatePassword(newPassword).await()
     }
 
+    override suspend fun sendPasswordResetEmail(email: String): Result<Unit> = runCatching {
+        auth.sendPasswordResetEmail(email).await()
+    }
+
     override fun signOut() {
         auth.signOut()
     }

@@ -8,6 +8,7 @@ sealed class Screen(val route: String) {
     // Auth Flow
     object Login : Screen("login")
     object Register : Screen("register")
+    object ForgotPassword : Screen("forgot_password")
 
     // Bottom Navigation Destinations
     object Dashboard : Screen("dashboard")

@@ -152,10 +152,53 @@ class AuthViewModel @Inject constructor(
 
         return null
     }
+
+    /**
+     * Validates email for password reset.
+     */
+    fun validateResetEmail(email: String): String? {
+        val trimmed = email.trim()
+        if (trimmed.isBlank()) return "Email address is required"
+        if (!Patterns.EMAIL_ADDRESS.matcher(trimmed).matches()) return "Enter a valid email address"
+        return null
+    }
+
+    /**
+     * Sends password reset email via Firebase Auth.
+     */
+    fun sendPasswordReset(email: String) {
+        val normalizedEmail = email.trim().lowercase()
+        viewModelScope.launch {
+            uiState = uiState.copy(
+                isLoading = true,
+                errorMessage = null,
+                resetEmailSent = false,
+                resetSuccessMessage = null
+            )
+            val result = authRepository.sendPasswordResetEmail(normalizedEmail)
+            if (result.isSuccess) {
+                uiState = uiState.copy(
+                    isLoading = false,
+                    resetEmailSent = true,
+                    resetSuccessMessage = "A password reset link has been sent to $normalizedEmail. Please check your inbox."
+                )
+            } else {
+                val errorMsg = when (val ex = result.exceptionOrNull()) {
+                    is FirebaseAuthInvalidUserException ->
+                        "No account found with this email address. Please check and try again."
+                    else ->
+                        ex?.localizedMessage ?: "Failed to send reset link. Please check your network and try again."
+                }
+                uiState = uiState.copy(isLoading = false, errorMessage = errorMsg)
+            }
+        }
+    }
 }
 
 data class AuthUiState(
     val isLoading: Boolean = false,
     val isSuccess: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val resetEmailSent: Boolean = false,
+    val resetSuccessMessage: String? = null
 )
