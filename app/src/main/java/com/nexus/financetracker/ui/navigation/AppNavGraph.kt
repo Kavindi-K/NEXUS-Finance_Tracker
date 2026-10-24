@@ -20,6 +20,7 @@ import androidx.navigation.navArgument
 import com.nexus.financetracker.ui.auth.AuthViewModel
 import com.nexus.financetracker.ui.auth.LoginScreen
 import com.nexus.financetracker.ui.auth.RegisterScreen
+import com.nexus.financetracker.ui.splash.SplashScreen
 import com.nexus.financetracker.ui.dashboard.DashboardScreen
 import com.nexus.financetracker.ui.expense.ExpenseAddScreen
 import com.nexus.financetracker.ui.expense.ExpenseScreen
@@ -57,7 +58,7 @@ fun AppNavGraph(
     // Computed ONCE at first composition — never re-evaluated on recomposition.
     // Prevents NavHost from rebuilding the graph when auth.currentUser changes mid-session.
     val startDestination = remember {
-        if (authViewModel.isUserLoggedIn) Screen.Dashboard.route else Screen.Login.route
+        if (authViewModel.isUserLoggedIn) Screen.Dashboard.route else Screen.Splash.route
     }
 
     // Top-level destinations that display the bottom navigation bar
@@ -128,6 +129,17 @@ fun AppNavGraph(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // --- Splash / Onboarding Flow ---
+            composable(Screen.Splash.route) {
+                SplashScreen(
+                    onGetStarted = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             // --- Authentication Flow ---
             composable(Screen.Login.route) {
                 LoginScreen(
@@ -294,7 +306,7 @@ fun AppNavGraph(
                 ProfileScreen(
                     onLogout = {
                         authViewModel.signOut()
-                        navController.navigate(Screen.Login.route) {
+                        navController.navigate(Screen.Splash.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
