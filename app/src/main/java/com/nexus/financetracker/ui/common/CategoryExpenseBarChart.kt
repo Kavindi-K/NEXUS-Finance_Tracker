@@ -105,7 +105,7 @@ fun CategoryExpenseBarChart(
                     modifier = Modifier.offset(y = LabelHeadroom + (PlotAreaHeight / 2) - 7.dp)
                 )
                 Text(
-                    text = "0",
+                    text = "0K",
                     color = ChartMuted,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
