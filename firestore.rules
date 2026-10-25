@@ -41,13 +41,14 @@ service cloud.firestore {
     }
 
     function validUser(d, uid) {
-      return onlyKeys(d, ['uid', 'displayName', 'email', 'phoneNumber', 'createdAt'])
+      return onlyKeys(d, ['uid', 'displayName', 'email', 'phoneNumber', 'createdAt', 'photoUrl'])
         && d.keys().hasAll(['uid', 'displayName', 'email', 'phoneNumber', 'createdAt'])
         && d.uid == uid
         && d.displayName is string && d.displayName.size() > 0
         && d.email == request.auth.token.email
         && d.phoneNumber is string
-        && d.phoneNumber.matches('^\\+[1-9][0-9]{7,14}$')
+        && d.phoneNumber.matches('^(\\+94[0-9]{9}|0[0-9]{9}|[1-9][0-9]{8})$')
+        && (!('photoUrl' in d) || d.photoUrl == null || (d.photoUrl is string && d.photoUrl.size() <= 1000))
         && d.createdAt is timestamp;
     }
 
@@ -64,7 +65,7 @@ service cloud.firestore {
       return onlyKeys(d, ['userId', 'source', 'status', 'amountOriginal', 'currency',
         'exchangeRate', 'amountLKR', 'dateReceived', 'expectedDate',
         'note', 'createdAt', 'updatedAt'])
-        && d.source in ['salary', 'freelance', 'adsense', 'crypto']
+        && d.source in ['salary', 'freelance', 'adsense', 'crypto', 'other']
         && d.status in ['confirmed', 'pending']
         && d.amountOriginal is number && d.exchangeRate is number
         && d.exchangeRate > 0 && d.amountLKR is number
@@ -111,13 +112,14 @@ service cloud.firestore {
 
     function validGoal(d) {
       return onlyKeys(d, ['userId', 'title', 'targetAmountLKR', 'openingSavingsLKR',
-        'startDate', 'targetDate', 'isActive', 'createdAt'])
+        'startDate', 'targetDate', 'isActive', 'createdAt', 'priority'])
         && d.title is string && d.title.size() > 0
         && d.targetAmountLKR is number && d.targetAmountLKR > 0
         && d.openingSavingsLKR is number && d.openingSavingsLKR >= 0
         && d.startDate is timestamp && d.targetDate is timestamp
         && d.targetDate > d.startDate
-        && d.isActive is bool && d.createdAt is timestamp;
+        && d.isActive is bool && d.createdAt is timestamp
+        && (!('priority' in d) || (d.priority is string && d.priority in ['high', 'medium', 'low', 'HIGH', 'MEDIUM', 'LOW']));
     }
 
     // 5. Categories collection (categories/{id})

@@ -178,10 +178,10 @@ class GoalSetupValidationTest {
     @Test
     fun firestoreGoalSecurityRulesSchema_keysMatchAllowedWhitelist() {
         // As defined in firestore.rules validGoal():
-        // onlyKeys(d, ['userId', 'title', 'targetAmountLKR', 'openingSavingsLKR', 'startDate', 'targetDate', 'isActive', 'createdAt'])
+        // onlyKeys(d, ['userId', 'title', 'targetAmountLKR', 'openingSavingsLKR', 'startDate', 'targetDate', 'isActive', 'createdAt', 'priority'])
         val firestoreAllowedKeys = setOf(
             "userId", "title", "targetAmountLKR", "openingSavingsLKR",
-            "startDate", "targetDate", "isActive", "createdAt"
+            "startDate", "targetDate", "isActive", "createdAt", "priority"
         )
 
         val goalMap = hashMapOf(
@@ -192,11 +192,31 @@ class GoalSetupValidationTest {
             "startDate" to Date(),
             "targetDate" to Date(System.currentTimeMillis() + 86400000L * 365),
             "isActive" to true,
-            "createdAt" to Date()
+            "createdAt" to Date(),
+            "priority" to "high"
         )
 
-        assertEquals(8, goalMap.keys.size)
+        assertEquals(9, goalMap.keys.size)
         assertTrue(firestoreAllowedKeys.containsAll(goalMap.keys))
         assertFalse("Goal map must NOT include id field to satisfy firestore security rules onlyKeys constraint", goalMap.containsKey("id"))
+    }
+
+    @Test
+    fun goalPriority_defaultsToMedium_andSupportsHighMediumLow() {
+        val now = Date()
+        val defaultGoal = Goal(
+            title = "Default Priority Goal",
+            targetAmountLKR = 100000.0,
+            openingSavingsLKR = 10000.0,
+            startDate = now,
+            targetDate = Date(now.time + 86400000L * 30)
+        )
+        assertEquals(com.nexus.financetracker.domain.model.GoalPriority.MEDIUM, defaultGoal.priority)
+
+        val highGoal = defaultGoal.copy(priority = com.nexus.financetracker.domain.model.GoalPriority.HIGH)
+        assertEquals("high", highGoal.priority)
+
+        val lowGoal = defaultGoal.copy(priority = com.nexus.financetracker.domain.model.GoalPriority.LOW)
+        assertEquals("low", lowGoal.priority)
     }
 }

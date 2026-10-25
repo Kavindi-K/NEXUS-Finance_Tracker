@@ -69,6 +69,10 @@ dependencies {
     // Coroutines for Firebase
     implementation(libs.coroutines.play)
 
+    // Image Loading & HTTP (Cloudinary & Coil)
+    implementation(libs.coil.compose)
+    implementation(libs.okhttp)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
