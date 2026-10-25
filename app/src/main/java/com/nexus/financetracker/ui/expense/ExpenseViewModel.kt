@@ -307,10 +307,11 @@ class ExpenseViewModel @Inject constructor(
      * Loads an existing expense into the form state for editing.
      */
     fun loadExpenseForEdit(expenseId: String) {
+        if (expenseId.isBlank() || expenseId == "{expenseId}") return
         viewModelScope.launch {
             _formState.value = _formState.value.copy(isLoadingDefaults = true, errorMessage = null)
             val existing = rawExpenses.find { it.id == expenseId }
-                ?: expenseRepository.getExpenseById(expenseId)
+                ?: try { expenseRepository.getExpenseById(expenseId) } catch (e: Exception) { null }
 
             if (existing != null) {
                 val catMap = _uiState.value.categoriesMap

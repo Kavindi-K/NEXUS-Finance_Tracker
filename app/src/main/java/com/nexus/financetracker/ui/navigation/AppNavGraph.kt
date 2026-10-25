@@ -120,7 +120,7 @@ fun AppNavGraph(
                         }
                     },
                     onQuickAdd = {
-                        navController.navigate(Screen.AddExpense.route)
+                        navController.navigate(Screen.AddExpense.createRoute())
                     }
                 )
             }
@@ -255,7 +255,7 @@ fun AppNavGraph(
                         }
                     },
                     onLogExpense = {
-                        navController.navigate(Screen.AddExpense.route)
+                        navController.navigate(Screen.AddExpense.createRoute())
                     },
                     onNavigateToSettings = {
                         navController.navigate(Screen.Settings.route) {
@@ -328,7 +328,7 @@ fun AppNavGraph(
                 ExpenseScreen(
                     viewModel = expenseViewModel,
                     onAddExpense = {
-                        navController.navigate(Screen.AddExpense.route)
+                        navController.navigate(Screen.AddExpense.createRoute())
                     },
                     onEditExpense = { expenseId ->
                         navController.navigate(Screen.AddExpense.createRoute(expenseId))
@@ -455,7 +455,7 @@ fun AppNavGraph(
                         }
                     },
                     onNavigateToAddExpense = {
-                        navController.navigate(Screen.AddExpense.route)
+                        navController.navigate(Screen.AddExpense.createRoute())
                     },
                     onNavigateToAddIncome = {
                         navController.navigate(Screen.AddIncome.createRoute())

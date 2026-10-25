@@ -55,7 +55,7 @@ fun ExpenseAddScreen(
     val dateFormatter = remember { SimpleDateFormat("EEE, MMM dd, yyyy", Locale.getDefault()) }
 
     LaunchedEffect(expenseId) {
-        if (!expenseId.isNullOrBlank()) {
+        if (!expenseId.isNullOrBlank() && expenseId != "{expenseId}") {
             viewModel.loadExpenseForEdit(expenseId)
         } else {
             viewModel.resetForm()
