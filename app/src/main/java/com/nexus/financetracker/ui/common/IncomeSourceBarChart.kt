@@ -32,19 +32,32 @@ private val PlotAreaHeight = 135.dp
 private val ChartAreaHeight = LabelHeadroom + PlotAreaHeight // 155.dp
 
 /**
- * Formats monetary amounts compactly for chart axis and bar values (e.g., 250K, 1.2M, 500).
+ * Formats monetary amounts compactly for chart axis and bar values in K (e.g., 32K, 0.6K, 1.2M).
  */
 fun formatCompactLkr(amount: Double): String {
+    if (amount <= 0.0) return "0K"
     return when {
-        amount >= 1_000_000 -> String.format(Locale.US, "%.1fM", amount / 1_000_000.0)
-        amount >= 1_000 -> {
-            if (amount % 1_000 == 0.0) {
-                String.format(Locale.US, "%.0fK", amount / 1_000.0)
+        amount >= 1_000_000 -> {
+            val inM = amount / 1_000_000.0
+            if (inM % 1.0 == 0.0) {
+                String.format(Locale.US, "%.0fM", inM)
             } else {
-                String.format(Locale.US, "%.1fK", amount / 1_000.0)
+                String.format(Locale.US, "%.1fM", inM)
             }
         }
-        else -> String.format(Locale.US, "%.0f", amount)
+        else -> {
+            val inK = amount / 1_000.0
+            if (inK % 1.0 == 0.0) {
+                String.format(Locale.US, "%.0fK", inK)
+            } else {
+                val formatted = String.format(Locale.US, "%.1fK", inK)
+                if (formatted == "0.0K" && amount > 0.0) {
+                    String.format(Locale.US, "%.2fK", inK)
+                } else {
+                    formatted
+                }
+            }
+        }
     }
 }
 
@@ -127,7 +140,7 @@ fun IncomeSourceBarChart(
                     modifier = Modifier.offset(y = LabelHeadroom + (PlotAreaHeight / 2) - 7.dp)
                 )
                 Text(
-                    text = "0",
+                    text = "0K",
                     color = ChartMuted,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
