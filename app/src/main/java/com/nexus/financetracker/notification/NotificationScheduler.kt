@@ -45,7 +45,7 @@ object NotificationScheduler {
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             BILL_WORK_TAG,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             workRequest
         )
     }
@@ -66,7 +66,7 @@ object NotificationScheduler {
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             INCOME_WORK_TAG,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             workRequest
         )
     }
@@ -86,7 +86,7 @@ object NotificationScheduler {
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             EVENING_WORK_TAG,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             workRequest
         )
     }
