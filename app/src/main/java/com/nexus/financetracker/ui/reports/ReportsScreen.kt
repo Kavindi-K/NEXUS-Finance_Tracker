@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nexus.financetracker.ui.common.CategoryExpenseBarChart
 import com.nexus.financetracker.ui.common.IncomeSourceBarChart
 import java.text.NumberFormat
 import java.util.Locale
@@ -693,6 +694,121 @@ fun ReportsScreen(
                                 )
                                 Text(
                                     text = "LKR ${currencyFormat.format(sourceItem.amountLKR)}",
+                                    color = NavyPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Graph 4: Selected Month's Expenses by Category Bar Graph Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = LightCardBg)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Expenses by Category",
+                                color = NavyPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = selectedLabel,
+                                color = TextSubtle,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        if (currentReport != null && currentReport.totalExpensesLKR > 0) {
+                            Text(
+                                text = "LKR ${currencyFormat.format(currentReport.totalExpensesLKR)}",
+                                color = NavyPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    val categories = currentReport?.categorySpendings.orEmpty()
+                    if (categories.isEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.BarChart,
+                                contentDescription = null,
+                                tint = TextSubtle.copy(alpha = 0.5f),
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "No expenses recorded for $selectedLabel",
+                                color = TextSubtle,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        // Render Bar Chart with X-axis (categories) and Y-axis (expenses)
+                        CategoryExpenseBarChart(
+                            items = categories,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = Color(0xFFCBD5E1), thickness = 0.8.dp)
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Category details table
+                        Text(
+                            text = "Breakdown Details",
+                            color = NavyPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        categories.forEach { catItem ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = catItem.name,
+                                    color = Color(0xFF334155),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "LKR ${currencyFormat.format(catItem.amountLKR)}",
                                     color = NavyPrimary,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold

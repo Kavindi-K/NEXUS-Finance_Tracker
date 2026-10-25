@@ -3,15 +3,19 @@ package com.nexus.financetracker.ui.reports
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.repository.GoalRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
+import com.nexus.financetracker.domain.model.Category
 import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.Goal
 import com.nexus.financetracker.domain.model.GoalCalculation
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
+import com.nexus.financetracker.ui.dashboard.CategorySpending
+import com.nexus.financetracker.ui.dashboard.DashboardViewModel
 import com.nexus.financetracker.ui.dashboard.IncomeSourceSpending
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,6 +52,7 @@ data class MonthlyIncomeReport(
     val incomeSources: List<IncomeSourceSpending> = emptyList(),
     val totalExpensesLKR: Double = 0.0,
     val netResultLKR: Double = 0.0,
+    val categorySpendings: List<CategorySpending> = emptyList(),
     val hasIncomeRecords: Boolean = false,
     val hasExpenseRecords: Boolean = false,
     val goalReport: MonthlyGoalReport = MonthlyGoalReport()
@@ -67,6 +72,7 @@ class ReportsViewModel @Inject constructor(
     private val incomeRepository: IncomeRepository,
     private val expenseRepository: ExpenseRepository,
     private val goalRepository: GoalRepository,
+    private val categoryRepository: CategoryRepository,
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
@@ -82,7 +88,8 @@ class ReportsViewModel @Inject constructor(
             monthKey = "",
             monthLabel = monthLabel,
             totalIncomeLKR = 0.0,
-            incomeSources = emptyList()
+            incomeSources = emptyList(),
+            categorySpendings = emptyList()
         )
         _uiState.value = _uiState.value.copy(
             selectedMonthLabel = monthLabel,
@@ -116,8 +123,9 @@ class ReportsViewModel @Inject constructor(
             combine(
                 incomeRepository.getIncomes(userId).catch { emit(emptyList()) },
                 expenseRepository.getExpenses(userId).catch { emit(emptyList()) },
-                goalRepository.getGoals(userId).catch { emit(emptyList()) }
-            ) { incomes, expenses, goals ->
+                goalRepository.getGoals(userId).catch { emit(emptyList()) },
+                categoryRepository.getCategories(userId).catch { emit(emptyList()) }
+            ) { incomes, expenses, goals, categories ->
                 val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
                 val monthKeyFormat = SimpleDateFormat("yyyy-MM", Locale.US)
 
@@ -161,6 +169,14 @@ class ReportsViewModel @Inject constructor(
                     val totalExpense = monthExpenses.sumOf { it.amountLKR }
                     val netResult = totalIncome - totalExpense
 
+                    // Category spendings for this specific month
+                    val categorySpendings = DashboardViewModel.calculateCategorySpending(
+                        expenses = monthExpenses,
+                        categories = categories,
+                        startOfMonth = startOfMonth,
+                        endOfMonth = endOfMonth
+                    )
+
                     // Goal assignment calculation for this specific month
                     val goalReport = if (activeGoal != null) {
                         val netSavingsThisMonth = maxOf(0.0, netResult)
@@ -198,6 +214,7 @@ class ReportsViewModel @Inject constructor(
                         incomeSources = sources,
                         totalExpensesLKR = totalExpense,
                         netResultLKR = netResult,
+                        categorySpendings = categorySpendings,
                         hasIncomeRecords = monthConfirmedIncomes.isNotEmpty(),
                         hasExpenseRecords = monthExpenses.isNotEmpty(),
                         goalReport = goalReport
