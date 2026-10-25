@@ -37,6 +37,7 @@ import com.nexus.financetracker.ui.income.IncomeEntryScreen
 import com.nexus.financetracker.ui.income.IncomeScreen
 import com.nexus.financetracker.ui.income.IncomeViewModel
 import com.nexus.financetracker.ui.alerts.AlertsScreen
+import com.nexus.financetracker.ui.alerts.AlertsViewModel
 import com.nexus.financetracker.ui.reports.ReportsScreen
 import com.nexus.financetracker.ui.settings.SettingsScreen
 import com.nexus.financetracker.ui.profile.ProfileScreen
@@ -55,11 +56,13 @@ import com.nexus.financetracker.ui.profile.ProfileViewModel
  */
 @Composable
 fun AppNavGraph(
-    authViewModel: AuthViewModel = hiltViewModel()
+    authViewModel: AuthViewModel = hiltViewModel(),
+    alertsViewModel: AlertsViewModel = hiltViewModel()
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val alertsUiState by alertsViewModel.uiState.collectAsState()
 
     // Computed ONCE at first composition — never re-evaluated on recomposition.
     // Prevents NavHost from rebuilding the graph when auth.currentUser changes mid-session.
@@ -96,6 +99,7 @@ fun AppNavGraph(
             if (shouldShowBottomBar) {
                 AppBottomNavBar(
                     currentRoute = currentRoute,
+                    hasUnreadAlerts = alertsUiState.hasUnreadAlerts,
                     onNavigateToDestination = { targetRoute ->
                         if (targetRoute == Screen.Dashboard.route) {
                             val popped = navController.popBackStack(Screen.Dashboard.route, inclusive = false)
@@ -405,7 +409,42 @@ fun AppNavGraph(
             }
 
             composable(Screen.Alerts.route) {
-                AlertsScreen(onBack = onBackToDashboard)
+                AlertsScreen(
+                    onNavigateToExpenses = {
+                        navController.navigate(Screen.Expenses.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onNavigateToIncome = {
+                        navController.navigate(Screen.Income.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onNavigateToGoals = {
+                        navController.navigate(Screen.Goals.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onNavigateToAddExpense = {
+                        navController.navigate(Screen.AddExpense.route)
+                    },
+                    onNavigateToAddIncome = {
+                        navController.navigate(Screen.AddIncome.createRoute())
+                    },
+                    onBack = onBackToDashboard
+                )
             }
 
             composable(Screen.Reports.route) {
