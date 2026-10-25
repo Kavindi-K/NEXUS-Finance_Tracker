@@ -82,7 +82,7 @@ fun AppBottomNavBar(
     currentRoute: String?,
     hasUnreadAlerts: Boolean = false,
     onNavigateToDestination: (String) -> Unit,
-    onQuickAdd: () -> Unit = { onNavigateToDestination(Screen.Expenses.route) }
+    onQuickAdd: () -> Unit = { onNavigateToDestination(Screen.AddExpense.route) }
 ) {
     Box(
         modifier = Modifier
