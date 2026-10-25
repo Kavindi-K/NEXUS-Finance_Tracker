@@ -109,13 +109,7 @@ fun AppNavGraph(
                         }
                     },
                     onQuickAdd = {
-                        navController.navigate(Screen.Expenses.route) {
-                            popUpTo(Screen.Dashboard.route) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        navController.navigate(Screen.AddExpense.route)
                     }
                 )
             }
@@ -175,6 +169,15 @@ fun AppNavGraph(
                         }
                     },
                     onAddExpense = {
+                        navController.navigate(Screen.Expenses.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onLogExpense = {
                         navController.navigate(Screen.AddExpense.route)
                     },
                     onNavigateToSettings = {

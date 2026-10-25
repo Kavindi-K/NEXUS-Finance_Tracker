@@ -57,6 +57,7 @@ fun DashboardScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
+    onLogExpense: () -> Unit = onAddExpense,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -557,7 +558,7 @@ fun DashboardScreen(
                                     color = TextPrimaryNavy,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.clickable { onAddExpense() }
+                                    modifier = Modifier.clickable { onLogExpense() }
                                 )
                             }
                         } else {
