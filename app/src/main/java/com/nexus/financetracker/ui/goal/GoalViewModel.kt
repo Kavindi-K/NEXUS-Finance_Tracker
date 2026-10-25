@@ -20,6 +20,13 @@ import java.util.Calendar
 import java.util.Date
 import javax.inject.Inject
 
+enum class GoalStatusFilter {
+    ALL,
+    ONGOING,
+    ACHIEVED,
+    COULD_NOT_ACHIEVE
+}
+
 /**
  * ViewModel for Savings Goals screens (List, Add, Edit).
  * Implements MVVM pattern, input validation, and Firestore repository persistence.
@@ -41,6 +48,14 @@ class GoalViewModel @Inject constructor(
 
     init {
         loadGoals()
+    }
+
+    fun onFilterSelected(filter: GoalStatusFilter) {
+        _uiState.value = _uiState.value.copy(selectedFilter = filter)
+    }
+
+    fun onPrioritySelected(priority: String?) {
+        _uiState.value = _uiState.value.copy(selectedPriority = priority)
     }
 
     fun loadGoals() {
@@ -320,10 +335,61 @@ data class GoalUiState(
     val isLoading: Boolean = true,
     val goals: List<Goal> = emptyList(),
     val calculations: Map<String, GoalCalculation> = emptyMap(),
+    val selectedFilter: GoalStatusFilter = GoalStatusFilter.ALL,
+    val selectedPriority: String? = null,
     val errorMessage: String? = null
 ) {
     val activeGoal: Goal? get() = goals.firstOrNull { it.isActive }
     val activeGoalCalculation: GoalCalculation? get() = activeGoal?.let { calculations[it.id] }
+
+    val highPriorityCount: Int
+        get() = goals.count { it.priority.equals(GoalPriority.HIGH, ignoreCase = true) }
+
+    val mediumPriorityCount: Int
+        get() = goals.count {
+            it.priority.equals(GoalPriority.MEDIUM, ignoreCase = true) ||
+                (!it.priority.equals(GoalPriority.HIGH, ignoreCase = true) && !it.priority.equals(GoalPriority.LOW, ignoreCase = true))
+        }
+
+    val lowPriorityCount: Int
+        get() = goals.count { it.priority.equals(GoalPriority.LOW, ignoreCase = true) }
+
+    private fun isAchieved(goal: Goal): Boolean {
+        val calc = calculations[goal.id]
+        return calc?.isCompleted ?: (goal.openingSavingsLKR >= goal.targetAmountLKR)
+    }
+
+    private fun isOverdue(goal: Goal): Boolean {
+        val calc = calculations[goal.id]
+        return calc?.isOverdue ?: (Date().after(goal.targetDate) && goal.openingSavingsLKR < goal.targetAmountLKR)
+    }
+
+    private fun matchesPriority(goal: Goal): Boolean {
+        if (selectedPriority == null) return true
+        val target = selectedPriority.lowercase()
+        return when (target) {
+            GoalPriority.HIGH -> goal.priority.equals(GoalPriority.HIGH, ignoreCase = true)
+            GoalPriority.LOW -> goal.priority.equals(GoalPriority.LOW, ignoreCase = true)
+            GoalPriority.MEDIUM -> goal.priority.equals(GoalPriority.MEDIUM, ignoreCase = true) ||
+                (!goal.priority.equals(GoalPriority.HIGH, ignoreCase = true) && !goal.priority.equals(GoalPriority.LOW, ignoreCase = true))
+            else -> goal.priority.equals(target, ignoreCase = true)
+        }
+    }
+
+    val filteredGoals: List<Goal>
+        get() = when (selectedFilter) {
+            GoalStatusFilter.ALL -> goals.filter { matchesPriority(it) }
+            GoalStatusFilter.ONGOING -> goals.filter { goal -> !isAchieved(goal) && !isOverdue(goal) && matchesPriority(goal) }
+            GoalStatusFilter.ACHIEVED -> goals.filter { goal -> isAchieved(goal) && matchesPriority(goal) }
+            GoalStatusFilter.COULD_NOT_ACHIEVE -> goals.filter { goal -> isOverdue(goal) && !isAchieved(goal) && matchesPriority(goal) }
+        }
+
+    fun getCountForFilter(filter: GoalStatusFilter): Int = when (filter) {
+        GoalStatusFilter.ALL -> goals.count { matchesPriority(it) }
+        GoalStatusFilter.ONGOING -> goals.count { goal -> !isAchieved(goal) && !isOverdue(goal) && matchesPriority(goal) }
+        GoalStatusFilter.ACHIEVED -> goals.count { goal -> isAchieved(goal) && matchesPriority(goal) }
+        GoalStatusFilter.COULD_NOT_ACHIEVE -> goals.count { goal -> isOverdue(goal) && !isAchieved(goal) && matchesPriority(goal) }
+    }
 }
 
 /**
