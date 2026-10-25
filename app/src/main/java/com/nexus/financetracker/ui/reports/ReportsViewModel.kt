@@ -32,7 +32,10 @@ import java.util.Locale
 import javax.inject.Inject
 
 data class MonthlyGoalReport(
+    val goalId: String = "",
     val goalTitle: String = "",
+    val priority: String = "medium",
+    val isActive: Boolean = true,
     val targetAmountLKR: Double = 0.0,
     val assignedThisMonthLKR: Double = 0.0,
     val targetMonthlyLKR: Double = 0.0,
@@ -42,7 +45,10 @@ data class MonthlyGoalReport(
     val overallProgressFraction: Float = 0f,
     val overallProgressPercentage: Double = 0.0,
     val hasActiveGoal: Boolean = false,
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val daysRemaining: Long = 0L,
+    val daysRemainingText: String = "",
+    val targetDate: Date? = null
 )
 
 data class MonthlyIncomeReport(
@@ -55,7 +61,8 @@ data class MonthlyIncomeReport(
     val categorySpendings: List<CategorySpending> = emptyList(),
     val hasIncomeRecords: Boolean = false,
     val hasExpenseRecords: Boolean = false,
-    val goalReport: MonthlyGoalReport = MonthlyGoalReport()
+    val goalReports: List<MonthlyGoalReport> = emptyList(),
+    val goalReport: MonthlyGoalReport = goalReports.firstOrNull() ?: MonthlyGoalReport()
 )
 
 data class ReportsUiState(
@@ -148,7 +155,7 @@ class ReportsViewModel @Inject constructor(
                     }
                 }
 
-                val activeGoal = goals.firstOrNull { it.isActive }
+                val allTargetGoals = goals.sortedWith(compareByDescending<Goal> { it.isActive }.thenBy { it.targetDate })
                 val reports = mutableMapOf<String, MonthlyIncomeReport>()
 
                 allMonths.forEach { label ->
@@ -168,19 +175,19 @@ class ReportsViewModel @Inject constructor(
                     }
                     val totalExpense = monthExpenses.sumOf { it.amountLKR }
                     val netResult = totalIncome - totalExpense
+                    val netSavingsThisMonth = maxOf(0.0, netResult)
+                    
+                                // Category spendings for this specific month
+            val categorySpendings = DashboardViewModel.calculateCategorySpending(
+                expenses = monthExpenses,
+                categories = categories,
+                startOfMonth = startOfMonth,
+                endOfMonth = endOfMonth
+            )
 
-                    // Category spendings for this specific month
-                    val categorySpendings = DashboardViewModel.calculateCategorySpending(
-                        expenses = monthExpenses,
-                        categories = categories,
-                        startOfMonth = startOfMonth,
-                        endOfMonth = endOfMonth
-                    )
-
-                    // Goal assignment calculation for this specific month
-                    val goalReport = if (activeGoal != null) {
-                        val netSavingsThisMonth = maxOf(0.0, netResult)
-                        val goalCalc = GoalCalculation.calculate(activeGoal, incomes, expenses, endOfMonth)
+                  // Goal assignment calculations for all goals for this specific month
+                    val goalReports = allTargetGoals.map { goal ->
+                        val goalCalc = GoalCalculation.calculate(goal, incomes, expenses, endOfMonth)
                         val targetMonthly = goalCalc.requiredMonthlySavingsLKR
                         val fractionOfTarget = if (targetMonthly > 0) {
                             (netSavingsThisMonth / targetMonthly).toFloat().coerceIn(0f, 1f)
@@ -191,8 +198,11 @@ class ReportsViewModel @Inject constructor(
                         }
 
                         MonthlyGoalReport(
-                            goalTitle = activeGoal.title,
-                            targetAmountLKR = activeGoal.targetAmountLKR,
+                            goalId = goal.id,
+                            goalTitle = goal.title,
+                            priority = goal.priority,
+                            isActive = goal.isActive,
+                            targetAmountLKR = goal.targetAmountLKR,
                             assignedThisMonthLKR = netSavingsThisMonth,
                             targetMonthlyLKR = targetMonthly,
                             assignedFractionOfMonthlyTarget = fractionOfTarget,
@@ -201,10 +211,11 @@ class ReportsViewModel @Inject constructor(
                             overallProgressFraction = goalCalc.progressFraction,
                             overallProgressPercentage = goalCalc.progressPercentage,
                             hasActiveGoal = true,
-                            isCompleted = goalCalc.isCompleted
+                            isCompleted = goalCalc.isCompleted,
+                            daysRemaining = goal.daysRemaining,
+                            daysRemainingText = goal.daysRemainingText,
+                            targetDate = goal.targetDate
                         )
-                    } else {
-                        MonthlyGoalReport(hasActiveGoal = false)
                     }
 
                     reports[label] = MonthlyIncomeReport(
@@ -217,7 +228,8 @@ class ReportsViewModel @Inject constructor(
                         categorySpendings = categorySpendings,
                         hasIncomeRecords = monthConfirmedIncomes.isNotEmpty(),
                         hasExpenseRecords = monthExpenses.isNotEmpty(),
-                        goalReport = goalReport
+                        goalReports = goalReports,
+                        goalReport = goalReports.firstOrNull() ?: MonthlyGoalReport(hasActiveGoal = false)
                     )
                 }
 

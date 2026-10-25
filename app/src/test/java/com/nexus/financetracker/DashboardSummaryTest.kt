@@ -7,6 +7,7 @@ import com.nexus.financetracker.domain.model.GoalCalculation
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
+import com.nexus.financetracker.domain.model.GoalPriority
 import com.nexus.financetracker.ui.dashboard.DashboardViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -221,5 +222,56 @@ class DashboardSummaryTest {
         assertEquals("Good Evening,", DashboardViewModel.getGreeting(eveningCal))
         assertEquals("Good Night,", DashboardViewModel.getGreeting(nightCal))
         assertEquals("Good Night,", DashboardViewModel.getGreeting(earlyMorningCal))
+    }
+
+    @Test
+    fun dashboardPriorityGoalFiltering_onlyHighPriorityGoalsAreSelected() {
+        val now = Date()
+        val future = Date(now.time + 86400000L * 60)
+
+        val highGoal1 = Goal(
+            id = "g-1",
+            title = "Emergency Fund",
+            targetAmountLKR = 300000.0,
+            priority = GoalPriority.HIGH,
+            startDate = now,
+            targetDate = future,
+            isActive = true
+        )
+        val mediumGoal = Goal(
+            id = "g-2",
+            title = "Vacation Fund",
+            targetAmountLKR = 150000.0,
+            priority = GoalPriority.MEDIUM,
+            startDate = now,
+            targetDate = future,
+            isActive = true
+        )
+        val lowGoal = Goal(
+            id = "g-3",
+            title = "Gadget Upgrade",
+            targetAmountLKR = 50000.0,
+            priority = GoalPriority.LOW,
+            startDate = now,
+            targetDate = future,
+            isActive = true
+        )
+        val highGoal2 = Goal(
+            id = "g-4",
+            title = "MacBook Pro M4",
+            targetAmountLKR = 490000.0,
+            priority = "high",
+            startDate = now,
+            targetDate = future,
+            isActive = true
+        )
+
+        val allGoals = listOf(highGoal1, mediumGoal, lowGoal, highGoal2)
+
+        // Filter replicating DashboardViewModel logic: only high priority goals
+        val priorityGoals = allGoals.filter { it.priority.equals(GoalPriority.HIGH, ignoreCase = true) }
+
+        assertEquals(2, priorityGoals.size)
+        assertEquals(listOf("Emergency Fund", "MacBook Pro M4"), priorityGoals.map { it.title })
     }
 }

@@ -1,5 +1,7 @@
 package com.nexus.financetracker.ui.reports
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -24,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -35,8 +38,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexus.financetracker.ui.common.CategoryExpenseBarChart
+import com.nexus.financetracker.domain.model.GoalPriority
 import com.nexus.financetracker.ui.common.IncomeSourceBarChart
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -65,6 +70,7 @@ fun ReportsScreen(
             maximumFractionDigits = 2
         }
     }
+    val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
 
     if (showMonthDialog) {
         AlertDialog(
@@ -453,7 +459,11 @@ fun ReportsScreen(
             }
 
             // Graph 2: Goal Assigned Graph Card (bound to selected month)
-            val goalReport = currentReport?.goalReport
+            val goalReports = currentReport?.goalReports.orEmpty()
+            var expandedGoalId by remember(selectedLabel, goalReports) {
+                mutableStateOf(goalReports.firstOrNull()?.goalId)
+            }
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -464,39 +474,35 @@ fun ReportsScreen(
                         .fillMaxWidth()
                         .padding(18.dp)
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = "Goal Assignment",
-                            color = NavyPrimary,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = if (goalReport != null && goalReport.hasActiveGoal) {
-                                "Goal: ${goalReport.goalTitle} · $selectedLabel"
-                            } else {
-                                selectedLabel
-                            },
-                            color = TextSubtle,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        if (goalReport != null && goalReport.hasActiveGoal) {
-                            Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
                             Text(
-                                text = "Target Amount: LKR ${currencyFormat.format(goalReport.targetAmountLKR)}",
+                                text = "Goal Assignment",
                                 color = NavyPrimary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (goalReports.isNotEmpty()) {
+                                    "${goalReports.size} ${if (goalReports.size == 1) "Goal" else "Goals"} · $selectedLabel"
+                                } else {
+                                    selectedLabel
+                                },
+                                color = TextSubtle,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    if (goalReport == null || !goalReport.hasActiveGoal) {
+                    if (goalReports.isEmpty()) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -511,80 +517,268 @@ fun ReportsScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "No active savings goal set",
+                                text = "No savings goals set",
                                 color = TextSubtle,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         }
                     } else {
-                        // Visual Comparison Graph: How Much Assigned this month vs Monthly Target
-                        GoalAssignedComparisonBar(
-                            assignedLKR = goalReport.assignedThisMonthLKR,
-                            targetLKR = goalReport.targetMonthlyLKR,
-                            currencyFormat = currencyFormat
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Target achievement status badge
-                        val achieved = goalReport.assignedThisMonthLKR >= goalReport.targetMonthlyLKR && goalReport.targetMonthlyLKR > 0
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (achieved) Color(0xFFDCFCE7) else Color(0xFFE2E8F0),
-                            modifier = Modifier.fillMaxWidth()
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Text(
-                                text = if (achieved) {
-                                    "✓ Monthly savings target achieved in $selectedLabel!"
-                                } else if (goalReport.targetMonthlyLKR > 0) {
-                                    "${(goalReport.assignedFractionOfMonthlyTarget * 100).toInt()}% of monthly target assigned in $selectedLabel"
-                                } else {
-                                    "No monthly target required"
-                                },
-                                color = if (achieved) Color(0xFF166534) else NavyPrimary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 10.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-                        HorizontalDivider(color = Color(0xFFCBD5E1), thickness = 0.8.dp)
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Overall Goal Progress Bar
-                        Text(
-                            text = "Overall Goal Progress",
-                            color = NavyPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color.White)
-                        ) {
-                            if (goalReport.overallProgressFraction > 0f) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(fraction = goalReport.overallProgressFraction)
-                                        .fillMaxHeight()
-                                        .background(NavyPrimary)
+                            goalReports.forEach { report ->
+                                val isExpanded = expandedGoalId == report.goalId
+                                val arrowRotation by animateFloatAsState(
+                                    targetValue = if (isExpanded) 180f else 0f,
+                                    label = "goalArrowRotation_${report.goalId}"
                                 )
+
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            expandedGoalId = if (isExpanded) null else report.goalId
+                                        },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color.White,
+                                    border = BorderStroke(
+                                        width = if (isExpanded) 1.5.dp else 1.dp,
+                                        color = if (isExpanded) NavyPrimary.copy(alpha = 0.35f) else Color(0xFFE2E8F0)
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(14.dp)
+                                    ) {
+                                        // Header Row: Goal Title, Priority Badge, Target, Progress % & Toggle Icon
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Text(
+                                                        text = report.goalTitle,
+                                                        color = NavyPrimary,
+                                                        fontSize = 15.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+
+                                                    val priorityColor = when (report.priority.lowercase()) {
+                                                        GoalPriority.HIGH -> Color(0xFFDC2626)
+                                                        GoalPriority.LOW -> Color(0xFF64748B)
+                                                        else -> Color(0xFFD97706)
+                                                    }
+                                                    val priorityBg = when (report.priority.lowercase()) {
+                                                        GoalPriority.HIGH -> Color(0xFFFEE2E2)
+                                                        GoalPriority.LOW -> Color(0xFFF1F5F9)
+                                                        else -> Color(0xFFFEF3C7)
+                                                    }
+                                                    Surface(
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        color = priorityBg
+                                                    ) {
+                                                        Text(
+                                                            text = GoalPriority.getDisplayName(report.priority),
+                                                            color = priorityColor,
+                                                            fontSize = 10.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+
+                                                    if (!report.isActive) {
+                                                        Surface(
+                                                            shape = RoundedCornerShape(6.dp),
+                                                            color = Color(0xFFF1F5F9)
+                                                        ) {
+                                                            Text(
+                                                                text = "Inactive",
+                                                                color = TextSubtle,
+                                                                fontSize = 10.sp,
+                                                                fontWeight = FontWeight.Medium,
+                                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+
+                                                Spacer(modifier = Modifier.height(3.dp))
+                                                Text(
+                                                    text = "Target: LKR ${currencyFormat.format(report.targetAmountLKR)}",
+                                                    color = TextSubtle,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = NavyPrimary.copy(alpha = 0.08f)
+                                                ) {
+                                                    Text(
+                                                        text = "${report.overallProgressPercentage.roundToInt()}%",
+                                                        color = NavyPrimary,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                    )
+                                                }
+
+                                                Icon(
+                                                    imageVector = Icons.Default.ArrowDropDown,
+                                                    contentDescription = if (isExpanded) "Collapse details" else "Expand details",
+                                                    tint = NavyPrimary,
+                                                    modifier = Modifier
+                                                        .size(24.dp)
+                                                        .rotate(arrowRotation)
+                                                )
+                                            }
+                                        }
+
+                                        // Detailed Content when expanded
+                                        AnimatedVisibility(visible = isExpanded) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(top = 14.dp)
+                                            ) {
+                                                HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 0.8.dp)
+                                                Spacer(modifier = Modifier.height(14.dp))
+
+                                                // Visual Comparison Graph: How Much Assigned this month vs Monthly Target
+                                                GoalAssignedComparisonBar(
+                                                    assignedLKR = report.assignedThisMonthLKR,
+                                                    targetLKR = report.targetMonthlyLKR,
+                                                    currencyFormat = currencyFormat
+                                                )
+
+                                                Spacer(modifier = Modifier.height(12.dp))
+
+                                                // Target achievement status badge
+                                                val achieved = report.assignedThisMonthLKR >= report.targetMonthlyLKR && report.targetMonthlyLKR > 0
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = if (achieved) Color(0xFFDCFCE7) else Color(0xFFF1F5F9),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Text(
+                                                        text = if (achieved) {
+                                                            "✓ Monthly savings target achieved in $selectedLabel!"
+                                                        } else if (report.targetMonthlyLKR > 0) {
+                                                            "${(report.assignedFractionOfMonthlyTarget * 100).toInt()}% of monthly target assigned in $selectedLabel"
+                                                        } else {
+                                                            "No monthly target required"
+                                                        },
+                                                        color = if (achieved) Color(0xFF166534) else NavyPrimary,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        textAlign = TextAlign.Center,
+                                                        modifier = Modifier.padding(vertical = 6.dp, horizontal = 10.dp)
+                                                    )
+                                                }
+
+                                                Spacer(modifier = Modifier.height(14.dp))
+                                                HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 0.8.dp)
+                                                Spacer(modifier = Modifier.height(10.dp))
+
+                                                // Overall Goal Progress Bar
+                                                Text(
+                                                    text = "Overall Goal Progress",
+                                                    color = NavyPrimary,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(8.dp)
+                                                        .clip(RoundedCornerShape(4.dp))
+                                                        .background(Color(0xFFE2E8F0))
+                                                ) {
+                                                    if (report.overallProgressFraction > 0f) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth(fraction = report.overallProgressFraction)
+                                                                .fillMaxHeight()
+                                                                .background(NavyPrimary)
+                                                        )
+                                                    }
+                                                }
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = "${"%.0f".format(report.overallProgressPercentage)}% complete · Need LKR ${currencyFormat.format(report.remainingAmountLKR)}",
+                                                        color = TextSubtle,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                }
+
+                                                if (report.targetDate != null) {
+                                                    Spacer(modifier = Modifier.height(10.dp))
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.CalendarMonth,
+                                                                contentDescription = null,
+                                                                tint = TextSubtle,
+                                                                modifier = Modifier.size(15.dp)
+                                                            )
+                                                            Text(
+                                                                text = "Deadline: ${dateFormat.format(report.targetDate)}",
+                                                                fontSize = 12.sp,
+                                                                color = TextSubtle,
+                                                                fontWeight = FontWeight.Medium
+                                                            )
+                                                        }
+
+                                                        if (report.daysRemainingText.isNotBlank()) {
+                                                            Surface(
+                                                                shape = RoundedCornerShape(6.dp),
+                                                                color = if (report.daysRemaining < 0) Color(0xFFFEE2E2) else NavyPrimary
+                                                            ) {
+                                                                Text(
+                                                                    text = report.daysRemainingText,
+                                                                    color = if (report.daysRemaining < 0) Color(0xFFDC2626) else Color.White,
+                                                                    fontSize = 11.sp,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "${"%.0f".format(goalReport.overallProgressPercentage)}% complete · Need LKR ${currencyFormat.format(goalReport.remainingAmountLKR)}",
-                            color = TextSubtle,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        )
                     }
                 }
             }

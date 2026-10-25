@@ -28,7 +28,7 @@ object DatabaseModule {
             "nexus_finance_db"
         )
         // TODO: Replace with proper migrations before production
-        .fallbackToDestructiveMigration(false)
+        .fallbackToDestructiveMigration(true)
         // Allow main thread access during dev — prevents ANR on Hilt singleton init
         .allowMainThreadQueries()
         .build()
