@@ -96,39 +96,50 @@ class ExpenseRepositoryImpl @Inject constructor(
 
     override suspend fun getExpenseById(expenseId: String): Expense? {
         return try {
-            expenseDao.getExpenseById(expenseId)?.toDomain() ?: run {
-                val snapshot = expensesCollection.document(expenseId).get().await()
-                snapshot.toObject(Expense::class.java)?.copy(id = snapshot.id)?.also { exp ->
-                    expenseDao.insertExpense(ExpenseEntity.fromDomain(exp))
-                }
-            }
-        } catch (_: Exception) {
+            val local = expenseDao.getExpenseById(expenseId)?.toDomain()
+            if (local != null) return local
+
             val snapshot = expensesCollection.document(expenseId).get().await()
-            snapshot.toObject(Expense::class.java)?.copy(id = snapshot.id)
+            val remote = snapshot.toObject(Expense::class.java)?.copy(id = snapshot.id)
+            if (remote != null) {
+                try {
+                    expenseDao.insertExpense(ExpenseEntity.fromDomain(remote))
+                } catch (_: Exception) {}
+            }
+            remote
+        } catch (_: Exception) {
+            try {
+                expenseDao.getExpenseById(expenseId)?.toDomain()
+            } catch (_: Exception) {
+                null
+            }
         }
     }
 
     override suspend fun getLatestExpense(userId: String): Expense? {
         return try {
-            expenseDao.getLatestExpense(userId)?.toDomain() ?: run {
-                val snapshot = expensesCollection
-                    .whereEqualTo("userId", userId)
-                    .get()
-                    .await()
-                val latest = snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(Expense::class.java)?.copy(id = doc.id)
-                }.maxByOrNull { it.createdAt }
-                latest?.let { expenseDao.insertExpense(ExpenseEntity.fromDomain(it)) }
-                latest
-            }
-        } catch (_: Exception) {
+            val local = expenseDao.getLatestExpense(userId)?.toDomain()
+            if (local != null) return local
+
             val snapshot = expensesCollection
                 .whereEqualTo("userId", userId)
                 .get()
                 .await()
-            snapshot.documents.mapNotNull { doc ->
+            val latest = snapshot.documents.mapNotNull { doc ->
                 doc.toObject(Expense::class.java)?.copy(id = doc.id)
             }.maxByOrNull { it.createdAt }
+            latest?.let {
+                try {
+                    expenseDao.insertExpense(ExpenseEntity.fromDomain(it))
+                } catch (_: Exception) {}
+            }
+            latest
+        } catch (_: Exception) {
+            try {
+                expenseDao.getLatestExpense(userId)?.toDomain()
+            } catch (_: Exception) {
+                null
+            }
         }
     }
 
