@@ -5,7 +5,9 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.google.firebase.auth.FirebaseAuth
+import com.nexus.financetracker.data.repository.IncomeRepository
 import com.nexus.financetracker.data.repository.RecurringItemRepository
+import com.nexus.financetracker.domain.model.IncomeSource
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
@@ -13,17 +15,17 @@ import java.util.Calendar
 import java.util.Date
 
 /**
- * Background worker (WorkManager) that checks for recurring items due today or
- * tomorrow and fires a local notification for each one.
+ * Background worker (WorkManager) that checks for recurring bills due today/tomorrow (FR23)
+ * and pending income arrivals expected today (FR8), then fires local notifications.
  *
  * Runs daily via [NotificationScheduler]. Injected by Hilt through [@HiltWorker].
- * Supports FR23 — recurring payment schedule confirmation before posting.
  */
 @HiltWorker
 class BillReminderWorker @AssistedInject constructor(
     @Assisted private val context: Context,
     @Assisted workerParams: WorkerParameters,
     private val recurringItemRepository: RecurringItemRepository,
+    private val incomeRepository: IncomeRepository,
     private val auth: FirebaseAuth
 ) : CoroutineWorker(context, workerParams) {
 
@@ -40,18 +42,16 @@ class BillReminderWorker @AssistedInject constructor(
         val tomorrowStart = now.also { it.add(Calendar.DAY_OF_YEAR, 1) }.startOfDay()
         val tomorrowEnd = now.endOfDay()
 
-        // Fetch all active recurring items for the user
+        // 1. Check recurring items due today or tomorrow (FR23)
         val items = recurringItemRepository.getRecurringItems(userId).first()
             .filter { it.isActive }
 
-        items.forEachIndexed { index, item ->
+        items.forEach { item ->
             val dueDate = item.nextDueDate
             val isDueToday = dueDate.isInRange(todayStart, todayEnd)
             val isDueTomorrow = dueDate.isInRange(tomorrowStart, tomorrowEnd)
 
             if (isDueToday || isDueTomorrow) {
-                // Use a stable notification ID: hash of item ID (avoids stacking duplicates
-                // on repeated runs while keeping separate IDs per item)
                 val notificationId = item.id.hashCode()
                 NotificationHelper.postBillReminder(
                     context = context,
@@ -59,6 +59,22 @@ class BillReminderWorker @AssistedInject constructor(
                     title = item.title,
                     amountLKR = item.amountLKR,
                     isDueToday = isDueToday
+                )
+            }
+        }
+
+        // 2. Check pending incomes expected today (FR8)
+        val pendingIncomes = incomeRepository.getPendingIncomes(userId).first()
+        pendingIncomes.forEach { income ->
+            val expectedDate = income.expectedDate ?: return@forEach
+            if (expectedDate.isInRange(todayStart, todayEnd)) {
+                val notificationId = ("income_" + income.id).hashCode()
+                val sourceName = IncomeSource.getDisplayName(income.source)
+                NotificationHelper.postPendingIncomeReminder(
+                    context = context,
+                    notificationId = notificationId,
+                    sourceName = sourceName,
+                    amountLKR = income.amountLKR
                 )
             }
         }

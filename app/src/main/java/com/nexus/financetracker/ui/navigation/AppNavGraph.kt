@@ -415,6 +415,15 @@ fun AppNavGraph(
                             restoreState = true
                         }
                     },
+                    onNavigateToIncome = {
+                        navController.navigate(Screen.Income.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     onBack = onBackToDashboard
                 )
             }

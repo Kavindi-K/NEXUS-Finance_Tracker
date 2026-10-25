@@ -86,4 +86,52 @@ object NotificationHelper {
             // POST_NOTIFICATIONS permission was not granted — silently skip
         }
     }
+
+    /**
+     * Posts a pending income arrival reminder notification (FR8).
+     *
+     * @param context        Application context.
+     * @param notificationId Unique ID per income entry.
+     * @param sourceName     Display name of income source (e.g. "Freelance client").
+     * @param amountLKR      Income amount in LKR.
+     */
+    fun postPendingIncomeReminder(
+        context: Context,
+        notificationId: Int,
+        sourceName: String,
+        amountLKR: Double
+    ) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val amountFormatted = "LKR %,.0f".format(amountLKR)
+        val titleText = "$sourceName payment expected today ($amountFormatted)"
+        val contentText = "Tap to mark as confirmed."
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(titleText)
+            .setContentText(contentText)
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText("$sourceName payment expected today ($amountFormatted). Tap to open NEXUS and mark as confirmed.")
+            )
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
+        } catch (e: SecurityException) {
+            // POST_NOTIFICATIONS permission was not granted — silently skip
+        }
+    }
 }
