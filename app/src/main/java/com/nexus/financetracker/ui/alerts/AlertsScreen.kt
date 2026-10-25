@@ -8,10 +8,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +31,7 @@ import com.nexus.financetracker.domain.model.IncomeSource
  * Screen displaying active notifications and alerts:
  * 1. Bill & Subscription Reminders (FR23)
  * 2. Pending Income Arrival Alerts (FR8)
+ * 3. Savings Goal Milestones, Deadlines & Pace Alerts (FR15–FR17)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +39,7 @@ fun AlertsScreen(
     viewModel: AlertsViewModel = hiltViewModel(),
     onNavigateToExpenses: () -> Unit = {},
     onNavigateToIncome: () -> Unit = {},
+    onNavigateToGoals: () -> Unit = {},
     onBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -54,7 +59,7 @@ fun AlertsScreen(
         }
     }
 
-    val hasNoAlerts = uiState.billAlerts.isEmpty() && uiState.incomeAlerts.isEmpty()
+    val hasNoAlerts = uiState.billAlerts.isEmpty() && uiState.incomeAlerts.isEmpty() && uiState.goalAlerts.isEmpty()
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -111,7 +116,7 @@ fun AlertsScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "You're all caught up! When a bill is coming up or an income payment is expected, reminders will appear here.",
+                            text = "You're all caught up! When a bill is coming up, an income is expected, or a savings goal needs attention, reminders will appear here.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -127,7 +132,93 @@ fun AlertsScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // --- 1. Pending Income Arrival Alerts (FR8) ---
+                    // --- 1. Savings Goal Alerts (FR15–FR17) ---
+                    items(uiState.goalAlerts, key = { "goal_${it.goal.id}_${it.type}" }) { alert ->
+                        val (iconVector, iconColor, iconBg) = when (alert.type) {
+                            GoalAlertType.ACHIEVED -> Triple(Icons.Outlined.EmojiEvents, Color(0xFFEAB308), Color(0xFFFEF9C3))
+                            GoalAlertType.DEADLINE_SOON -> Triple(Icons.AutoMirrored.Outlined.TrendingUp, Color(0xFF3B82F6), Color(0xFFDBEAFE))
+                            GoalAlertType.PACE_BEHIND -> Triple(Icons.Outlined.Warning, Color(0xFFEA580C), Color(0xFFFFEDD5))
+                            GoalAlertType.MILESTONE -> Triple(Icons.Outlined.EmojiEvents, Color(0xFF10B981), Color(0xFFD1FAE5))
+                        }
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.Top,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(iconBg),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = iconVector,
+                                            contentDescription = null,
+                                            tint = iconColor,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = alert.title,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+
+                                        Text(
+                                            text = alert.message,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                                Button(
+                                    onClick = onNavigateToGoals,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "View Goal",
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // --- 2. Pending Income Arrival Alerts (FR8) ---
                     items(uiState.incomeAlerts, key = { "income_${it.income.id}" }) { alert ->
                         val income = alert.income
                         val dueText = if (alert.isExpectedToday) "today" else "tomorrow"
@@ -212,7 +303,7 @@ fun AlertsScreen(
                         }
                     }
 
-                    // --- 2. Bill & Subscription Reminders (FR23) ---
+                    // --- 3. Bill & Subscription Reminders (FR23) ---
                     items(uiState.billAlerts, key = { "bill_${it.item.id}" }) { alert ->
                         val item = alert.item
                         val dueText = if (alert.isDueToday) "today" else "tomorrow"

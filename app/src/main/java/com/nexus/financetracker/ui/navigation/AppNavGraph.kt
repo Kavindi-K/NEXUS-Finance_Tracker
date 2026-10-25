@@ -424,6 +424,15 @@ fun AppNavGraph(
                             restoreState = true
                         }
                     },
+                    onNavigateToGoals = {
+                        navController.navigate(Screen.Goals.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     onBack = onBackToDashboard
                 )
             }

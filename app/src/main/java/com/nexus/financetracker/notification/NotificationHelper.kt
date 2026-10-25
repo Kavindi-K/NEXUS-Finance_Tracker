@@ -134,4 +134,47 @@ object NotificationHelper {
             // POST_NOTIFICATIONS permission was not granted — silently skip
         }
     }
+
+    /**
+     * Posts a savings goal notification (milestone reached, 1-week deadline, pace warning, or achieved) (FR15–FR17).
+     *
+     * @param context        Application context.
+     * @param notificationId Unique ID per goal notification.
+     * @param title          Notification title (e.g. "Goal Achieved: MacBook Pro M4").
+     * @param message        Notification body text.
+     */
+    fun postGoalReminder(
+        context: Context,
+        notificationId: Int,
+        title: String,
+        message: String
+    ) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(
+                NotificationCompat.BigTextStyle().bigText("$message Tap to open NEXUS and view your goal.")
+            )
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
+        } catch (e: SecurityException) {
+            // POST_NOTIFICATIONS permission was not granted — silently skip
+        }
+    }
 }
