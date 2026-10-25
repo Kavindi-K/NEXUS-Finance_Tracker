@@ -330,14 +330,28 @@ fun AppNavGraph(
                     onAddExpense = {
                         navController.navigate(Screen.AddExpense.route)
                     },
+                    onEditExpense = { expenseId ->
+                        navController.navigate(Screen.AddExpense.createRoute(expenseId))
+                    },
                     onBack = onBackToDashboard
                 )
             }
 
-            composable(Screen.AddExpense.route) {
+            composable(
+                route = Screen.AddExpense.route,
+                arguments = listOf(
+                    navArgument("expenseId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val expenseId = backStackEntry.arguments?.getString("expenseId")
                 val expenseViewModel: ExpenseViewModel = hiltViewModel()
                 ExpenseAddScreen(
                     viewModel = expenseViewModel,
+                    expenseId = expenseId,
                     onNavigateBack = {
                         expenseViewModel.resetForm()
                         navController.popBackStack()

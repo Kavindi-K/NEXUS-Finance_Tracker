@@ -46,12 +46,21 @@ private val CardBorderColor = Color(0xFFCBD5E1)
 @Composable
 fun ExpenseAddScreen(
     viewModel: ExpenseViewModel,
+    expenseId: String? = null,
     onNavigateBack: () -> Unit
 ) {
     val formState by viewModel.formState.collectAsState()
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val dateFormatter = remember { SimpleDateFormat("EEE, MMM dd, yyyy", Locale.getDefault()) }
+
+    LaunchedEffect(expenseId) {
+        if (!expenseId.isNullOrBlank()) {
+            viewModel.loadExpenseForEdit(expenseId)
+        } else {
+            viewModel.resetForm()
+        }
+    }
 
     val calendar = remember { Calendar.getInstance() }
 
@@ -70,12 +79,15 @@ fun ExpenseAddScreen(
         ).show()
     }
 
+    val screenTitle = if (formState.isEditMode) "Edit Expense" else "Record Expense"
+    val submitButtonText = if (formState.isEditMode) "Update Expense" else "Save Expense"
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Record Expense",
+                        text = screenTitle,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = NavyPrimary
@@ -126,7 +138,7 @@ fun ExpenseAddScreen(
                             )
                         } else {
                             Text(
-                                text = "Save Expense",
+                                text = submitButtonText,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
