@@ -2,24 +2,35 @@ package com.nexus.financetracker.data.repository
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.nexus.financetracker.data.local.dao.ExpenseDao
+import com.nexus.financetracker.data.local.entity.ExpenseEntity
 import com.nexus.financetracker.domain.model.Expense
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Implementation of ExpenseRepository connecting to Firestore "expenses" collection.
+ * Implementation of ExpenseRepository connecting to Firestore "expenses" collection
+ * with Room local caching for offline read resilience (FR9-FR14, Member 2 Order 2).
  */
 @Singleton
 class ExpenseRepositoryImpl @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val expenseDao: ExpenseDao
 ) : ExpenseRepository {
 
     private val expensesCollection = firestore.collection("expenses")
+    private val repositoryScope = CoroutineScope(Dispatchers.IO)
 
     override fun getExpenses(userId: String): Flow<List<Expense>> = callbackFlow {
         val listener = expensesCollection
@@ -35,9 +46,22 @@ class ExpenseRepositoryImpl @Inject constructor(
                     compareByDescending<Expense> { it.date }
                         .thenByDescending { it.createdAt }
                 ) ?: emptyList()
+
+                // Sync latest remote list to local Room cache
+                repositoryScope.launch {
+                    try {
+                        expenseDao.insertAll(list.map { ExpenseEntity.fromDomain(it) })
+                    } catch (_: Exception) {}
+                }
+
                 trySend(list)
             }
         awaitClose { listener.remove() }
+    }.catch {
+        // Fallback to local Room cache when remote query fails (e.g. offline / disconnected)
+        emitAll(expenseDao.getExpensesByUser(userId).map { entities ->
+            entities.map { it.toDomain() }
+        })
     }
 
     override fun getExpensesByDateRange(userId: String, startDate: Date, endDate: Date): Flow<List<Expense>> = callbackFlow {
@@ -54,37 +78,82 @@ class ExpenseRepositoryImpl @Inject constructor(
                 val list = snapshot?.documents?.mapNotNull { doc ->
                     doc.toObject(Expense::class.java)?.copy(id = doc.id)
                 } ?: emptyList()
+
+                repositoryScope.launch {
+                    try {
+                        expenseDao.insertAll(list.map { ExpenseEntity.fromDomain(it) })
+                    } catch (_: Exception) {}
+                }
+
                 trySend(list)
             }
         awaitClose { listener.remove() }
+    }.catch {
+        emitAll(expenseDao.getExpensesByDateRange(userId, startDate.time, endDate.time).map { entities ->
+            entities.map { it.toDomain() }
+        })
     }
 
     override suspend fun getExpenseById(expenseId: String): Expense? {
-        val snapshot = expensesCollection.document(expenseId).get().await()
-        return snapshot.toObject(Expense::class.java)?.copy(id = snapshot.id)
+        return try {
+            expenseDao.getExpenseById(expenseId)?.toDomain() ?: run {
+                val snapshot = expensesCollection.document(expenseId).get().await()
+                snapshot.toObject(Expense::class.java)?.copy(id = snapshot.id)?.also { exp ->
+                    expenseDao.insertExpense(ExpenseEntity.fromDomain(exp))
+                }
+            }
+        } catch (_: Exception) {
+            val snapshot = expensesCollection.document(expenseId).get().await()
+            snapshot.toObject(Expense::class.java)?.copy(id = snapshot.id)
+        }
     }
 
     override suspend fun getLatestExpense(userId: String): Expense? {
-        val snapshot = expensesCollection
-            .whereEqualTo("userId", userId)
-            .get()
-            .await()
-        return snapshot.documents.mapNotNull { doc ->
-            doc.toObject(Expense::class.java)?.copy(id = doc.id)
-        }.maxByOrNull { it.createdAt }
+        return try {
+            expenseDao.getLatestExpense(userId)?.toDomain() ?: run {
+                val snapshot = expensesCollection
+                    .whereEqualTo("userId", userId)
+                    .get()
+                    .await()
+                val latest = snapshot.documents.mapNotNull { doc ->
+                    doc.toObject(Expense::class.java)?.copy(id = doc.id)
+                }.maxByOrNull { it.createdAt }
+                latest?.let { expenseDao.insertExpense(ExpenseEntity.fromDomain(it)) }
+                latest
+            }
+        } catch (_: Exception) {
+            val snapshot = expensesCollection
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+            snapshot.documents.mapNotNull { doc ->
+                doc.toObject(Expense::class.java)?.copy(id = doc.id)
+            }.maxByOrNull { it.createdAt }
+        }
     }
 
     override suspend fun addExpense(expense: Expense): String {
         val docRef = expensesCollection.add(expense.toFirestoreMap()).await()
+        val withId = expense.copy(id = docRef.id)
+        try {
+            expenseDao.insertExpense(ExpenseEntity.fromDomain(withId))
+        } catch (_: Exception) {}
         return docRef.id
     }
 
     override suspend fun updateExpense(expense: Expense) {
         expensesCollection.document(expense.id).set(expense.toFirestoreMap()).await()
+        try {
+            expenseDao.updateExpense(ExpenseEntity.fromDomain(expense))
+        } catch (_: Exception) {}
     }
 
     override suspend fun deleteExpense(expenseId: String) {
         expensesCollection.document(expenseId).delete().await()
+        try {
+            expenseDao.deleteExpenseById(expenseId)
+        } catch (_: Exception) {}
     }
 }
+
 

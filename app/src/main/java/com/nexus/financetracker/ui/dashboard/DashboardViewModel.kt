@@ -323,10 +323,10 @@ class DashboardViewModel @Inject constructor(
 
             return sourceTotals.map { (source, sum) ->
                 val name = when (source.lowercase().trim()) {
-                    IncomeSource.SALARY, "salary" -> "Salary"
+                    IncomeSource.SALARY, "salary" -> "Base Salary"
                     IncomeSource.FREELANCE, "freelance" -> "Freelance"
                     IncomeSource.CRYPTO, "crypto" -> "Crypto"
-                    IncomeSource.ADSENSE, "adsense" -> "AdSense"
+                    IncomeSource.ADSENSE, "adsense" -> "AdSense (USD)"
                     "other", "other_income", "other income" -> "Other"
                     else -> source.replaceFirstChar {
                         if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()

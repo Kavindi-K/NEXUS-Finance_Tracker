@@ -106,6 +106,10 @@ class ReportsViewModel @Inject constructor(
 
     fun selectPreviousMonth() {
         val months = _uiState.value.availableMonths
+        if (_uiState.value.selectedMonthLabel == "All Time") {
+            if (months.isNotEmpty()) selectMonth(months.first())
+            return
+        }
         val currentIndex = months.indexOf(_uiState.value.selectedMonthLabel)
         if (currentIndex in 0 until months.lastIndex) {
             selectMonth(months[currentIndex + 1])
@@ -114,6 +118,10 @@ class ReportsViewModel @Inject constructor(
 
     fun selectNextMonth() {
         val months = _uiState.value.availableMonths
+        if (_uiState.value.selectedMonthLabel == "All Time") {
+            if (months.isNotEmpty()) selectMonth(months.first())
+            return
+        }
         val currentIndex = months.indexOf(_uiState.value.selectedMonthLabel)
         if (currentIndex > 0) {
             selectMonth(months[currentIndex - 1])
@@ -232,6 +240,64 @@ class ReportsViewModel @Inject constructor(
                         goalReport = goalReports.firstOrNull() ?: MonthlyGoalReport(hasActiveGoal = false)
                     )
                 }
+
+                // All-Time Report
+                val allConfirmedIncomes = incomes.filter { it.status == IncomeStatus.CONFIRMED }
+                val allTotalIncome = allConfirmedIncomes.sumOf { it.amountLKR }
+                val allSources = calculateSourcesForIncomes(allConfirmedIncomes)
+                val allTotalExpense = expenses.sumOf { it.amountLKR }
+                val allNetResult = allTotalIncome - allTotalExpense
+                val allNetSavings = maxOf(0.0, allNetResult)
+                val allCategorySpendings = DashboardViewModel.calculateCategorySpending(
+                    expenses = expenses,
+                    categories = categories,
+                    startOfMonth = Date(0),
+                    endOfMonth = Date(Long.MAX_VALUE - 1000000000L)
+                )
+                val allGoalReports = allTargetGoals.map { goal ->
+                    val goalCalc = GoalCalculation.calculate(goal, incomes, expenses, Date())
+                    val targetMonthly = goalCalc.requiredMonthlySavingsLKR
+                    val fractionOfTarget = if (targetMonthly > 0) {
+                        (allNetSavings / targetMonthly).toFloat().coerceIn(0f, 1f)
+                    } else if (allNetSavings > 0) {
+                        1f
+                    } else {
+                        0f
+                    }
+                    MonthlyGoalReport(
+                        goalId = goal.id,
+                        goalTitle = goal.title,
+                        priority = goal.priority,
+                        isActive = goal.isActive,
+                        targetAmountLKR = goal.targetAmountLKR,
+                        assignedThisMonthLKR = allNetSavings,
+                        targetMonthlyLKR = targetMonthly,
+                        assignedFractionOfMonthlyTarget = fractionOfTarget,
+                        cumulativeSavingsLKR = goalCalc.estimatedCurrentSavingsLKR,
+                        remainingAmountLKR = goalCalc.remainingAmountLKR,
+                        overallProgressFraction = goalCalc.progressFraction,
+                        overallProgressPercentage = goalCalc.progressPercentage,
+                        hasActiveGoal = true,
+                        isCompleted = goalCalc.isCompleted,
+                        daysRemaining = goal.daysRemaining,
+                        daysRemainingText = goal.daysRemainingText,
+                        targetDate = goal.targetDate
+                    )
+                }
+
+                reports["All Time"] = MonthlyIncomeReport(
+                    monthKey = "all_time",
+                    monthLabel = "All Time",
+                    totalIncomeLKR = allTotalIncome,
+                    incomeSources = allSources,
+                    totalExpensesLKR = allTotalExpense,
+                    netResultLKR = allNetResult,
+                    categorySpendings = allCategorySpendings,
+                    hasIncomeRecords = allConfirmedIncomes.isNotEmpty(),
+                    hasExpenseRecords = expenses.isNotEmpty(),
+                    goalReports = allGoalReports,
+                    goalReport = allGoalReports.firstOrNull() ?: MonthlyGoalReport(hasActiveGoal = false)
+                )
 
                 val currentMonthLabel = monthFormat.format(Date())
                 val previouslySelected = _uiState.value.selectedMonthLabel
