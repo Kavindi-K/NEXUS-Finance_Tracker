@@ -177,4 +177,74 @@ object NotificationHelper {
             // POST_NOTIFICATIONS permission was not granted — silently skip
         }
     }
+
+    /**
+     * Posts a daily quick-log evening reminder at 8:30 PM (FR9).
+     * Reminds users to log unrecorded cash or secondary account expenses.
+     */
+    fun postDailyQuickLogReminder(context: Context) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            9001,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Did you spend any cash today?")
+            .setContentText("3 taps is all it takes to keep your tracker accurate.")
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText("Did you spend any cash today? 3 taps is all it takes to keep your tracker accurate. Tap to log an expense now.")
+            )
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(9001, notification)
+        } catch (e: SecurityException) {
+            // POST_NOTIFICATIONS permission was not granted — silently skip
+        }
+    }
+
+    /**
+     * Posts a daily quick-log income reminder.
+     * Reminds users to log unrecorded freelance, cash, or secondary earnings.
+     */
+    fun postDailyIncomeQuickLogReminder(context: Context) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            9002,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Did you receive any income today?")
+            .setContentText("Don't forget to log freelance, side gigs, or cash earnings.")
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText("Did you receive any income today? Don't forget to log freelance, side gigs, or cash earnings to keep your cash flow accurate.")
+            )
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(9002, notification)
+        } catch (e: SecurityException) {
+            // POST_NOTIFICATIONS permission was not granted — silently skip
+        }
+    }
 }

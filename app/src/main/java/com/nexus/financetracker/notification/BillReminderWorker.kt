@@ -70,23 +70,9 @@ class BillReminderWorker @AssistedInject constructor(
             }
         }
 
-        // 2. Check pending incomes expected today (FR8)
-        val pendingIncomes = incomeRepository.getPendingIncomes(userId).first()
-        pendingIncomes.forEach { income ->
-            val expectedDate = income.expectedDate ?: return@forEach
-            if (expectedDate.isInRange(todayStart, todayEnd)) {
-                val notificationId = ("income_" + income.id).hashCode()
-                val sourceName = IncomeSource.getDisplayName(income.source)
-                NotificationHelper.postPendingIncomeReminder(
-                    context = context,
-                    notificationId = notificationId,
-                    sourceName = sourceName,
-                    amountLKR = income.amountLKR
-                )
-            }
-        }
+        // (Pending income arrival notifications are handled at 6:00 PM daily by IncomeReminderWorker)
 
-        // 3. Check Savings Goals: Achieved, 1-week deadline, and pace alerts (FR15–FR17)
+        // 2. Check Savings Goals: Achieved, 1-week deadline, and pace alerts (FR15–FR17)
         val goals = goalRepository.getGoals(userId).first().filter { it.isActive }
         if (goals.isNotEmpty()) {
             val allIncomes = incomeRepository.getIncomes(userId).first()

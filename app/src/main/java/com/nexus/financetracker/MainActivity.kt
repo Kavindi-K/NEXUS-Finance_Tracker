@@ -22,27 +22,25 @@ class MainActivity : ComponentActivity() {
     // Permission launcher for Android 13+ POST_NOTIFICATIONS
     private val requestNotificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-            // Permission granted or denied — schedule anyway (worker silently skips if denied)
             NotificationScheduler.scheduleDailyBillReminder(this)
+            NotificationScheduler.scheduleDailyIncomeReminder(this)
+            NotificationScheduler.scheduleDailyEveningReminder(this)
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Request notification permission on Android 13+ then schedule the worker.
-        // On older versions (≤ Android 12), notifications are allowed without permission,
-        // so we schedule directly.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             when {
                 ContextCompat.checkSelfPermission(
                     this, Manifest.permission.POST_NOTIFICATIONS
                 ) == PackageManager.PERMISSION_GRANTED -> {
-                    // Already granted — schedule immediately
                     NotificationScheduler.scheduleDailyBillReminder(this)
+                    NotificationScheduler.scheduleDailyIncomeReminder(this)
+                    NotificationScheduler.scheduleDailyEveningReminder(this)
                 }
                 else -> {
-                    // Ask the user for permission (shows system dialog once)
                     requestNotificationPermissionLauncher.launch(
                         Manifest.permission.POST_NOTIFICATIONS
                     )
@@ -50,6 +48,8 @@ class MainActivity : ComponentActivity() {
             }
         } else {
             NotificationScheduler.scheduleDailyBillReminder(this)
+            NotificationScheduler.scheduleDailyIncomeReminder(this)
+            NotificationScheduler.scheduleDailyEveningReminder(this)
         }
 
         setContent {
