@@ -405,7 +405,18 @@ fun AppNavGraph(
             }
 
             composable(Screen.Alerts.route) {
-                AlertsScreen(onBack = onBackToDashboard)
+                AlertsScreen(
+                    onNavigateToExpenses = {
+                        navController.navigate(Screen.Expenses.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onBack = onBackToDashboard
+                )
             }
 
             composable(Screen.Reports.route) {
