@@ -3,10 +3,14 @@ package com.nexus.financetracker.ui.alerts
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.repository.GoalRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
 import com.nexus.financetracker.data.repository.RecurringItemRepository
+import com.nexus.financetracker.domain.model.Category
+import com.nexus.financetracker.domain.model.Expense
+import com.nexus.financetracker.domain.model.ExpenseClassification
 import com.nexus.financetracker.domain.model.Goal
 import com.nexus.financetracker.domain.model.GoalCalculation
 import com.nexus.financetracker.domain.model.GoalPriority
@@ -23,7 +27,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 
@@ -51,6 +54,15 @@ data class GoalAlert(
     val isUnread: Boolean
 )
 
+data class SpendingLeakAlert(
+    val id: String,
+    val categoryName: String,
+    val amountLKR: Double,
+    val title: String,
+    val message: String,
+    val isUnread: Boolean
+)
+
 data class QuickLogAlert(
     val id: String,
     val title: String,
@@ -74,6 +86,7 @@ data class AlertsUiState(
     val billAlerts: List<BillAlert> = emptyList(),
     val incomeAlerts: List<IncomeAlert> = emptyList(),
     val goalAlerts: List<GoalAlert> = emptyList(),
+    val leakAlerts: List<SpendingLeakAlert> = emptyList(),
     val quickLogAlert: QuickLogAlert? = null,
     val quickLogIncomeAlert: QuickLogIncomeAlert? = null,
     val hasUnreadAlerts: Boolean = false,
@@ -82,12 +95,19 @@ data class AlertsUiState(
     val errorMessage: String? = null
 )
 
+private data class FinanceContext(
+    val incomes: List<Income>,
+    val expenses: List<Expense>,
+    val categories: List<Category>
+)
+
 @HiltViewModel
 class AlertsViewModel @Inject constructor(
     private val recurringItemRepository: RecurringItemRepository,
     private val incomeRepository: IncomeRepository,
     private val expenseRepository: ExpenseRepository,
     private val goalRepository: GoalRepository,
+    private val categoryRepository: CategoryRepository,
     private val alertsReadManager: AlertsReadManager,
     private val auth: FirebaseAuth
 ) : ViewModel() {
@@ -114,20 +134,33 @@ class AlertsViewModel @Inject constructor(
 
             val financeFlow = combine(
                 incomeRepository.getIncomes(userId),
-                expenseRepository.getExpenses(userId)
-            ) { incomes, expenses -> Pair(incomes, expenses) }
+                expenseRepository.getExpenses(userId),
+                categoryRepository.getCategories(userId)
+            ) { incomes, expenses, categories ->
+                FinanceContext(incomes, expenses, categories)
+            }
+
+            val readStateFlow = combine(
+                alertsReadManager.readIds,
+                alertsReadManager.seenIds,
+                alertsReadManager.deletedIds
+            ) { readIds, seenIds, deletedIds ->
+                AlertMetaState(readIds, seenIds, deletedIds)
+            }
 
             combine(
                 recurringItemRepository.getRecurringItems(userId),
                 incomeRepository.getPendingIncomes(userId),
                 goalRepository.getGoals(userId),
                 financeFlow,
-                alertsReadManager.readIds
-            ) { allRecurring, allPendingIncomes, allGoals, finance, readIds ->
-                val (allIncomes, allExpenses) = finance
+                readStateFlow
+            ) { allRecurring, allPendingIncomes, allGoals, finance, metaState ->
+                val (allIncomes, allExpenses, allCategories) = finance
+                val (readIds, seenIds, deletedIds) = metaState
                 val activeItems = allRecurring.filter { it.isActive }
                 val now = Calendar.getInstance()
                 val todayStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(now.time)
+                val weekStr = SimpleDateFormat("yyyy_'w'ww", Locale.getDefault()).format(now.time)
 
                 val todayStart = now.cloneCalendar().apply { setStartOfDay() }.time
                 val todayEnd = now.cloneCalendar().apply { setEndOfDay() }.time
@@ -162,8 +195,8 @@ class AlertsViewModel @Inject constructor(
 
                 // 3. Goal Alerts (FR15–FR17)
                 val goalList = mutableListOf<GoalAlert>()
-                val activeGoals = allGoals.filter { it.isActive }
-                for (goal in activeGoals) {
+                val userActiveGoals = allGoals.filter { it.isActive }
+                for (goal in userActiveGoals) {
                     val calc = GoalCalculation.calculate(goal, allIncomes, allExpenses, now.time)
                     val priorityName = GoalPriority.getDisplayName(goal.priority)
 
@@ -184,56 +217,109 @@ class AlertsViewModel @Inject constructor(
                         }
                         calc.daysRemaining in 1L..7L -> {
                             val alertId = "goal_deadline_${goal.id}"
-                            val daysText = if (calc.daysRemaining == 1L) "1 day" else "${calc.daysRemaining} days"
+                            val dayText = if (calc.daysRemaining == 1L) "1 day" else "${calc.daysRemaining} days"
                             goalList.add(
                                 GoalAlert(
                                     id = alertId,
                                     goal = goal,
-                                    title = "🎯 $priorityName Priority: ${goal.title}",
-                                    message = "You have $daysText left to achieve your target (LKR %,.0f).".format(goal.targetAmountLKR),
+                                    title = "⏳ Deadline Soon: ${goal.title}",
+                                    message = "Reminder: You have $dayText left to reach your ${goal.title} goal!",
                                     type = GoalAlertType.DEADLINE_SOON,
                                     priority = priorityName,
                                     isUnread = !readIds.contains(alertId)
                                 )
                             )
                         }
-                        (calc.paceStatus == PaceStatus.BEHIND_PACE || calc.paceStatus == PaceStatus.OVERDUE) && calc.requiredMonthlySavingsLKR > 0 -> {
+                        calc.paceStatus == PaceStatus.BEHIND_PACE || calc.paceStatus == PaceStatus.OVERDUE -> {
                             val alertId = "goal_pace_${goal.id}"
+                            val needed = calc.requiredMonthlySavingsLKR
+                            val paceMessage = if (needed > 0) {
+                                "You need LKR %,.0f saved this month to stay on track for your target date.".format(needed)
+                            } else {
+                                "Your savings are currently behind schedule. Review your contributions to stay on track."
+                            }
                             goalList.add(
                                 GoalAlert(
                                     id = alertId,
                                     goal = goal,
                                     title = "⚠️ ${goal.title}: Target Pace Alert",
-                                    message = "You need LKR %,.0f saved this month to stay on track for your target date.".format(calc.requiredMonthlySavingsLKR),
+                                    message = paceMessage,
                                     type = GoalAlertType.PACE_BEHIND,
                                     priority = priorityName,
                                     isUnread = !readIds.contains(alertId)
                                 )
                             )
                         }
-                        calc.progressPercentage >= 25.0 -> {
-                            val milestone = when {
-                                calc.progressPercentage >= 75.0 -> 75
-                                calc.progressPercentage >= 50.0 -> 50
-                                else -> 25
-                            }
-                            val alertId = "goal_milestone_${milestone}_${goal.id}"
-                            goalList.add(
-                                GoalAlert(
-                                    id = alertId,
-                                    goal = goal,
-                                    title = "🏆 Milestone: ${goal.title}",
-                                    message = "Congratulations! You've reached $milestone% of your ${goal.title} goal!",
-                                    type = GoalAlertType.MILESTONE,
-                                    priority = priorityName,
-                                    isUnread = !readIds.contains(alertId)
-                                )
+                    }
+
+                    // Milestone Celebrations (25%, 50%, 75%)
+                    val currentPercent = calc.progressPercentage.toInt()
+                    val milestone = when {
+                        currentPercent in 75..99 -> 75
+                        currentPercent in 50..74 -> 50
+                        currentPercent in 25..49 -> 25
+                        else -> null
+                    }
+                    if (milestone != null) {
+                        val alertId = "goal_milestone_${milestone}_${goal.id}"
+                        goalList.add(
+                            GoalAlert(
+                                id = alertId,
+                                goal = goal,
+                                title = "🏆 Milestone: ${goal.title}",
+                                message = "Congratulations! You've reached $milestone% of your ${goal.title} goal!",
+                                type = GoalAlertType.MILESTONE,
+                                priority = priorityName,
+                                isUnread = !readIds.contains(alertId)
                             )
-                        }
+                        )
                     }
                 }
 
-                // 4. Daily Quick-Log Expense Reminder (FR9)
+                // 4. Discretionary Spending / Category Leak Alerts (FR18–FR19)
+                val weekStart = now.cloneCalendar().apply {
+                    firstDayOfWeek = Calendar.MONDAY
+                    set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                    setStartOfDay()
+                }.time
+
+                val weekExpenses = allExpenses.filter { !it.date.before(weekStart) }
+                val discretionaryExpenses = weekExpenses.filter {
+                    it.classification.equals(ExpenseClassification.DISCRETIONARY, ignoreCase = true)
+                }
+                val totalWeeklyExpenses = weekExpenses.sumOf { it.amountLKR }
+                val categoryMap = allCategories.associate { it.id to it.name }
+                val leakList = mutableListOf<SpendingLeakAlert>()
+
+                val groupedDiscretionary = discretionaryExpenses.groupBy { expense ->
+                    categoryMap[expense.categoryId]?.takeIf { it.isNotBlank() }
+                        ?: expense.categoryId.takeIf { it.isNotBlank() }
+                        ?: "Dining & Coffee"
+                }.mapValues { (_, list) -> list.sumOf { it.amountLKR } }
+
+                for ((catName, sum) in groupedDiscretionary) {
+                    val isLeak = sum >= 15000.0 || (totalWeeklyExpenses > 0 && (sum / totalWeeklyExpenses) >= 0.40 && sum >= 5000.0)
+                    if (isLeak) {
+                        val safeCat = catName.lowercase().replace(" ", "_")
+                        val alertId = "leak_${safeCat}_$weekStr"
+                        val isUnread = !readIds.contains(alertId)
+                        val formattedCat = catName.replaceFirstChar {
+                            if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                        }
+                        leakList.add(
+                            SpendingLeakAlert(
+                                id = alertId,
+                                categoryName = formattedCat,
+                                amountLKR = sum,
+                                title = "⚠️ Notice: High Spending on $formattedCat",
+                                message = "Notice: You've spent LKR %,.0f on %s this week.".format(sum, formattedCat.lowercase()),
+                                isUnread = isUnread
+                            )
+                        )
+                    }
+                }
+
+                // 5. Daily Quick-Log Expense Reminder (FR9)
                 val quickLogId = "quick_log_$todayStr"
                 val quickLogAlert = QuickLogAlert(
                     id = quickLogId,
@@ -242,7 +328,7 @@ class AlertsViewModel @Inject constructor(
                     isUnread = !readIds.contains(quickLogId)
                 )
 
-                // 5. Daily Quick-Log Income Reminder (delivered at 6:00 PM only)
+                // 6. Daily Quick-Log Income Reminder (delivered at 6:00 PM only)
                 val currentHour = now.get(Calendar.HOUR_OF_DAY)
                 val quickLogIncomeAlert = if (currentHour >= 18) {
                     val quickLogIncomeId = "quick_log_income_$todayStr"
@@ -254,19 +340,31 @@ class AlertsViewModel @Inject constructor(
                     )
                 } else null
 
-                val anyUnread = billList.any { it.isUnread } ||
-                    incomeList.any { it.isUnread } ||
-                    goalList.any { it.isUnread } ||
-                    quickLogAlert.isUnread ||
-                    (quickLogIncomeAlert?.isUnread == true)
+                // Filter out user-deleted alerts
+                val activeBills = billList.filter { !deletedIds.contains(it.id) }
+                val activeIncomes = incomeList.filter { !deletedIds.contains(it.id) }
+                val activeGoalAlerts = goalList.filter { !deletedIds.contains(it.id) }
+                val activeLeaks = leakList.filter { !deletedIds.contains(it.id) }
+                val activeQuickLog = quickLogAlert?.takeIf { !deletedIds.contains(it.id) }
+                val activeQuickLogIncome = quickLogIncomeAlert?.takeIf { !deletedIds.contains(it.id) }
+
+                // Compute whether any alert has not yet been seen by visiting the Alerts screen
+                val allCurrentIds = activeBills.map { it.id } +
+                    activeIncomes.map { it.id } +
+                    activeGoalAlerts.map { it.id } +
+                    activeLeaks.map { it.id } +
+                    listOfNotNull(activeQuickLog?.id, activeQuickLogIncome?.id)
+
+                val hasUnseenAlerts = allCurrentIds.any { !seenIds.contains(it) }
 
                 AlertsData(
-                    bills = billList.sortedBy { it.item.nextDueDate },
-                    incomes = incomeList.sortedBy { it.income.expectedDate },
-                    goals = goalList,
-                    quickLog = quickLogAlert,
-                    quickLogIncome = quickLogIncomeAlert,
-                    hasUnread = anyUnread
+                    bills = activeBills.sortedBy { it.item.nextDueDate },
+                    incomes = activeIncomes.sortedBy { it.income.expectedDate },
+                    goals = activeGoalAlerts,
+                    leaks = activeLeaks.sortedByDescending { it.amountLKR },
+                    quickLog = activeQuickLog,
+                    quickLogIncome = activeQuickLogIncome,
+                    hasUnseen = hasUnseenAlerts
                 )
             }
                 .catch { error ->
@@ -281,13 +379,28 @@ class AlertsViewModel @Inject constructor(
                         billAlerts = data.bills,
                         incomeAlerts = data.incomes,
                         goalAlerts = data.goals,
+                        leakAlerts = data.leaks,
                         quickLogAlert = data.quickLog,
                         quickLogIncomeAlert = data.quickLogIncome,
-                        hasUnreadAlerts = data.hasUnread,
+                        hasUnreadAlerts = data.hasUnseen,
                         errorMessage = null
                     )
                 }
         }
+    }
+
+    /**
+     * Marks all currently active alerts as seen when the user views the Alerts screen.
+     * This immediately clears the red badge dot on the bottom navigation Alerts icon.
+     */
+    fun markAlertsAsSeen() {
+        val state = _uiState.value
+        val allIds = state.billAlerts.map { it.id } +
+            state.incomeAlerts.map { it.id } +
+            state.goalAlerts.map { it.id } +
+            state.leakAlerts.map { it.id } +
+            listOfNotNull(state.quickLogAlert?.id, state.quickLogIncomeAlert?.id)
+        alertsReadManager.markAllAsSeen(allIds)
     }
 
     fun markAsRead(alertId: String) {
@@ -299,9 +412,18 @@ class AlertsViewModel @Inject constructor(
         _uiState.value.billAlerts.forEach { allIds.add(it.id) }
         _uiState.value.incomeAlerts.forEach { allIds.add(it.id) }
         _uiState.value.goalAlerts.forEach { allIds.add(it.id) }
+        _uiState.value.leakAlerts.forEach { allIds.add(it.id) }
         _uiState.value.quickLogAlert?.let { allIds.add(it.id) }
         _uiState.value.quickLogIncomeAlert?.let { allIds.add(it.id) }
         alertsReadManager.markAllAsRead(allIds)
+    }
+
+    fun deleteAlerts(alertIds: Collection<String>) {
+        alertsReadManager.deleteAlerts(alertIds)
+    }
+
+    fun deleteAlert(alertId: String) {
+        alertsReadManager.deleteAlert(alertId)
     }
 
     fun clearUserMessage() {
@@ -329,11 +451,18 @@ class AlertsViewModel @Inject constructor(
     }
 }
 
+private data class AlertMetaState(
+    val readIds: Set<String>,
+    val seenIds: Set<String>,
+    val deletedIds: Set<String>
+)
+
 private data class AlertsData(
     val bills: List<BillAlert>,
     val incomes: List<IncomeAlert>,
     val goals: List<GoalAlert>,
+    val leaks: List<SpendingLeakAlert>,
     val quickLog: QuickLogAlert?,
     val quickLogIncome: QuickLogIncomeAlert?,
-    val hasUnread: Boolean
+    val hasUnseen: Boolean
 )

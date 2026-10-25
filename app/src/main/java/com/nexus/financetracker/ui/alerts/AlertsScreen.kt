@@ -1,6 +1,9 @@
 package com.nexus.financetracker.ui.alerts
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,10 +11,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.TrendingDown
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Notifications
@@ -34,11 +41,13 @@ import com.nexus.financetracker.domain.model.IncomeSource
  * 1. Bill & Subscription Reminders (FR23)
  * 2. Pending Income Arrival Alerts (FR8)
  * 3. Savings Goal Milestones, Deadlines & Pace Alerts (FR15–FR17)
- * 4. Daily Quick-Log Evening Reminder (FR9)
+ * 4. Daily Quick-Log Reminders (FR9)
+ * 5. Spending / Discretionary Leak Alerts (FR18–FR19)
  *
- * Supports unread message indicators and mark as read actions.
+ * Supports unread indicators, mark-all-as-read confirmation dialog,
+ * long-press selection mode, and delete validation.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AlertsScreen(
     viewModel: AlertsViewModel = hiltViewModel(),
@@ -51,6 +60,20 @@ fun AlertsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    var selectedAlertIds by remember { mutableStateOf(emptySet<String>()) }
+    val isSelectionMode = selectedAlertIds.isNotEmpty()
+
+    var showMarkAllReadDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    fun toggleSelection(alertId: String) {
+        selectedAlertIds = if (selectedAlertIds.contains(alertId)) {
+            selectedAlertIds - alertId
+        } else {
+            selectedAlertIds + alertId
+        }
+    }
 
     LaunchedEffect(uiState.userMessage) {
         uiState.userMessage?.let {
@@ -66,40 +89,116 @@ fun AlertsScreen(
         }
     }
 
-    val hasNoAlerts = uiState.billAlerts.isEmpty() &&
-        uiState.incomeAlerts.isEmpty() &&
-        uiState.goalAlerts.isEmpty() &&
-        uiState.quickLogAlert == null &&
-        uiState.quickLogIncomeAlert == null
+    // Automatically mark active alerts as seen when viewing the Alerts screen.
+    // Clears the bottom navigation red dot immediately.
+    LaunchedEffect(Unit) {
+        viewModel.markAlertsAsSeen()
+    }
+    LaunchedEffect(
+        uiState.billAlerts.size,
+        uiState.incomeAlerts.size,
+        uiState.goalAlerts.size,
+        uiState.leakAlerts.size
+    ) {
+        viewModel.markAlertsAsSeen()
+    }
+
+    val allVisibleAlertIds = remember(uiState) {
+        uiState.billAlerts.map { it.id } +
+            uiState.incomeAlerts.map { it.id } +
+            uiState.goalAlerts.map { it.id } +
+            uiState.leakAlerts.map { it.id } +
+            listOfNotNull(uiState.quickLogAlert?.id, uiState.quickLogIncomeAlert?.id)
+    }
+
+    val hasNoAlerts = allVisibleAlertIds.isEmpty()
+
+    // Clean up selections that may no longer exist
+    LaunchedEffect(allVisibleAlertIds) {
+        val validSet = allVisibleAlertIds.toSet()
+        selectedAlertIds = selectedAlertIds.filter { validSet.contains(it) }.toSet()
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Alerts", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back to Dashboard"
+            if (isSelectionMode) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "${selectedAlertIds.size} selected",
+                            fontWeight = FontWeight.Bold
                         )
-                    }
-                },
-                actions = {
-                    if (uiState.hasUnreadAlerts) {
-                        IconButton(onClick = { viewModel.markAllAsRead() }) {
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { selectedAlertIds = emptySet() }) {
                             Icon(
-                                imageVector = Icons.Default.DoneAll,
-                                contentDescription = "Mark all as read",
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Exit selection"
+                            )
+                        }
+                    },
+                    actions = {
+                        val isAllSelected = selectedAlertIds.size == allVisibleAlertIds.size && allVisibleAlertIds.isNotEmpty()
+                        IconButton(onClick = {
+                            selectedAlertIds = if (isAllSelected) emptySet() else allVisibleAlertIds.toSet()
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.SelectAll,
+                                contentDescription = if (isAllSelected) "Deselect all" else "Select all",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = "Delete selected",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 )
-            )
+            } else {
+                TopAppBar(
+                    title = { Text("Alerts", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back to Dashboard"
+                            )
+                        }
+                    },
+                    actions = {
+                        if (!hasNoAlerts) {
+                            IconButton(onClick = {
+                                if (allVisibleAlertIds.isNotEmpty()) {
+                                    selectedAlertIds = setOf(allVisibleAlertIds.first())
+                                }
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Delete,
+                                    contentDescription = "Select alerts to delete",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(onClick = { showMarkAllReadDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.DoneAll,
+                                    contentDescription = "Mark all as read",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                )
+            }
         }
     ) { padding ->
         when {
@@ -156,13 +255,29 @@ fun AlertsScreen(
                 ) {
                     // --- 1. Daily Quick-Log Evening Reminder (FR9) ---
                     uiState.quickLogAlert?.let { quickLog ->
+                        val isSelected = selectedAlertIds.contains(quickLog.id)
                         item(key = quickLog.id) {
                             Card(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .combinedClickable(
+                                        onClick = {
+                                            if (isSelectionMode) toggleSelection(quickLog.id)
+                                        },
+                                        onLongClick = {
+                                            toggleSelection(quickLog.id)
+                                        }
+                                    ),
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surface
+                                    containerColor = if (isSelected) {
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                    } else {
+                                        MaterialTheme.colorScheme.surface
+                                    }
                                 ),
+                                border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
                                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
                                 Column(
@@ -204,7 +319,15 @@ fun AlertsScreen(
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     modifier = Modifier.weight(1f)
                                                 )
-                                                if (quickLog.isUnread) {
+                                                if (isSelectionMode) {
+                                                    Checkbox(
+                                                        checked = isSelected,
+                                                        onCheckedChange = { toggleSelection(quickLog.id) },
+                                                        colors = CheckboxDefaults.colors(
+                                                            checkedColor = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    )
+                                                } else if (quickLog.isUnread) {
                                                     UnreadBadge()
                                                 }
                                             }
@@ -223,8 +346,12 @@ fun AlertsScreen(
 
                                     Button(
                                         onClick = {
-                                            viewModel.markAsRead(quickLog.id)
-                                            onNavigateToAddExpense()
+                                            if (isSelectionMode) {
+                                                toggleSelection(quickLog.id)
+                                            } else {
+                                                viewModel.markAsRead(quickLog.id)
+                                                onNavigateToAddExpense()
+                                            }
                                         },
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(10.dp),
@@ -250,13 +377,29 @@ fun AlertsScreen(
 
                     // --- Daily Income Quick-Log Reminder ---
                     uiState.quickLogIncomeAlert?.let { quickLogIncome ->
+                        val isSelected = selectedAlertIds.contains(quickLogIncome.id)
                         item(key = quickLogIncome.id) {
                             Card(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .combinedClickable(
+                                        onClick = {
+                                            if (isSelectionMode) toggleSelection(quickLogIncome.id)
+                                        },
+                                        onLongClick = {
+                                            toggleSelection(quickLogIncome.id)
+                                        }
+                                    ),
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surface
+                                    containerColor = if (isSelected) {
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                    } else {
+                                        MaterialTheme.colorScheme.surface
+                                    }
                                 ),
+                                border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
                                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
                                 Column(
@@ -298,7 +441,15 @@ fun AlertsScreen(
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     modifier = Modifier.weight(1f)
                                                 )
-                                                if (quickLogIncome.isUnread) {
+                                                if (isSelectionMode) {
+                                                    Checkbox(
+                                                        checked = isSelected,
+                                                        onCheckedChange = { toggleSelection(quickLogIncome.id) },
+                                                        colors = CheckboxDefaults.colors(
+                                                            checkedColor = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    )
+                                                } else if (quickLogIncome.isUnread) {
                                                     UnreadBadge()
                                                 }
                                             }
@@ -317,8 +468,12 @@ fun AlertsScreen(
 
                                     Button(
                                         onClick = {
-                                            viewModel.markAsRead(quickLogIncome.id)
-                                            onNavigateToAddIncome()
+                                            if (isSelectionMode) {
+                                                toggleSelection(quickLogIncome.id)
+                                            } else {
+                                                viewModel.markAsRead(quickLogIncome.id)
+                                                onNavigateToAddIncome()
+                                            }
                                         },
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(10.dp),
@@ -344,6 +499,7 @@ fun AlertsScreen(
 
                     // --- 2. Savings Goal Alerts (FR15–FR17) ---
                     items(uiState.goalAlerts, key = { it.id }) { alert ->
+                        val isSelected = selectedAlertIds.contains(alert.id)
                         val iconVector = when (alert.type) {
                             GoalAlertType.ACHIEVED -> Icons.Outlined.EmojiEvents
                             GoalAlertType.DEADLINE_SOON -> Icons.AutoMirrored.Outlined.TrendingUp
@@ -352,11 +508,26 @@ fun AlertsScreen(
                         }
 
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .combinedClickable(
+                                    onClick = {
+                                        if (isSelectionMode) toggleSelection(alert.id)
+                                    },
+                                    onLongClick = {
+                                        toggleSelection(alert.id)
+                                    }
+                                ),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
+                                containerColor = if (isSelected) {
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                }
                             ),
+                            border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Column(
@@ -398,7 +569,15 @@ fun AlertsScreen(
                                                 color = MaterialTheme.colorScheme.onSurface,
                                                 modifier = Modifier.weight(1f)
                                             )
-                                            if (alert.isUnread) {
+                                            if (isSelectionMode) {
+                                                Checkbox(
+                                                    checked = isSelected,
+                                                    onCheckedChange = { toggleSelection(alert.id) },
+                                                    colors = CheckboxDefaults.colors(
+                                                        checkedColor = MaterialTheme.colorScheme.primary
+                                                    )
+                                                )
+                                            } else if (alert.isUnread) {
                                                 UnreadBadge()
                                             }
                                         }
@@ -417,8 +596,12 @@ fun AlertsScreen(
 
                                 Button(
                                     onClick = {
-                                        viewModel.markAsRead(alert.id)
-                                        onNavigateToGoals()
+                                        if (isSelectionMode) {
+                                            toggleSelection(alert.id)
+                                        } else {
+                                            viewModel.markAsRead(alert.id)
+                                            onNavigateToGoals()
+                                        }
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(10.dp),
@@ -441,18 +624,154 @@ fun AlertsScreen(
                         }
                     }
 
-                    // --- 3. Pending Income Arrival Alerts (FR8) ---
+                    // --- 3. Spending / Discretionary Leak Alerts (FR18–FR19) ---
+                    items(uiState.leakAlerts, key = { it.id }) { alert ->
+                        val isSelected = selectedAlertIds.contains(alert.id)
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .combinedClickable(
+                                    onClick = {
+                                        if (isSelectionMode) toggleSelection(alert.id)
+                                    },
+                                    onLongClick = {
+                                        toggleSelection(alert.id)
+                                    }
+                                ),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) {
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                }
+                            ),
+                            border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.Top,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFE2EDF8)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Outlined.TrendingDown,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = alert.title,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            if (isSelectionMode) {
+                                                Checkbox(
+                                                    checked = isSelected,
+                                                    onCheckedChange = { toggleSelection(alert.id) },
+                                                    colors = CheckboxDefaults.colors(
+                                                        checkedColor = MaterialTheme.colorScheme.primary
+                                                    )
+                                                )
+                                            } else if (alert.isUnread) {
+                                                UnreadBadge()
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+
+                                        Text(
+                                            text = alert.message,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                                Button(
+                                    onClick = {
+                                        if (isSelectionMode) {
+                                            toggleSelection(alert.id)
+                                        } else {
+                                            viewModel.markAsRead(alert.id)
+                                            onNavigateToExpenses()
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Review Spending",
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // --- 4. Pending Income Arrival Alerts (FR8) ---
                     items(uiState.incomeAlerts, key = { it.id }) { alert ->
+                        val isSelected = selectedAlertIds.contains(alert.id)
                         val income = alert.income
                         val dueText = if (alert.isExpectedToday) "today" else "tomorrow"
                         val sourceName = IncomeSource.getDisplayName(income.source)
 
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .combinedClickable(
+                                    onClick = {
+                                        if (isSelectionMode) toggleSelection(alert.id)
+                                    },
+                                    onLongClick = {
+                                        toggleSelection(alert.id)
+                                    }
+                                ),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
+                                containerColor = if (isSelected) {
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                }
                             ),
+                            border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Column(
@@ -494,7 +813,15 @@ fun AlertsScreen(
                                                 color = MaterialTheme.colorScheme.onSurface,
                                                 modifier = Modifier.weight(1f)
                                             )
-                                            if (alert.isUnread) {
+                                            if (isSelectionMode) {
+                                                Checkbox(
+                                                    checked = isSelected,
+                                                    onCheckedChange = { toggleSelection(alert.id) },
+                                                    colors = CheckboxDefaults.colors(
+                                                        checkedColor = MaterialTheme.colorScheme.primary
+                                                    )
+                                                )
+                                            } else if (alert.isUnread) {
                                                 UnreadBadge()
                                             }
                                         }
@@ -513,8 +840,12 @@ fun AlertsScreen(
 
                                 Button(
                                     onClick = {
-                                        viewModel.markAsRead(alert.id)
-                                        onNavigateToIncome()
+                                        if (isSelectionMode) {
+                                            toggleSelection(alert.id)
+                                        } else {
+                                            viewModel.markAsRead(alert.id)
+                                            onNavigateToIncome()
+                                        }
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(10.dp),
@@ -537,17 +868,33 @@ fun AlertsScreen(
                         }
                     }
 
-                    // --- 4. Bill & Subscription Reminders (FR23) ---
+                    // --- 5. Bill & Subscription Reminders (FR23) ---
                     items(uiState.billAlerts, key = { it.id }) { alert ->
+                        val isSelected = selectedAlertIds.contains(alert.id)
                         val item = alert.item
                         val dueText = if (alert.isDueToday) "today" else "tomorrow"
 
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .combinedClickable(
+                                    onClick = {
+                                        if (isSelectionMode) toggleSelection(alert.id)
+                                    },
+                                    onLongClick = {
+                                        toggleSelection(alert.id)
+                                    }
+                                ),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
+                                containerColor = if (isSelected) {
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                }
                             ),
+                            border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Column(
@@ -589,7 +936,15 @@ fun AlertsScreen(
                                                 color = MaterialTheme.colorScheme.onSurface,
                                                 modifier = Modifier.weight(1f)
                                             )
-                                            if (alert.isUnread) {
+                                            if (isSelectionMode) {
+                                                Checkbox(
+                                                    checked = isSelected,
+                                                    onCheckedChange = { toggleSelection(alert.id) },
+                                                    colors = CheckboxDefaults.colors(
+                                                        checkedColor = MaterialTheme.colorScheme.primary
+                                                    )
+                                                )
+                                            } else if (alert.isUnread) {
                                                 UnreadBadge()
                                             }
                                         }
@@ -608,8 +963,12 @@ fun AlertsScreen(
 
                                 Button(
                                     onClick = {
-                                        viewModel.markAsRead(alert.id)
-                                        onNavigateToExpenses()
+                                        if (isSelectionMode) {
+                                            toggleSelection(alert.id)
+                                        } else {
+                                            viewModel.markAsRead(alert.id)
+                                            onNavigateToExpenses()
+                                        }
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(10.dp),
@@ -634,6 +993,89 @@ fun AlertsScreen(
                 }
             }
         }
+    }
+
+    // --- Validation Dialog: Mark All as Read ---
+    if (showMarkAllReadDialog) {
+        AlertDialog(
+            onDismissRequest = { showMarkAllReadDialog = false },
+            title = {
+                Text(
+                    text = "Mark all as read?",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to mark all active notifications as read?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.markAllAsRead()
+                        showMarkAllReadDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text("Mark as Read")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMarkAllReadDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // --- Validation Dialog: Delete Notifications ---
+    if (showDeleteDialog) {
+        val count = selectedAlertIds.size
+        val titleText = if (count == 1) "Delete Notification?" else "Delete $count Notifications?"
+        val bodyText = if (count == 1) {
+            "Are you sure you want to delete this notification? It will be removed from your alerts list."
+        } else {
+            "Are you sure you want to delete these $count notifications? They will be removed from your alerts list."
+        }
+
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = {
+                Text(
+                    text = titleText,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = bodyText,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteAlerts(selectedAlertIds)
+                        selectedAlertIds = emptySet()
+                        showDeleteDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

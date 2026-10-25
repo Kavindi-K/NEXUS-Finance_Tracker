@@ -247,4 +247,51 @@ object NotificationHelper {
             // POST_NOTIFICATIONS permission was not granted — silently skip
         }
     }
+
+    /**
+     * Posts a discretionary spending leak alert (FR18–FR19).
+     *
+     * @param context Application context.
+     * @param notificationId Unique notification ID per category leak.
+     * @param categoryName Name of category (e.g. "Dining & Coffee").
+     * @param amountLKR Total spent in this category this week.
+     */
+    fun postDiscretionaryLeakReminder(
+        context: Context,
+        notificationId: Int,
+        categoryName: String,
+        amountLKR: Double
+    ) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val amountFormatted = "LKR %,.0f".format(amountLKR)
+        val text = "Notice: You've spent $amountFormatted on $categoryName this week."
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Spending Leak Alert — $categoryName")
+            .setContentText(text)
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText("$text Tap to review your spending and make adjustments.")
+            )
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
+        } catch (e: SecurityException) {
+            // POST_NOTIFICATIONS permission was not granted — silently skip
+        }
+    }
 }
