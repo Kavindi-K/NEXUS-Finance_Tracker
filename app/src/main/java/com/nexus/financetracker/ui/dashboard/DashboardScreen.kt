@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexus.financetracker.R
+import com.nexus.financetracker.ui.common.CategoryExpenseBarChart
 import com.nexus.financetracker.ui.common.IncomeSourceBarChart
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -502,8 +503,7 @@ fun DashboardScreen(
                     }
                 }
 
-                // Card 3: Spending by Category Visualization (FR19 / Order 8)
-                // Fully scrollable: reveals all categories when user scrolls down
+                // Card 3: Expenses by Category Visualization (FR19 / Order 8)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -519,12 +519,20 @@ fun DashboardScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Spending by Category",
-                                color = TextPrimaryNavy,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Column {
+                                Text(
+                                    text = "Expenses by Category",
+                                    color = TextPrimaryNavy,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = uiState.selectedMonthLabel.ifBlank { "Current Month" },
+                                    color = TextSubtleNavy,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                             if (uiState.categorySpendings.isNotEmpty()) {
                                 Text(
                                     text = "${uiState.categorySpendings.size} categories",
@@ -535,7 +543,7 @@ fun DashboardScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         // Explicit Empty State UI when user has 0 expenses this month
                         if (uiState.categorySpendings.isEmpty()) {
@@ -561,48 +569,10 @@ fun DashboardScreen(
                                 )
                             }
                         } else {
-                            // Ranked category spending list revealing all categories on scroll down (FR19)
-                            uiState.categorySpendings.forEachIndexed { index, item ->
-                                if (index > 0) {
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = item.name,
-                                        color = TextCategoryName,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Normal
-                                    )
-                                    Text(
-                                        text = currencyFormat.format(item.amountLKR),
-                                        color = TextPrimaryNavy,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(6.dp))
-
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(8.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color.White)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(fraction = item.fraction.coerceIn(0.05f, 1f))
-                                            .fillMaxHeight()
-                                            .background(TextPrimaryNavy)
-                                    )
-                                }
-                            }
+                            CategoryExpenseBarChart(
+                                items = uiState.categorySpendings,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
