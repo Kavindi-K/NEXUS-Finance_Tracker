@@ -1,5 +1,6 @@
 package com.nexus.financetracker.ui.expense
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseAccount
@@ -27,8 +29,19 @@ import com.nexus.financetracker.domain.model.ExpenseClassification
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+// App Theme Colors (Matching Deep Sapphire Navy Design System)
+private val NavyPrimary = Color(0xFF072044)
+private val NavyCardBg = Color(0xFF132D52)
+private val NavyCardBorder = Color(0x33FFFFFF)
+private val LightCardBg = Color(0xFFF1F5F9)
+private val TextHeaderSubtle = Color(0xFFBAC7D5)
+private val TextSubtle = Color(0xFF64748B)
+private val ExpenseRed = Color(0xFFDC2626)
+private val CardBorderColor = Color(0xFFE2E8F0)
+
 /**
  * Expenses Screen — Shows real-time recorded expenses and provides quick entry action (FR9-FR14).
+ * Styled to perfectly match the NEXUS Deep Sapphire Navy theme.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,53 +59,61 @@ fun ExpenseScreen(
         val catName = uiState.categoriesMap[expense.categoryId] ?: expense.categoryId
         AlertDialog(
             onDismissRequest = { expenseToDelete = null },
-            title = { Text("Delete Expense") },
-            text = { Text("Are you sure you want to delete this expense of LKR %,.2f for $catName?".format(expense.amountLKR)) },
+            title = { Text("Delete Expense", fontWeight = FontWeight.Bold, color = NavyPrimary) },
+            text = { Text("Are you sure you want to delete this expense of LKR %,.2f for $catName?".format(expense.amountLKR), color = Color(0xFF334155)) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         viewModel.deleteExpense(expense.id)
                         expenseToDelete = null
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.textButtonColors(contentColor = ExpenseRed)
                 ) {
-                    Text("Delete")
+                    Text("Delete", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { expenseToDelete = null }) {
-                    Text("Cancel")
+                TextButton(
+                    onClick = { expenseToDelete = null },
+                    colors = ButtonDefaults.textButtonColors(contentColor = NavyPrimary)
+                ) {
+                    Text("Cancel", fontWeight = FontWeight.Medium)
                 }
-            }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Expenses", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
+                title = { Text("Expenses", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = NavyPrimary) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back to Dashboard"
+                            contentDescription = "Back to Dashboard",
+                            tint = NavyPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = Color.White
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddExpense,
-                containerColor = MaterialTheme.colorScheme.error,
-                contentColor = MaterialTheme.colorScheme.onError
+                containerColor = NavyPrimary,
+                contentColor = Color.White,
+                shape = CircleShape
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Expense")
             }
-        }
+        },
+        containerColor = Color.White
     ) { padding ->
         if (uiState.isLoading) {
             Box(
@@ -101,7 +122,7 @@ fun ExpenseScreen(
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.error)
+                CircularProgressIndicator(color = NavyPrimary)
             }
         } else {
             LazyColumn(
@@ -117,9 +138,10 @@ fun ExpenseScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                            containerColor = NavyCardBg
                         ),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, NavyCardBorder)
                     ) {
                         Column(
                             modifier = Modifier.padding(18.dp),
@@ -137,30 +159,36 @@ fun ExpenseScreen(
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.TrendingDown,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error
+                                        tint = TextHeaderSubtle
                                     )
                                     Text(
                                         text = "Total Expenses",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                        color = TextHeaderSubtle
                                     )
                                 }
-                                Text(
-                                    text = "${uiState.expenses.size} record${if (uiState.expenses.size == 1) "" else "s"}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
-                                )
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color.White.copy(alpha = 0.12f)
+                                ) {
+                                    Text(
+                                        text = "${uiState.expenses.size} record${if (uiState.expenses.size == 1) "" else "s"}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
+                                }
                             }
 
                             Text(
                                 text = "LKR %,.2f".format(uiState.totalExpenseLKR),
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                                color = Color.White
                             )
 
-                            HorizontalDivider(color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f))
+                            HorizontalDivider(color = Color(0x33FFFFFF))
 
                             // Accounts Breakdown Row
                             Row(
@@ -186,9 +214,9 @@ fun ExpenseScreen(
                     ) {
                         Text(
                             text = "Recorded Transactions",
-                            style = MaterialTheme.typography.titleSmall,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = NavyPrimary
                         )
                     }
                 }
@@ -196,12 +224,13 @@ fun ExpenseScreen(
                 // 3. Empty State or Expenses List
                 if (uiState.expenses.isEmpty()) {
                     item {
-                        Surface(
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 16.dp),
-                            shape = MaterialTheme.shapes.medium,
-                            tonalElevation = 1.dp
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = LightCardBg),
+                            border = BorderStroke(1.dp, CardBorderColor)
                         ) {
                             Box(
                                 modifier = Modifier
@@ -216,29 +245,32 @@ fun ExpenseScreen(
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        tint = TextSubtle.copy(alpha = 0.5f),
                                         modifier = Modifier.size(48.dp)
                                     )
                                     Text(
                                         text = "No expenses recorded yet",
                                         style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold
+                                        fontWeight = FontWeight.Bold,
+                                        color = NavyPrimary
                                     )
                                     Text(
                                         text = "Tap the button below or '+' to add your first expense.",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = TextSubtle
                                     )
                                     Spacer(Modifier.height(4.dp))
                                     Button(
                                         onClick = onAddExpense,
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.error
-                                        )
+                                            containerColor = NavyPrimary,
+                                            contentColor = Color.White
+                                        ),
+                                        shape = RoundedCornerShape(10.dp)
                                     ) {
                                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Record an Expense")
+                                        Text("Record an Expense", fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
@@ -267,13 +299,13 @@ private fun AccountSummaryPill(title: String, amount: Double) {
         Text(
             text = title,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+            color = TextHeaderSubtle
         )
         Text(
             text = "LKR %,.0f".format(amount),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onErrorContainer
+            color = Color.White
         )
     }
 }
@@ -287,10 +319,11 @@ private fun ExpenseItemCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = Color.White
         ),
+        border = BorderStroke(1.dp, CardBorderColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
@@ -305,13 +338,13 @@ private fun ExpenseItemCard(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)),
+                    .background(NavyPrimary.copy(alpha = 0.08f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = getCategoryIcon(categoryName),
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
+                    tint = NavyPrimary,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -320,15 +353,16 @@ private fun ExpenseItemCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = categoryName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NavyPrimary
                 )
 
                 if (!expense.note.isNullOrBlank()) {
                     Text(
                         text = expense.note,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = TextSubtle,
                         maxLines = 1
                     )
                 }
@@ -342,20 +376,22 @@ private fun ExpenseItemCard(
                     Text(
                         text = formattedDate,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
+                        color = TextSubtle
                     )
                     Text(
                         text = "•",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
+                        color = TextSubtle
                     )
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
+                        color = LightCardBg
                     ) {
                         Text(
                             text = ExpenseAccount.getDisplayName(expense.account),
                             style = MaterialTheme.typography.labelSmall,
+                            color = NavyPrimary,
+                            fontWeight = FontWeight.Medium,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
@@ -363,12 +399,13 @@ private fun ExpenseItemCard(
                     if (expense.classification == ExpenseClassification.COMMITTED) {
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                            color = NavyPrimary.copy(alpha = 0.08f)
                         ) {
                             Text(
                                 text = "Fixed",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                color = NavyPrimary,
+                                fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -383,9 +420,9 @@ private fun ExpenseItemCard(
             ) {
                 Text(
                     text = "- LKR %,.2f".format(expense.amountLKR),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.error
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ExpenseRed
                 )
 
                 IconButton(
@@ -395,7 +432,7 @@ private fun ExpenseItemCard(
                     Icon(
                         imageVector = Icons.Default.DeleteOutline,
                         contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.outline,
+                        tint = TextSubtle,
                         modifier = Modifier.size(18.dp)
                     )
                 }
