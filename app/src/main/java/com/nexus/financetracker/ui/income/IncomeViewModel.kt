@@ -100,6 +100,8 @@ data class IncomeUiState(
     val selectedFilter: IncomeFilter = IncomeFilter.ALL,
     val selectedSource: String? = null,
     val selectedMonthLabel: String = "",
+    val availableMonths: List<String> = emptyList(),
+    val monthlyIncomeTotals: Map<String, Double> = emptyMap(),
     val isPeriodAllTime: Boolean = false,
     val reconciliation: MonthlyReconciliation? = null,
     val isLoading: Boolean = true,
@@ -147,20 +149,65 @@ class IncomeViewModel @Inject constructor(
         }
     }
 
-    fun onPreviousMonthClicked() {
-        selectedCalendar.add(Calendar.MONTH, -1)
-        if (_uiState.value.isPeriodAllTime) {
-            _uiState.value = _uiState.value.copy(isPeriodAllTime = false)
+    fun selectMonth(monthLabel: String) {
+        if (monthLabel.equals("All Time", ignoreCase = true)) {
+            onToggleAllTimePeriod(true)
+            return
         }
+        val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
+        try {
+            val parsed = monthFormat.parse(monthLabel)
+            if (parsed != null) {
+                selectedCalendar.time = parsed
+            }
+        } catch (_: Exception) {}
+        _uiState.value = _uiState.value.copy(
+            selectedMonthLabel = monthLabel,
+            isPeriodAllTime = false
+        )
         recomputeState()
     }
 
-    fun onNextMonthClicked() {
-        selectedCalendar.add(Calendar.MONTH, 1)
+    fun selectPreviousMonth() {
+        val months = _uiState.value.availableMonths
         if (_uiState.value.isPeriodAllTime) {
-            _uiState.value = _uiState.value.copy(isPeriodAllTime = false)
+            if (months.isNotEmpty()) {
+                selectMonth(months.first())
+            }
+            return
         }
-        recomputeState()
+        val currentIndex = months.indexOf(_uiState.value.selectedMonthLabel)
+        if (currentIndex in 0 until months.lastIndex) {
+            selectMonth(months[currentIndex + 1])
+        } else {
+            selectedCalendar.add(Calendar.MONTH, -1)
+            recomputeState()
+        }
+    }
+
+    fun selectNextMonth() {
+        val months = _uiState.value.availableMonths
+        if (_uiState.value.isPeriodAllTime) {
+            if (months.isNotEmpty()) {
+                selectMonth(months.first())
+            }
+            return
+        }
+        val currentIndex = months.indexOf(_uiState.value.selectedMonthLabel)
+        if (currentIndex > 0) {
+            selectMonth(months[currentIndex - 1])
+        } else {
+            selectedCalendar.add(Calendar.MONTH, 1)
+            recomputeState()
+        }
+    }
+
+    fun onPreviousMonthClicked() {
+        selectPreviousMonth()
+    }
+
+    fun onNextMonthClicked() {
+        selectNextMonth()
     }
 
     fun onCurrentMonthClicked() {
@@ -277,6 +324,37 @@ class IncomeViewModel @Inject constructor(
             sourceBreakdown = sourceBreakdown
         )
 
+        // Generate rolling 24 months (current month + past 23 months)
+        val rollingMonths = (0 downTo -23).map { offset ->
+            val c = Calendar.getInstance().apply { add(Calendar.MONTH, offset) }
+            monthLabelFormat.format(c.time)
+        }
+
+        // Include any historical months present in income records
+        val incomeMonths = allIncomes.map {
+            monthLabelFormat.format(it.dateReceived ?: it.expectedDate ?: it.createdAt)
+        }
+
+        // Merge and sort chronologically descending (newest first)
+        val allMonths = (rollingMonths + incomeMonths).distinct().sortedByDescending { label ->
+            try {
+                monthLabelFormat.parse(label)?.time ?: 0L
+            } catch (e: Exception) {
+                0L
+            }
+        }
+
+        // Calculate confirmed income totals for each month
+        val monthlyTotals = mutableMapOf<String, Double>()
+        allMonths.forEach { label ->
+            val (sMonth, eMonth) = getMonthDateRange(label, monthLabelFormat)
+            val monthConfirmedSum = allIncomes.filter { income ->
+                income.status == IncomeStatus.CONFIRMED &&
+                    (income.dateReceived ?: income.expectedDate ?: income.createdAt).let { !it.before(sMonth) && !it.after(eMonth) }
+            }.sumOf { it.amountLKR }
+            monthlyTotals[label] = monthConfirmedSum
+        }
+
         val lastSalary = allIncomes
             .filter { it.source == IncomeSource.SALARY }
             .maxByOrNull { it.dateReceived ?: it.createdAt }
@@ -303,6 +381,8 @@ class IncomeViewModel @Inject constructor(
             streamPendingLKR = streamPendingLKR,
             lastSalaryAmount = lastSalary,
             selectedMonthLabel = monthLabel,
+            availableMonths = allMonths,
+            monthlyIncomeTotals = monthlyTotals,
             reconciliation = reconciliation,
             isLoading = false,
             errorMessage = null
@@ -315,6 +395,32 @@ class IncomeViewModel @Inject constructor(
                 _formState.value = _formState.value.copy(amountOriginal = formatted)
             }
         }
+    }
+
+    private fun getMonthDateRange(monthLabel: String, monthFormat: SimpleDateFormat): Pair<Date, Date> {
+        val cal = Calendar.getInstance()
+        try {
+            val parsed = monthFormat.parse(monthLabel)
+            if (parsed != null) {
+                cal.time = parsed
+            }
+        } catch (_: Exception) {}
+
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val startOfMonth = cal.time
+
+        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
+        cal.set(Calendar.HOUR_OF_DAY, 23)
+        cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59)
+        cal.set(Calendar.MILLISECOND, 999)
+        val endOfMonth = cal.time
+
+        return Pair(startOfMonth, endOfMonth)
     }
 
     fun onSourceFilterSelected(source: String?) {
