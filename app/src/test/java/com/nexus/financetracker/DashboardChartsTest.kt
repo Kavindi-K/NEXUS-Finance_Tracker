@@ -241,14 +241,14 @@ class DashboardChartsTest {
         val sources = DashboardViewModel.calculateIncomeSources(incomes)
 
         assertEquals(3, sources.size)
-        assertEquals("Salary", sources[0].source)
+        assertEquals("Base Salary", sources[0].source)
         assertEquals(140000.0, sources[0].amountLKR, 0.01)
         assertEquals(1.0f, sources[0].fraction, 0.01f)
 
         assertEquals("Freelance", sources[1].source)
         assertEquals(35000.0, sources[1].amountLKR, 0.01)
 
-        assertEquals("AdSense", sources[2].source)
+        assertEquals("AdSense (USD)", sources[2].source)
         assertEquals(14400.0, sources[2].amountLKR, 0.01)
     }
 

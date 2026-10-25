@@ -17,7 +17,10 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -77,8 +80,9 @@ val bottomNavItems = listOf(
 @Composable
 fun AppBottomNavBar(
     currentRoute: String?,
+    hasUnreadAlerts: Boolean = false,
     onNavigateToDestination: (String) -> Unit,
-    onQuickAdd: () -> Unit = { onNavigateToDestination(Screen.Expenses.route) }
+    onQuickAdd: () -> Unit = { onNavigateToDestination(Screen.AddExpense.route) }
 ) {
     Box(
         modifier = Modifier
@@ -147,12 +151,23 @@ fun AppBottomNavBar(
                         isSelected = currentRoute == Screen.Alerts.route,
                         onClick = { onNavigateToDestination(Screen.Alerts.route) }
                     ) { tint ->
-                        Icon(
-                            imageVector = Icons.Outlined.NotificationsNone,
-                            contentDescription = "Alerts",
-                            tint = tint,
-                            modifier = Modifier.size(24.dp)
-                        )
+                        BadgedBox(
+                            badge = {
+                                if (hasUnreadAlerts) {
+                                    Badge(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(8.dp)
+                                    )
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.NotificationsNone,
+                                contentDescription = "Alerts",
+                                tint = tint,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
 
                     // Profile

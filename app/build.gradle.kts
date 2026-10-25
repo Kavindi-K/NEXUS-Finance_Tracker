@@ -73,6 +73,11 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.okhttp)
 
+    // WorkManager (background bill reminders)
+    implementation(libs.work.runtime.ktx)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.work.compiler)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

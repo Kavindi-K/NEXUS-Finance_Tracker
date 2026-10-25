@@ -18,6 +18,7 @@ import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
 import com.nexus.financetracker.domain.model.UserProfile
+import com.nexus.financetracker.ui.expense.DEFAULT_EXPENSE_CATEGORIES
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -238,9 +239,7 @@ class DashboardViewModel @Inject constructor(
 
             val categoryMap = categories.associate { it.id to it.name }
             val categoryTotals = monthExpenses.groupBy { expense ->
-                categoryMap[expense.categoryId]?.takeIf { it.isNotBlank() }
-                    ?: expense.categoryId.takeIf { it.isNotBlank() }
-                    ?: "Other"
+                resolveCategoryName(expense.categoryId, categoryMap)
             }.mapValues { (_, list) -> list.sumOf { it.amountLKR } }
 
             val maxSpending = categoryTotals.values.maxOrNull() ?: 1.0
@@ -248,16 +247,46 @@ class DashboardViewModel @Inject constructor(
 
             return categoryTotals.map { (catName, sum) ->
                 val pct = if (totalExpenses > 0) ((sum / totalExpenses) * 100.0).roundToInt() else 0
-                val formattedName = catName.replaceFirstChar {
-                    if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
-                }
                 CategorySpending(
-                    name = formattedName,
+                    name = catName,
                     amountLKR = sum,
                     fraction = if (maxSpending > 0) (sum / maxSpending).toFloat().coerceIn(0.05f, 1f) else 0f,
                     percentageOfTotal = pct
                 )
             }.sortedByDescending { it.amountLKR }
+        }
+
+        /**
+         * Resolves category ID to a human-readable display name.
+         * Checks user categories, falls back to default categories, and cleans raw IDs (e.g. cat_food -> Food & Dining).
+         */
+        fun resolveCategoryName(categoryId: String, categoryMap: Map<String, String>): String {
+            // 1. Check user custom categories
+            categoryMap[categoryId]?.takeIf { it.isNotBlank() }?.let { return it }
+
+            // 2. Check standard default categories
+            DEFAULT_EXPENSE_CATEGORIES.find {
+                it.id.equals(categoryId, ignoreCase = true) ||
+                it.id.replace("_", "-").equals(categoryId, ignoreCase = true)
+            }?.name?.let { return it }
+
+            // 3. Fallback: clean up raw ID (strip "cat_" or "cat-", replace underscores/hyphens with spaces)
+            val cleaned = categoryId.trim()
+                .removePrefix("cat_")
+                .removePrefix("cat-")
+                .removePrefix("CAT_")
+                .removePrefix("CAT-")
+                .replace('_', ' ')
+                .replace('-', ' ')
+                .trim()
+
+            if (cleaned.isBlank()) return "Other"
+
+            return cleaned.split("\\s+".toRegex()).joinToString(" ") { word ->
+                word.replaceFirstChar {
+                    if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                }
+            }
         }
 
         /**
@@ -294,10 +323,10 @@ class DashboardViewModel @Inject constructor(
 
             return sourceTotals.map { (source, sum) ->
                 val name = when (source.lowercase().trim()) {
-                    IncomeSource.SALARY, "salary" -> "Salary"
+                    IncomeSource.SALARY, "salary" -> "Base Salary"
                     IncomeSource.FREELANCE, "freelance" -> "Freelance"
                     IncomeSource.CRYPTO, "crypto" -> "Crypto"
-                    IncomeSource.ADSENSE, "adsense" -> "AdSense"
+                    IncomeSource.ADSENSE, "adsense" -> "AdSense (USD)"
                     "other", "other_income", "other income" -> "Other"
                     else -> source.replaceFirstChar {
                         if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
