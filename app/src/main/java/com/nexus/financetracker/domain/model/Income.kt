@@ -91,16 +91,18 @@ data class Income(
 object IncomeSource {
     const val SALARY = "salary"
     const val FREELANCE = "freelance"
-    const val ADSENSE = "adsense"
     const val CRYPTO = "crypto"
+    const val ADSENSE = "adsense"
+    const val OTHER = "other"
 
-    val ALL = listOf(SALARY, FREELANCE, ADSENSE, CRYPTO)
+    val ALL = listOf(SALARY, FREELANCE, CRYPTO, ADSENSE, OTHER)
 
     fun getDisplayName(source: String): String = when (source) {
-        SALARY -> "Salary"
+        SALARY -> "Base Salary"
         FREELANCE -> "Freelance"
-        ADSENSE -> "AdSense"
         CRYPTO -> "Realized Crypto"
+        ADSENSE -> "AdSense"
+        OTHER -> "Other"
         else -> source.replaceFirstChar { it.uppercase() }
     }
 

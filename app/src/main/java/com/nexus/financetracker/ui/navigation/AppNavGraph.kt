@@ -1,10 +1,16 @@
 package com.nexus.financetracker.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -17,10 +23,14 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.nexus.financetracker.ui.auth.AuthViewModel
+import com.nexus.financetracker.ui.auth.ForgotPasswordScreen
 import com.nexus.financetracker.ui.auth.LoginScreen
 import com.nexus.financetracker.ui.auth.RegisterScreen
+import com.nexus.financetracker.ui.splash.SplashScreen
 import com.nexus.financetracker.ui.dashboard.DashboardScreen
+import com.nexus.financetracker.ui.expense.ExpenseAddScreen
 import com.nexus.financetracker.ui.expense.ExpenseScreen
+import com.nexus.financetracker.ui.expense.ExpenseViewModel
 import com.nexus.financetracker.ui.goal.AddEditGoalScreen
 import com.nexus.financetracker.ui.goal.GoalListScreen
 import com.nexus.financetracker.ui.income.IncomeEntryScreen
@@ -30,6 +40,7 @@ import com.nexus.financetracker.ui.alerts.AlertsScreen
 import com.nexus.financetracker.ui.reports.ReportsScreen
 import com.nexus.financetracker.ui.settings.SettingsScreen
 import com.nexus.financetracker.ui.profile.ProfileScreen
+import com.nexus.financetracker.ui.profile.ProfileViewModel
 
 /**
  * Root Navigation Graph with single-activity Material 3 Scaffold and Bottom Navigation.
@@ -53,7 +64,7 @@ fun AppNavGraph(
     // Computed ONCE at first composition — never re-evaluated on recomposition.
     // Prevents NavHost from rebuilding the graph when auth.currentUser changes mid-session.
     val startDestination = remember {
-        if (authViewModel.isUserLoggedIn) Screen.Dashboard.route else Screen.Login.route
+        if (authViewModel.isUserLoggedIn) Screen.Dashboard.route else Screen.Splash.route
     }
 
     // Top-level destinations that display the bottom navigation bar
@@ -124,8 +135,39 @@ fun AppNavGraph(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // --- Splash / Onboarding Flow ---
+            composable(Screen.Splash.route) {
+                SplashScreen(
+                    onGetStarted = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             // --- Authentication Flow ---
-            composable(Screen.Login.route) {
+            composable(
+                route = Screen.Login.route,
+                enterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Up,
+                        animationSpec = tween(durationMillis = 500, easing = EaseOutCubic)
+                    ) + fadeIn(animationSpec = tween(400))
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(300))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(300))
+                },
+                popExitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Down,
+                        animationSpec = tween(durationMillis = 400)
+                    )
+                }
+            ) {
                 LoginScreen(
                     onLoginSuccess = {
                         navController.navigate(Screen.Dashboard.route) {
@@ -134,11 +176,40 @@ fun AppNavGraph(
                     },
                     onNavigateToRegister = {
                         navController.navigate(Screen.Register.route)
+                    },
+                    onNavigateToForgotPassword = {
+                        navController.navigate(Screen.ForgotPassword.route)
                     }
                 )
             }
 
-            composable(Screen.Register.route) {
+            composable(
+                route = Screen.Register.route,
+                enterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(durationMillis = 400, easing = EaseOutCubic)
+                    ) + fadeIn(animationSpec = tween(300))
+                },
+                exitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(durationMillis = 400)
+                    ) + fadeOut(animationSpec = tween(300))
+                },
+                popEnterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = tween(durationMillis = 400, easing = EaseOutCubic)
+                    ) + fadeIn(animationSpec = tween(300))
+                },
+                popExitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = tween(durationMillis = 400)
+                    ) + fadeOut(animationSpec = tween(300))
+                }
+            ) {
                 RegisterScreen(
                     onRegisterSuccess = {
                         navController.navigate(Screen.Dashboard.route) {
@@ -146,6 +217,12 @@ fun AppNavGraph(
                         }
                     },
                     onNavigateToLogin = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.ForgotPassword.route) {
+                ForgotPasswordScreen(
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
@@ -171,13 +248,7 @@ fun AppNavGraph(
                         }
                     },
                     onAddExpense = {
-                        navController.navigate(Screen.Expenses.route) {
-                            popUpTo(Screen.Dashboard.route) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        navController.navigate(Screen.AddExpense.route)
                     },
                     onNavigateToSettings = {
                         navController.navigate(Screen.Settings.route) {
@@ -190,6 +261,15 @@ fun AppNavGraph(
                     },
                     onNavigateToReports = {
                         navController.navigate(Screen.Reports.route) {
+                            popUpTo(Screen.Dashboard.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate(Screen.Profile.route) {
                             popUpTo(Screen.Dashboard.route) {
                                 saveState = true
                             }
@@ -237,11 +317,24 @@ fun AppNavGraph(
             }
 
             composable(Screen.Expenses.route) {
+                val expenseViewModel: ExpenseViewModel = hiltViewModel()
                 ExpenseScreen(
+                    viewModel = expenseViewModel,
                     onAddExpense = {
-                        navController.navigate(Screen.AddTransaction.createRoute("EXPENSE"))
+                        navController.navigate(Screen.AddExpense.route)
                     },
                     onBack = onBackToDashboard
+                )
+            }
+
+            composable(Screen.AddExpense.route) {
+                val expenseViewModel: ExpenseViewModel = hiltViewModel()
+                ExpenseAddScreen(
+                    viewModel = expenseViewModel,
+                    onNavigateBack = {
+                        expenseViewModel.resetForm()
+                        navController.popBackStack()
+                    }
                 )
             }
 
@@ -274,23 +367,40 @@ fun AppNavGraph(
                 ProfileScreen(
                     onLogout = {
                         authViewModel.signOut()
-                        navController.navigate(Screen.Login.route) {
+                        navController.navigate(Screen.Splash.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
-                    onBack = onBackToDashboard
+                    onBack = onBackToDashboard,
+                    onNavigateToSettings = {
+                        navController.navigate(Screen.Settings.route) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
 
             composable(Screen.Settings.route) {
-                ProfileScreen(
+                val profileViewModel: ProfileViewModel = hiltViewModel()
+                val profileUiState by profileViewModel.uiState.collectAsState()
+                SettingsScreen(
+                    userEmail = profileUiState.profile?.email,
+                    displayName = profileUiState.profile?.capitalizedDisplayName,
                     onLogout = {
                         authViewModel.signOut()
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
-                    onBack = onBackToDashboard
+                    onBack = {
+                        val popped = navController.popBackStack()
+                        if (!popped) {
+                            navController.navigate(Screen.Profile.route) {
+                                popUpTo(Screen.Dashboard.route) { saveState = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
                 )
             }
 

@@ -17,7 +17,7 @@ import com.nexus.financetracker.data.local.entity.TransactionEntity
         TransactionEntity::class,
         GoalEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

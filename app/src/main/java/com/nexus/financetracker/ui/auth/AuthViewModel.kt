@@ -78,14 +78,14 @@ class AuthViewModel @Inject constructor(
         password: String
     ) {
         val normalizedEmail = email.trim().lowercase()
-        val normalizedPhone = normalizePhone(phoneNumber)
+        val cleanPhone = UserProfile.cleanPhoneNumber(phoneNumber)
 
         viewModelScope.launch {
             uiState = uiState.copy(isLoading = true, errorMessage = null)
             val profile = UserProfile(
-                displayName = fullName.trim(),
+                displayName = UserProfile.formatCapitalizedName(fullName),
                 email = normalizedEmail,
-                phoneNumber = normalizedPhone
+                phoneNumber = cleanPhone
             )
             val result = authRepository.register(normalizedEmail, password, profile)
             if (result.isSuccess) {
@@ -142,23 +142,63 @@ class AuthViewModel @Inject constructor(
         if (!Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches())
             return "Enter a valid email address"
 
-        val stripped = phone.replace(Regex("[\\s\\-().]"), "").trimStart('+')
-        if (stripped.isBlank()) return "Phone number is required"
-        if (!stripped.all { it.isDigit() })
-            return "Phone number must contain only digits (spaces and dashes are allowed)"
-        val normalised = normalizePhone(phone)
-        if (!normalised.matches(Regex("^\\+947[0-9]{8}$")))
-            return "Enter a valid Sri Lankan mobile number (e.g. 0771234567)"
+        val clean = UserProfile.cleanPhoneNumber(phone)
+        if (clean.isBlank()) return "Phone number is required"
+        if (!UserProfile.isValidPhoneNumber(phone))
+            return "Enter a valid phone number (e.g. +94778654657, 0116754378, or 748796654)"
 
         if (password.length < 6) return "Password must be at least 6 characters"
         if (password != confirmPwd) return "Passwords do not match"
 
         return null
     }
+
+    /**
+     * Validates email for password reset.
+     */
+    fun validateResetEmail(email: String): String? {
+        val trimmed = email.trim()
+        if (trimmed.isBlank()) return "Email address is required"
+        if (!Patterns.EMAIL_ADDRESS.matcher(trimmed).matches()) return "Enter a valid email address"
+        return null
+    }
+
+    /**
+     * Sends password reset email via Firebase Auth.
+     */
+    fun sendPasswordReset(email: String) {
+        val normalizedEmail = email.trim().lowercase()
+        viewModelScope.launch {
+            uiState = uiState.copy(
+                isLoading = true,
+                errorMessage = null,
+                resetEmailSent = false,
+                resetSuccessMessage = null
+            )
+            val result = authRepository.sendPasswordResetEmail(normalizedEmail)
+            if (result.isSuccess) {
+                uiState = uiState.copy(
+                    isLoading = false,
+                    resetEmailSent = true,
+                    resetSuccessMessage = "A password reset link has been sent to $normalizedEmail. Please check your inbox."
+                )
+            } else {
+                val errorMsg = when (val ex = result.exceptionOrNull()) {
+                    is FirebaseAuthInvalidUserException ->
+                        "No account found with this email address. Please check and try again."
+                    else ->
+                        ex?.localizedMessage ?: "Failed to send reset link. Please check your network and try again."
+                }
+                uiState = uiState.copy(isLoading = false, errorMessage = errorMsg)
+            }
+        }
+    }
 }
 
 data class AuthUiState(
     val isLoading: Boolean = false,
     val isSuccess: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val resetEmailSent: Boolean = false,
+    val resetSuccessMessage: String? = null
 )
