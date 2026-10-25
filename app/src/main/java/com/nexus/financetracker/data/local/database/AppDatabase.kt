@@ -2,8 +2,10 @@ package com.nexus.financetracker.data.local.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import com.nexus.financetracker.data.local.dao.ExpenseDao
 import com.nexus.financetracker.data.local.dao.GoalDao
 import com.nexus.financetracker.data.local.dao.TransactionDao
+import com.nexus.financetracker.data.local.entity.ExpenseEntity
 import com.nexus.financetracker.data.local.entity.GoalEntity
 import com.nexus.financetracker.data.local.entity.TransactionEntity
 
@@ -15,12 +17,14 @@ import com.nexus.financetracker.data.local.entity.TransactionEntity
 @Database(
     entities = [
         TransactionEntity::class,
-        GoalEntity::class
+        GoalEntity::class,
+        ExpenseEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun goalDao(): GoalDao
+    abstract fun expenseDao(): ExpenseDao
 }
