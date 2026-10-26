@@ -39,6 +39,9 @@ data class ExpenseUiState(
     val cardExpenseLKR: Double = 0.0,
     val cashExpenseLKR: Double = 0.0,
     val secondaryExpenseLKR: Double = 0.0,
+    val cardExpensePercentage: Double = 0.0,
+    val cashExpensePercentage: Double = 0.0,
+    val secondaryExpensePercentage: Double = 0.0,
     val committedExpenseLKR: Double = 0.0,
     val discretionaryExpenseLKR: Double = 0.0,
     val categoriesMap: Map<String, String> = emptyMap(),
@@ -232,6 +235,10 @@ class ExpenseViewModel @Inject constructor(
         val committed = periodExpenses.filter { it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true) }.sumOf { it.amountLKR }
         val discretionary = periodExpenses.filter { it.classification.equals(ExpenseClassification.DISCRETIONARY, ignoreCase = true) }.sumOf { it.amountLKR }
 
+        val cardPct = if (total > 0.0) (card / total) * 100.0 else 0.0
+        val cashPct = if (total > 0.0) (cash / total) * 100.0 else 0.0
+        val secondaryPct = if (total > 0.0) (secondary / total) * 100.0 else 0.0
+
         _uiState.value = _uiState.value.copy(
             expenses = periodExpenses,
             filteredExpenses = sorted,
@@ -240,6 +247,9 @@ class ExpenseViewModel @Inject constructor(
             cardExpenseLKR = card,
             cashExpenseLKR = cash,
             secondaryExpenseLKR = secondary,
+            cardExpensePercentage = cardPct,
+            cashExpensePercentage = cashPct,
+            secondaryExpensePercentage = secondaryPct,
             committedExpenseLKR = committed,
             discretionaryExpenseLKR = discretionary,
             isLoading = false,
