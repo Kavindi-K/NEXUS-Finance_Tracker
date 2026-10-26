@@ -1,5 +1,6 @@
 package com.nexus.financetracker.ui.expense
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -11,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.*
@@ -25,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.nexus.financetracker.domain.model.Category
 import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseAccount
 import com.nexus.financetracker.domain.model.ExpenseClassification
@@ -53,6 +56,20 @@ fun ExpenseScreen(
 
     var selectedExpenseForDetail by remember { mutableStateOf<Expense?>(null) }
     var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
+
+    // Category Management State
+    var showCategoryManagementSheet by remember { mutableStateOf(false) }
+    var categoryToRename by remember { mutableStateOf<Category?>(null) }
+    var renameInput by remember { mutableStateOf("") }
+    var renameError by remember { mutableStateOf<String?>(null) }
+
+    var categoryToMerge by remember { mutableStateOf<Category?>(null) }
+    var mergeTargetId by remember { mutableStateOf<String?>(null) }
+    var mergeError by remember { mutableStateOf<String?>(null) }
+
+    var categoryToDelete by remember { mutableStateOf<Category?>(null) }
+    var newCategoryName by remember { mutableStateOf("") }
+    var newCategoryError by remember { mutableStateOf<String?>(null) }
 
     // Detail Bottom Sheet
     selectedExpenseForDetail?.let { expense ->
@@ -208,6 +225,422 @@ fun ExpenseScreen(
         )
     }
 
+    // Category Management Sheet
+    if (showCategoryManagementSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showCategoryManagementSheet = false },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Expense Categories",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = NavyPrimary
+                        )
+                        Text(
+                            text = "Create, rename, or merge categories. Past expenses remain mapped.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSubtle
+                        )
+                    }
+                    IconButton(onClick = { showCategoryManagementSheet = false }) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = NavyPrimary)
+                    }
+                }
+
+                // Add Category Input Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = newCategoryName,
+                        onValueChange = {
+                            newCategoryName = it
+                            newCategoryError = null
+                        },
+                        label = { Text("New Category Name") },
+                        placeholder = { Text("e.g. Gaming, Gym, Pet Care") },
+                        singleLine = true,
+                        isError = newCategoryError != null,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Button(
+                        onClick = {
+                            viewModel.createCategory(
+                                name = newCategoryName,
+                                onSuccess = {
+                                    newCategoryName = ""
+                                    newCategoryError = null
+                                },
+                                onError = { newCategoryError = it }
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.height(56.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Add")
+                    }
+                }
+
+                if (newCategoryError != null) {
+                    Text(
+                        text = newCategoryError ?: "",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+
+                HorizontalDivider(color = Color(0xFFE2E8F0))
+
+                // Scrollable Categories List
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (uiState.customCategories.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Your Custom Categories (${uiState.customCategories.size})",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = NavyPrimary
+                            )
+                        }
+
+                        items(uiState.customCategories, key = { it.id }) { cat ->
+                            val count = uiState.expenses.count { it.categoryId == cat.id }
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFFF8FAFC),
+                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFFE0E7FF)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Category,
+                                                contentDescription = null,
+                                                tint = Color(0xFF1E3A8A),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                        Column {
+                                            Text(
+                                                text = cat.name,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = NavyPrimary
+                                            )
+                                            Text(
+                                                text = "$count past ${if (count == 1) "expense" else "expenses"}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = TextSubtle
+                                            )
+                                        }
+                                    }
+
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        // Rename Action
+                                        IconButton(
+                                            onClick = {
+                                                categoryToRename = cat
+                                                renameInput = cat.name
+                                                renameError = null
+                                            },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(Icons.Default.Edit, contentDescription = "Rename", tint = NavyPrimary, modifier = Modifier.size(18.dp))
+                                        }
+
+                                        // Merge Action
+                                        IconButton(
+                                            onClick = {
+                                                categoryToMerge = cat
+                                                mergeTargetId = null
+                                                mergeError = null
+                                            },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(Icons.AutoMirrored.Filled.CallMerge, contentDescription = "Merge into...", tint = Color(0xFF2563EB), modifier = Modifier.size(18.dp))
+                                        }
+
+                                        // Delete Action
+                                        IconButton(
+                                            onClick = { categoryToDelete = cat },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", tint = Color(0xFFEF4444), modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Standard Default Categories
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "Standard Categories (${DEFAULT_EXPENSE_CATEGORIES.size})",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = NavyPrimary
+                        )
+                    }
+
+                    items(DEFAULT_EXPENSE_CATEGORIES, key = { it.id }) { cat ->
+                        val count = uiState.expenses.count { it.categoryId == cat.id }
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFF1F5F9),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(getCategoryIcon(cat.name), contentDescription = null, tint = NavyPrimary, modifier = Modifier.size(20.dp))
+                                    Text(cat.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = NavyPrimary)
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color.White
+                                ) {
+                                    Text(
+                                        text = "$count ${if (count == 1) "record" else "records"}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = TextSubtle,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Rename Category Dialog
+    categoryToRename?.let { cat ->
+        AlertDialog(
+            onDismissRequest = { categoryToRename = null },
+            title = { Text("Rename Category", fontWeight = FontWeight.Bold, color = NavyPrimary) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Renaming preserves the stable ID (${cat.id}). All past expenses remain linked to this category automatically.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSubtle
+                    )
+                    OutlinedTextField(
+                        value = renameInput,
+                        onValueChange = {
+                            renameInput = it
+                            renameError = null
+                        },
+                        label = { Text("New Name") },
+                        singleLine = true,
+                        isError = renameError != null,
+                        supportingText = renameError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.renameCategory(
+                            categoryId = cat.id,
+                            newName = renameInput,
+                            onSuccess = { categoryToRename = null },
+                            onError = { renameError = it }
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary)
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { categoryToRename = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Merge Category Dialog
+    categoryToMerge?.let { sourceCat ->
+        val candidateTargets = uiState.allCategories.filter { it.id != sourceCat.id }
+        val affectedCount = uiState.expenses.count { it.categoryId == sourceCat.id }
+
+        AlertDialog(
+            onDismissRequest = { categoryToMerge = null },
+            title = { Text("Merge Category", fontWeight = FontWeight.Bold, color = NavyPrimary) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Merge '${sourceCat.name}' into another category. All $affectedCount past expenses will be permanently moved to the selected category, producing no broken entries.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSubtle
+                    )
+                    Text(
+                        text = "Select Destination Category:",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NavyPrimary
+                    )
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 240.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(candidateTargets, key = { it.id }) { target ->
+                            val isChosen = mergeTargetId == target.id
+                            Surface(
+                                onClick = { mergeTargetId = target.id },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isChosen) Color(0xFFE0E7FF) else Color(0xFFF8FAFC),
+                                border = BorderStroke(1.dp, if (isChosen) Color(0xFF1E3A8A) else Color(0xFFE2E8F0)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = target.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isChosen) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isChosen) Color(0xFF1E3A8A) else NavyPrimary
+                                    )
+                                    if (isChosen) {
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF1E3A8A), modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (mergeError != null) {
+                        Text(
+                            text = mergeError ?: "",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val targetId = mergeTargetId
+                        if (targetId.isNullOrBlank()) {
+                            mergeError = "Please select a target category"
+                        } else {
+                            viewModel.mergeCategories(
+                                sourceCategoryId = sourceCat.id,
+                                targetCategoryId = targetId,
+                                onSuccess = { categoryToMerge = null },
+                                onError = { mergeError = it }
+                            )
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                    enabled = mergeTargetId != null
+                ) {
+                    Text("Merge Expenses")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { categoryToMerge = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Delete Category Dialog
+    categoryToDelete?.let { cat ->
+        AlertDialog(
+            onDismissRequest = { categoryToDelete = null },
+            title = { Text("Delete Category", fontWeight = FontWeight.Bold, color = NavyPrimary) },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete '${cat.name}'? (Tip: If you have past expenses under this category, use 'Merge' instead to retain your records).",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSubtle
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteCategory(cat.id, onSuccess = { categoryToDelete = null })
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { categoryToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -217,6 +650,15 @@ fun ExpenseScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back to Dashboard",
+                            tint = NavyPrimary
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showCategoryManagementSheet = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Category,
+                            contentDescription = "Manage Categories",
                             tint = NavyPrimary
                         )
                     }

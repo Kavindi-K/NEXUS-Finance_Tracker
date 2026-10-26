@@ -45,6 +45,8 @@ data class ExpenseUiState(
     val committedExpenseLKR: Double = 0.0,
     val discretionaryExpenseLKR: Double = 0.0,
     val categoriesMap: Map<String, String> = emptyMap(),
+    val customCategories: List<Category> = emptyList(),
+    val allCategories: List<Category> = emptyList(),
     val isLoading: Boolean = true,
     val errorMessage: String? = null
 )
@@ -270,16 +272,14 @@ class ExpenseViewModel @Inject constructor(
             categoryRepository.getCategories(userId)
                 .catch { emit(emptyList()) }
                 .collect { customCats ->
-                    val combined = if (customCats.isNotEmpty()) {
-                        customCats
-                    } else {
-                        DEFAULT_EXPENSE_CATEGORIES
-                    }
+                    val combined = (DEFAULT_EXPENSE_CATEGORIES + customCats).distinctBy { it.id }
+                    val catMap = combined.associate { it.id to it.name }
 
-                    val catMap = combined.associate { it.id to it.name } +
-                            DEFAULT_EXPENSE_CATEGORIES.associate { it.id to it.name }
-
-                    _uiState.value = _uiState.value.copy(categoriesMap = catMap)
+                    _uiState.value = _uiState.value.copy(
+                        categoriesMap = catMap,
+                        customCategories = customCats,
+                        allCategories = combined
+                    )
 
                     if (!_formState.value.isEditMode) {
                         // 2. Fetch latest expense to pre-populate last-used category & account (FR9/FR10)
@@ -389,6 +389,115 @@ class ExpenseViewModel @Inject constructor(
             categoryName = category.name,
             errorMessage = null
         )
+    }
+
+    // --- Category Management (Create, Rename, Merge, Delete) ---
+
+    fun createCategory(
+        name: String,
+        onSuccess: (Category) -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val userId = currentUserId ?: run {
+            onError("User not signed in")
+            return
+        }
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) {
+            onError("Category name cannot be empty")
+            return
+        }
+        if (trimmed.length > 40) {
+            onError("Category name cannot exceed 40 characters")
+            return
+        }
+        val newCategory = Category(
+            userId = userId,
+            name = trimmed,
+            createdAt = Date()
+        )
+        viewModelScope.launch {
+            try {
+                val newId = categoryRepository.addCategory(newCategory)
+                val created = newCategory.copy(id = newId)
+                onCategorySelected(created)
+                onSuccess(created)
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Failed to create category")
+            }
+        }
+    }
+
+    fun renameCategory(
+        categoryId: String,
+        newName: String,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val trimmed = newName.trim()
+        if (trimmed.isBlank()) {
+            onError("Category name cannot be empty")
+            return
+        }
+        if (trimmed.length > 40) {
+            onError("Category name cannot exceed 40 characters")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                categoryRepository.renameCategory(categoryId, trimmed)
+                if (_formState.value.categoryId == categoryId) {
+                    _formState.value = _formState.value.copy(categoryName = trimmed)
+                }
+                recomputeUiState()
+                onSuccess()
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Failed to rename category")
+            }
+        }
+    }
+
+    fun mergeCategories(
+        sourceCategoryId: String,
+        targetCategoryId: String,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        if (sourceCategoryId == targetCategoryId) {
+            onError("Cannot merge a category into itself")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                categoryRepository.mergeCategories(sourceCategoryId, targetCategoryId)
+                if (_formState.value.categoryId == sourceCategoryId) {
+                    val targetName = _uiState.value.categoriesMap[targetCategoryId] ?: targetCategoryId
+                    _formState.value = _formState.value.copy(
+                        categoryId = targetCategoryId,
+                        categoryName = targetName
+                    )
+                }
+                loadExpenses()
+                onSuccess()
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Failed to merge categories")
+            }
+        }
+    }
+
+    fun deleteCategory(
+        categoryId: String,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            try {
+                categoryRepository.deleteCategory(categoryId)
+                onSuccess()
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Failed to delete category")
+            }
+        }
     }
 
     fun onAccountSelected(account: String) {
