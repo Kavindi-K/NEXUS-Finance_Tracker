@@ -355,9 +355,81 @@ fun ExpenseScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                AccountSummaryPill(title = "Card", amount = uiState.cardExpenseLKR)
-                                AccountSummaryPill(title = "Cash", amount = uiState.cashExpenseLKR)
-                                AccountSummaryPill(title = "Secondary", amount = uiState.secondaryExpenseLKR)
+                                AccountSummaryPill(
+                                    title = "Card",
+                                    amount = uiState.cardExpenseLKR,
+                                    percentage = uiState.cardExpensePercentage,
+                                    isSelected = uiState.selectedAccountFilter.equals(ExpenseAccount.CARD, ignoreCase = true),
+                                    onClick = {
+                                        if (uiState.selectedAccountFilter.equals(ExpenseAccount.CARD, ignoreCase = true)) {
+                                            viewModel.onAccountFilterSelected(null)
+                                        } else {
+                                            viewModel.onAccountFilterSelected(ExpenseAccount.CARD)
+                                        }
+                                    }
+                                )
+                                AccountSummaryPill(
+                                    title = "Cash",
+                                    amount = uiState.cashExpenseLKR,
+                                    percentage = uiState.cashExpensePercentage,
+                                    isSelected = uiState.selectedAccountFilter.equals(ExpenseAccount.CASH, ignoreCase = true),
+                                    onClick = {
+                                        if (uiState.selectedAccountFilter.equals(ExpenseAccount.CASH, ignoreCase = true)) {
+                                            viewModel.onAccountFilterSelected(null)
+                                        } else {
+                                            viewModel.onAccountFilterSelected(ExpenseAccount.CASH)
+                                        }
+                                    }
+                                )
+                                AccountSummaryPill(
+                                    title = "Secondary",
+                                    amount = uiState.secondaryExpenseLKR,
+                                    percentage = uiState.secondaryExpensePercentage,
+                                    isSelected = uiState.selectedAccountFilter.equals(ExpenseAccount.SECONDARY, ignoreCase = true),
+                                    onClick = {
+                                        if (uiState.selectedAccountFilter.equals(ExpenseAccount.SECONDARY, ignoreCase = true)) {
+                                            viewModel.onAccountFilterSelected(null)
+                                        } else {
+                                            viewModel.onAccountFilterSelected(ExpenseAccount.SECONDARY)
+                                        }
+                                    }
+                                )
+                            }
+
+                            // Visual Account Proportion Bar (Card: Blue, Cash: Green, Secondary: Purple)
+                            if (uiState.totalExpenseLKR > 0) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .clip(RoundedCornerShape(3.dp))
+                                ) {
+                                    if (uiState.cardExpenseLKR > 0) {
+                                        Box(
+                                            modifier = Modifier
+                                                .weight((uiState.cardExpenseLKR / uiState.totalExpenseLKR).toFloat())
+                                                .fillMaxHeight()
+                                                .background(Color(0xFF3B82F6))
+                                        )
+                                    }
+                                    if (uiState.cashExpenseLKR > 0) {
+                                        Box(
+                                            modifier = Modifier
+                                                .weight((uiState.cashExpenseLKR / uiState.totalExpenseLKR).toFloat())
+                                                .fillMaxHeight()
+                                                .background(Color(0xFF10B981))
+                                        )
+                                    }
+                                    if (uiState.secondaryExpenseLKR > 0) {
+                                        Box(
+                                            modifier = Modifier
+                                                .weight((uiState.secondaryExpenseLKR / uiState.totalExpenseLKR).toFloat())
+                                                .fillMaxHeight()
+                                                .background(Color(0xFFA855F7))
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -376,13 +448,22 @@ fun ExpenseScreen(
                             FilterChip(
                                 selected = uiState.selectedAccountFilter == null,
                                 onClick = { viewModel.onAccountFilterSelected(null) },
-                                label = { Text("All Accounts") }
+                                label = { Text("All Accounts (${uiState.expenses.size})") }
                             )
                             ExpenseAccount.ALL.forEach { account ->
+                                val count = uiState.expenses.count { it.account.equals(account, ignoreCase = true) }
+                                val icon = when (account) {
+                                    ExpenseAccount.CARD -> Icons.Default.CreditCard
+                                    ExpenseAccount.CASH -> Icons.Default.Payments
+                                    else -> Icons.Default.AccountBalanceWallet
+                                }
                                 FilterChip(
                                     selected = uiState.selectedAccountFilter.equals(account, ignoreCase = true),
                                     onClick = { viewModel.onAccountFilterSelected(account) },
-                                    label = { Text(ExpenseAccount.getDisplayName(account)) }
+                                    leadingIcon = {
+                                        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    },
+                                    label = { Text("${ExpenseAccount.getDisplayName(account)} ($count)") }
                                 )
                             }
                         }
@@ -527,19 +608,44 @@ private fun DetailRow(label: String, value: String) {
 }
 
 @Composable
-private fun AccountSummaryPill(title: String, amount: Double) {
-    Column {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
-        )
-        Text(
-            text = "LKR %,.0f".format(amount),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onErrorContainer
-        )
+private fun AccountSummaryPill(
+    title: String,
+    amount: Double,
+    percentage: Double = 0.0,
+    isSelected: Boolean = false,
+    onClick: () -> Unit = {}
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.error.copy(alpha = 0.25f) else Color.Transparent
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                )
+                if (percentage > 0.0) {
+                    Text(
+                        text = "(%.0f%%)".format(percentage),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
+                    )
+                }
+            }
+            Text(
+                text = "LKR %,.0f".format(amount),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+        }
     }
 }
 
@@ -616,14 +722,21 @@ private fun ExpenseItemCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF94A3B8)
                     )
+                    val (accBg, accText) = when (expense.account.lowercase()) {
+                        ExpenseAccount.CARD -> Color(0xFFE0E7FF) to Color(0xFF1E3A8A)
+                        ExpenseAccount.CASH -> Color(0xFFDCFCE7) to Color(0xFF166534)
+                        ExpenseAccount.SECONDARY -> Color(0xFFF3E8FF) to Color(0xFF6B21A8)
+                        else -> Color(0xFFF1F5F9) to NavyPrimary
+                    }
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFFF1F5F9)
+                        color = accBg
                     ) {
                         Text(
                             text = ExpenseAccount.getDisplayName(expense.account),
                             style = MaterialTheme.typography.labelSmall,
-                            color = NavyPrimary,
+                            color = accText,
+                            fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
