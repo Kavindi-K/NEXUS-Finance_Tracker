@@ -321,16 +321,52 @@ fun ExpenseAddScreen(
                     }
                 }
 
-                // Date Selection (defaults to Today)
-                OutlinedTextField(
-                    value = dateFormatter.format(formState.date),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Expense Date") },
-                    leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null, tint = NavyPrimary) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
+                // Date Selection with Back-dating Presets (Member 2 Order 6)
+                Text(
+                    text = "Transaction Date",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NavyPrimary
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val cal = Calendar.getInstance().apply { time = formState.date }
+                    val todayCal = Calendar.getInstance()
+                    val isToday = cal.get(Calendar.YEAR) == todayCal.get(Calendar.YEAR) &&
+                            cal.get(Calendar.DAY_OF_YEAR) == todayCal.get(Calendar.DAY_OF_YEAR)
+
+                    todayCal.add(Calendar.DAY_OF_YEAR, -1)
+                    val isYesterday = cal.get(Calendar.YEAR) == todayCal.get(Calendar.YEAR) &&
+                            cal.get(Calendar.DAY_OF_YEAR) == todayCal.get(Calendar.DAY_OF_YEAR)
+
+                    FilterChip(
+                        selected = isToday,
+                        onClick = { viewModel.onQuickDateSelected(0) },
+                        label = { Text("Today", fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal) },
+                        modifier = Modifier.weight(1f),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = NavyPrimary,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+
+                    FilterChip(
+                        selected = isYesterday,
+                        onClick = { viewModel.onQuickDateSelected(1) },
+                        label = { Text("Yesterday", fontWeight = if (isYesterday) FontWeight.Bold else FontWeight.Normal) },
+                        modifier = Modifier.weight(1f),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = NavyPrimary,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+
+                    FilterChip(
+                        selected = !isToday && !isYesterday,
+                        onClick = {
                             showDatePicker(formState.date) { selected ->
                                 viewModel.onDateSelected(selected)
                             }
