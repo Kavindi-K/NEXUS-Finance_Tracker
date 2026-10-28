@@ -34,8 +34,11 @@ data class ExpenseUiState(
     val selectedSortOrder: ExpenseSortOrder = ExpenseSortOrder.DATE_DESC,
     val selectedAccountFilter: String? = null,
     val selectedMonthLabel: String = "",
+    val availableMonths: List<String> = emptyList(),
+    val monthlyExpenseTotals: Map<String, Double> = emptyMap(),
     val isPeriodAllTime: Boolean = false,
     val totalExpenseLKR: Double = 0.0,
+    val overallExpenseLKR: Double = 0.0,
     val cardExpenseLKR: Double = 0.0,
     val cashExpenseLKR: Double = 0.0,
     val secondaryExpenseLKR: Double = 0.0,
@@ -162,6 +165,51 @@ class ExpenseViewModel @Inject constructor(
         recomputeUiState()
     }
 
+    fun selectMonth(monthLabel: String) {
+        if (monthLabel.equals("All Time", ignoreCase = true) || monthLabel.equals("All Time History", ignoreCase = true)) {
+            onToggleAllTimePeriod(true)
+            return
+        }
+        val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
+        try {
+            val parsed = monthFormat.parse(monthLabel)
+            if (parsed != null) {
+                selectedCalendar.time = parsed
+            }
+        } catch (_: Exception) {}
+        _uiState.value = _uiState.value.copy(
+            selectedMonthLabel = monthLabel,
+            isPeriodAllTime = false
+        )
+        recomputeUiState()
+    }
+
+    private fun getMonthDateRange(monthLabel: String, monthFormat: SimpleDateFormat): Pair<Date, Date> {
+        val cal = Calendar.getInstance()
+        try {
+            val parsed = monthFormat.parse(monthLabel)
+            if (parsed != null) {
+                cal.time = parsed
+            }
+        } catch (_: Exception) {}
+
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val startOfMonth = cal.time
+
+        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
+        cal.set(Calendar.HOUR_OF_DAY, 23)
+        cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59)
+        cal.set(Calendar.MILLISECOND, 999)
+        val endOfMonth = cal.time
+
+        return Pair(startOfMonth, endOfMonth)
+    }
+
     // --- Sorting and Filtering ---
 
     fun onSortOrderSelected(order: ExpenseSortOrder) {
@@ -231,6 +279,7 @@ class ExpenseViewModel @Inject constructor(
         }
 
         val total = periodExpenses.sumOf { it.amountLKR }
+        val overallTotal = allExpenses.sumOf { it.amountLKR }
         val card = periodExpenses.filter { it.account.equals(ExpenseAccount.CARD, ignoreCase = true) }.sumOf { it.amountLKR }
         val cash = periodExpenses.filter { it.account.equals(ExpenseAccount.CASH, ignoreCase = true) }.sumOf { it.amountLKR }
         val secondary = periodExpenses.filter { it.account.equals(ExpenseAccount.SECONDARY, ignoreCase = true) }.sumOf { it.amountLKR }
@@ -241,11 +290,44 @@ class ExpenseViewModel @Inject constructor(
         val cashPct = if (total > 0.0) (cash / total) * 100.0 else 0.0
         val secondaryPct = if (total > 0.0) (secondary / total) * 100.0 else 0.0
 
+        // Generate rolling 24 months (current month + past 23 months)
+        val rollingMonths = (0 downTo -23).map { offset ->
+            val c = Calendar.getInstance().apply { add(Calendar.MONTH, offset) }
+            monthLabelFormat.format(c.time)
+        }
+
+        // Include any historical months present in expense records
+        val expenseMonths = allExpenses.map {
+            monthLabelFormat.format(it.date)
+        }
+
+        // Merge and sort chronologically descending (newest first)
+        val allMonths = (rollingMonths + expenseMonths).distinct().sortedByDescending { label ->
+            try {
+                monthLabelFormat.parse(label)?.time ?: 0L
+            } catch (e: Exception) {
+                0L
+            }
+        }
+
+        // Calculate total expenses for each month
+        val monthlyTotals = mutableMapOf<String, Double>()
+        allMonths.forEach { label ->
+            val (sMonth, eMonth) = getMonthDateRange(label, monthLabelFormat)
+            val monthSum = allExpenses.filter { expense ->
+                !expense.date.before(sMonth) && !expense.date.after(eMonth)
+            }.sumOf { it.amountLKR }
+            monthlyTotals[label] = monthSum
+        }
+
         _uiState.value = _uiState.value.copy(
             expenses = periodExpenses,
             filteredExpenses = sorted,
             selectedMonthLabel = if (isAllTime) "All Time History" else monthLabel,
+            availableMonths = allMonths,
+            monthlyExpenseTotals = monthlyTotals,
             totalExpenseLKR = total,
+            overallExpenseLKR = overallTotal,
             cardExpenseLKR = card,
             cashExpenseLKR = cash,
             secondaryExpenseLKR = secondary,
