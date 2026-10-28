@@ -335,15 +335,53 @@ fun ExpenseAddScreen(
                                 viewModel.onDateSelected(selected)
                             }
                         },
-                    enabled = false,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        disabledTextColor = NavyPrimary,
-                        disabledLabelColor = TextSubtle,
-                        disabledLeadingIconColor = NavyPrimary,
-                        disabledBorderColor = CardBorderColor
+                        leadingIcon = {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        label = {
+                            Text(
+                                if (!isToday && !isYesterday) dateFormatter.format(formState.date) else "Pick Date",
+                                fontWeight = if (!isToday && !isYesterday) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        modifier = Modifier.weight(1.3f),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = NavyPrimary,
+                            selectedLabelColor = Color.White,
+                            selectedLeadingIconColor = Color.White
+                        )
                     )
-                )
+                }
+
+                // Informative Back-dated Banner
+                if (formState.isBackdated) {
+                    val targetMonthFormat = remember { SimpleDateFormat("MMMM yyyy", Locale.US) }
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFFEF3C7),
+                        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarToday,
+                                contentDescription = null,
+                                tint = Color(0xFF92400E),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Backdated Entry: This expense will be recorded for ${dateFormatter.format(formState.date)} and counted in ${targetMonthFormat.format(formState.date)} totals.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF92400E),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
 
                 // Optional Note
                 OutlinedTextField(

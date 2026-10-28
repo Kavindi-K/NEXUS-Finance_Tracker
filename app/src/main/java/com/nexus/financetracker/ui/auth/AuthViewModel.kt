@@ -61,6 +61,23 @@ class AuthViewModel @Inject constructor(
     }
 
     /**
+     * Authenticates user using Google ID token and creates profile in Firestore if first login.
+     */
+    fun signInWithGoogle(idToken: String) {
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoading = true, errorMessage = null)
+            val result = authRepository.signInWithGoogle(idToken)
+            if (result.isSuccess) {
+                uiState = uiState.copy(isLoading = false, isSuccess = true)
+            } else {
+                val errorMsg = result.exceptionOrNull()?.localizedMessage
+                    ?: "Google sign in failed. Please try again."
+                uiState = uiState.copy(isLoading = false, errorMessage = errorMsg)
+            }
+        }
+    }
+
+    /**
      * Validates login inputs before network authentication (kept in ViewModel per architecture rules).
      */
     fun validateLogin(email: String, password: String): String? {
