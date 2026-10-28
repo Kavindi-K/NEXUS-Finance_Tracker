@@ -80,15 +80,59 @@ data class ExpenseFormState(
  * Standard default categories provided out-of-the-box for low-friction expense recording (FR9/FR10).
  */
 val DEFAULT_EXPENSE_CATEGORIES = listOf(
-    Category(id = "cat_food", name = "Food & Dining"),
-    Category(id = "cat_groceries", name = "Groceries"),
-    Category(id = "cat_transport", name = "Transport"),
-    Category(id = "cat_utilities", name = "Bills & Utilities"),
-    Category(id = "cat_rent", name = "Rent & Housing"),
-    Category(id = "cat_shopping", name = "Shopping"),
-    Category(id = "cat_entertainment", name = "Entertainment"),
-    Category(id = "cat_health", name = "Health & Medical"),
-    Category(id = "cat_other", name = "Other")
+    Category(
+        id = "cat_food",
+        name = "Food & Dining",
+        classification = ExpenseClassification.DISCRETIONARY,
+        estimatedAmount = 25000.0
+    ),
+    Category(
+        id = "cat_transport",
+        name = "Transport",
+        classification = ExpenseClassification.DISCRETIONARY,
+        estimatedAmount = 15000.0
+    ),
+    Category(
+        id = "cat_entertainment",
+        name = "Subscriptions",
+        classification = ExpenseClassification.COMMITTED,
+        recurringFrequency = "Monthly"
+    ),
+    Category(
+        id = "cat_rent",
+        name = "Rent",
+        classification = ExpenseClassification.COMMITTED,
+        recurringFrequency = "Monthly"
+    ),
+    Category(
+        id = "cat_health",
+        name = "Health",
+        classification = ExpenseClassification.COMMITTED,
+        recurringFrequency = "Monthly"
+    ),
+    Category(
+        id = "cat_shopping",
+        name = "Shopping",
+        classification = ExpenseClassification.DISCRETIONARY,
+        estimatedAmount = 10000.0
+    ),
+    Category(
+        id = "cat_groceries",
+        name = "Groceries",
+        classification = ExpenseClassification.DISCRETIONARY,
+        estimatedAmount = 20000.0
+    ),
+    Category(
+        id = "cat_utilities",
+        name = "Bills & Utilities",
+        classification = ExpenseClassification.COMMITTED,
+        recurringFrequency = "Monthly"
+    ),
+    Category(
+        id = "cat_other",
+        name = "Other",
+        classification = ExpenseClassification.DISCRETIONARY
+    )
 )
 
 @HiltViewModel
@@ -372,17 +416,28 @@ class ExpenseViewModel @Inject constructor(
                         }
 
                         val defaultAccount = latestExpense?.account ?: ExpenseAccount.CARD
-                        val defaultCatId = latestExpense?.categoryId ?: combined.firstOrNull()?.id ?: "cat_food"
+                        val currentSelectedId = _formState.value.categoryId
+                        val hasUserSelection = currentSelectedId.isNotBlank() && currentSelectedId != "cat_food"
+
+                        val defaultCatId = if (hasUserSelection) {
+                            currentSelectedId
+                        } else {
+                            latestExpense?.categoryId ?: combined.firstOrNull()?.id ?: "cat_food"
+                        }
                         val defaultCatName = catMap[defaultCatId]
                             ?: combined.firstOrNull()?.name ?: "Food & Dining"
+                        val matchingCat = combined.find { it.id == defaultCatId }
+                        val defaultClassification = matchingCat?.classification
+                            ?: latestExpense?.classification
+                            ?: ExpenseClassification.DISCRETIONARY
 
                         _formState.value = _formState.value.copy(
                             availableCategories = combined,
-                            account = defaultAccount,
+                            account = if (_formState.value.amountText.isNotBlank()) _formState.value.account else defaultAccount,
                             categoryId = defaultCatId,
                             categoryName = defaultCatName,
-                            date = Date(),
-                            classification = latestExpense?.classification ?: ExpenseClassification.DISCRETIONARY,
+                            date = if (_formState.value.amountText.isNotBlank()) _formState.value.date else Date(),
+                            classification = defaultClassification,
                             isLoadingDefaults = false
                         )
                     } else {
@@ -502,7 +557,71 @@ class ExpenseViewModel @Inject constructor(
             try {
                 val newId = categoryRepository.addCategory(newCategory)
                 val created = newCategory.copy(id = newId)
+                val updatedCustom = (_uiState.value.customCategories + created).distinctBy { it.id }
+                val updatedAll = (DEFAULT_EXPENSE_CATEGORIES + updatedCustom).distinctBy { it.id }
+                val updatedMap = updatedAll.associate { it.id to it.name }
+                _uiState.value = _uiState.value.copy(
+                    customCategories = updatedCustom,
+                    allCategories = updatedAll,
+                    categoriesMap = updatedMap
+                )
+                _formState.value = _formState.value.copy(
+                    availableCategories = updatedAll
+                )
                 onCategorySelected(created)
+                onSuccess(created)
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Failed to create category")
+            }
+        }
+    }
+
+    fun createCategoryWithDetails(
+        name: String,
+        classification: String = ExpenseClassification.DISCRETIONARY,
+        estimatedAmount: Double? = null,
+        recurringFrequency: String? = null,
+        onSuccess: (Category) -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val userId = currentUserId ?: run {
+            onError("User not signed in")
+            return
+        }
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) {
+            onError("Category name cannot be empty")
+            return
+        }
+        if (trimmed.length > 40) {
+            onError("Category name cannot exceed 40 characters")
+            return
+        }
+        val newCategory = Category(
+            userId = userId,
+            name = trimmed,
+            classification = classification,
+            estimatedAmount = if (classification.equals(ExpenseClassification.DISCRETIONARY, ignoreCase = true)) estimatedAmount else null,
+            recurringFrequency = if (classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)) recurringFrequency else null,
+            createdAt = Date()
+        )
+        viewModelScope.launch {
+            try {
+                val newId = categoryRepository.addCategory(newCategory)
+                val created = newCategory.copy(id = newId)
+                val updatedCustom = (_uiState.value.customCategories + created).distinctBy { it.id }
+                val updatedAll = (DEFAULT_EXPENSE_CATEGORIES + updatedCustom).distinctBy { it.id }
+                val updatedMap = updatedAll.associate { it.id to it.name }
+                _uiState.value = _uiState.value.copy(
+                    customCategories = updatedCustom,
+                    allCategories = updatedAll,
+                    categoriesMap = updatedMap
+                )
+                _formState.value = _formState.value.copy(
+                    availableCategories = updatedAll
+                )
+                onCategorySelected(created)
+                onClassificationSelected(created.classification)
                 onSuccess(created)
             } catch (e: Exception) {
                 onError(e.localizedMessage ?: "Failed to create category")
@@ -602,17 +721,29 @@ class ExpenseViewModel @Inject constructor(
         _formState.value = _formState.value.copy(note = note)
     }
 
-    fun resetForm() {
-        val currentCats = _formState.value.availableCategories
-        val defaultCat = currentCats.firstOrNull() ?: DEFAULT_EXPENSE_CATEGORIES.first()
+    fun resetForm(preferredCategoryId: String? = null) {
+        val currentCats = if (_uiState.value.allCategories.isNotEmpty()) {
+            _uiState.value.allCategories
+        } else if (_formState.value.availableCategories.isNotEmpty()) {
+            _formState.value.availableCategories
+        } else {
+            DEFAULT_EXPENSE_CATEGORIES
+        }
+        val targetCat = if (!preferredCategoryId.isNullOrBlank() && preferredCategoryId != "{categoryId}") {
+            currentCats.find { it.id == preferredCategoryId }
+                ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == preferredCategoryId }
+                ?: currentCats.first()
+        } else {
+            currentCats.first()
+        }
         _formState.value = ExpenseFormState(
             editingExpenseId = null,
             originalCreatedAt = null,
             amountText = "",
-            categoryId = defaultCat.id,
-            categoryName = defaultCat.name,
+            categoryId = targetCat.id,
+            categoryName = targetCat.name,
             account = ExpenseAccount.CARD,
-            classification = ExpenseClassification.DISCRETIONARY,
+            classification = targetCat.classification,
             date = Date(),
             note = "",
             isSubmitting = false,

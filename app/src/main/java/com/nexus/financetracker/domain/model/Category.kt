@@ -14,11 +14,28 @@ data class Category(
     val id: String = "",
     val userId: String = "",
     val name: String = "",
+    val classification: String = ExpenseClassification.DISCRETIONARY,
+    val estimatedAmount: Double? = null,
+    val recurringFrequency: String? = null,
     val mergingInto: String? = null,
     val createdAt: Date = Date()
 ) {
     @Exclude
     fun toFirestoreMap(): Map<String, Any> {
+        val map = mutableMapOf<String, Any>(
+            "userId" to userId,
+            "name" to name.trim(),
+            "createdAt" to createdAt
+        )
+        mergingInto?.takeIf { it.isNotBlank() }?.let { map["mergingInto"] = it }
+        classification.takeIf { it.isNotBlank() }?.let { map["classification"] = it }
+        estimatedAmount?.let { map["estimatedAmount"] = it }
+        recurringFrequency?.takeIf { it.isNotBlank() }?.let { map["recurringFrequency"] = it }
+        return map
+    }
+
+    @Exclude
+    fun toLegacyFirestoreMap(): Map<String, Any> {
         val map = mutableMapOf<String, Any>(
             "userId" to userId,
             "name" to name.trim(),
