@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CreditCard
@@ -46,12 +47,25 @@ private val CardBorderColor = Color(0xFFCBD5E1)
 @Composable
 fun ExpenseAddScreen(
     viewModel: ExpenseViewModel,
+    expenseId: String? = null,
     onNavigateBack: () -> Unit
 ) {
     val formState by viewModel.formState.collectAsState()
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val dateFormatter = remember { SimpleDateFormat("EEE, MMM dd, yyyy", Locale.getDefault()) }
+
+    LaunchedEffect(expenseId) {
+        if (!expenseId.isNullOrBlank() && expenseId != "{expenseId}") {
+            viewModel.loadExpenseForEdit(expenseId)
+        } else {
+            viewModel.resetForm()
+        }
+    }
+
+    var showAddCategoryDialog by remember { mutableStateOf(false) }
+    var newCategoryInput by remember { mutableStateOf("") }
+    var categoryDialogError by remember { mutableStateOf<String?>(null) }
 
     val calendar = remember { Calendar.getInstance() }
 
@@ -70,12 +84,15 @@ fun ExpenseAddScreen(
         ).show()
     }
 
+    val screenTitle = if (formState.isEditMode) "Edit Expense" else "Record Expense"
+    val submitButtonText = if (formState.isEditMode) "Update Expense" else "Save Expense"
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Record Expense",
+                        text = screenTitle,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = NavyPrimary
@@ -126,7 +143,7 @@ fun ExpenseAddScreen(
                             )
                         } else {
                             Text(
-                                text = "Save Expense",
+                                text = submitButtonText,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -269,6 +286,74 @@ fun ExpenseAddScreen(
                             border = if (isSelected) null else BorderStroke(1.dp, CardBorderColor)
                         )
                     }
+
+                    // + Custom Category Chip
+                    FilterChip(
+                        selected = false,
+                        onClick = {
+                            newCategoryInput = ""
+                            categoryDialogError = null
+                            showAddCategoryDialog = true
+                        },
+                        label = { Text("+ Custom", fontWeight = FontWeight.SemiBold) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Add, contentDescription = "Add custom category", modifier = Modifier.size(16.dp))
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = Color.White,
+                            labelColor = NavyPrimary,
+                            iconColor = NavyPrimary
+                        ),
+                        border = BorderStroke(1.dp, NavyPrimary.copy(alpha = 0.5f))
+                    )
+                }
+
+                if (showAddCategoryDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showAddCategoryDialog = false },
+                        title = { Text("New Expense Category", fontWeight = FontWeight.Bold, color = NavyPrimary) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    "Create a new custom category. Stable ID ensures past expenses remain categorized even if renamed.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSubtle
+                                )
+                                OutlinedTextField(
+                                    value = newCategoryInput,
+                                    onValueChange = {
+                                        newCategoryInput = it
+                                        categoryDialogError = null
+                                    },
+                                    label = { Text("Category Name") },
+                                    placeholder = { Text("e.g. Gaming, Pet Care, Gym") },
+                                    singleLine = true,
+                                    isError = categoryDialogError != null,
+                                    supportingText = categoryDialogError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    viewModel.createCategory(
+                                        name = newCategoryInput,
+                                        onSuccess = { showAddCategoryDialog = false },
+                                        onError = { categoryDialogError = it }
+                                    )
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary)
+                            ) {
+                                Text("Add Category")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showAddCategoryDialog = false }) {
+                                Text("Cancel")
+                            }
+                        }
+                    )
                 }
 
                 // Account Selection (Card, Cash, Secondary Account)

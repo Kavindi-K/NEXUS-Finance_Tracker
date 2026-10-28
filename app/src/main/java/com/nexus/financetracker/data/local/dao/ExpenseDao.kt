@@ -38,6 +38,9 @@ interface ExpenseDao {
     @Query("DELETE FROM expenses WHERE id = :id")
     suspend fun deleteExpenseById(id: String)
 
+    @Query("UPDATE expenses SET categoryId = :targetCategoryId WHERE categoryId = :sourceCategoryId")
+    suspend fun remapExpenseCategories(sourceCategoryId: String, targetCategoryId: String)
+
     @Query("DELETE FROM expenses WHERE userId = :userId")
     suspend fun deleteAllForUser(userId: String)
 }

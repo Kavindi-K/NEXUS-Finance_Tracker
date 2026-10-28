@@ -240,155 +240,76 @@ fun ReportsScreen(
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // Section 1: Month Selector Filter
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Interactive Card: clicking it opens the Month Selection Dialog
-                Card(
-                    onClick = { showMonthDialog = true },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCardBg),
-                    border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .background(NavyPrimary.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CalendarMonth,
-                                    contentDescription = "Select Month",
-                                    tint = NavyPrimary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Column {
-                                Text(
-                                    text = "Select Month",
-                                    color = TextSubtle,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = uiState.selectedMonthLabel.ifBlank { "Select Month" },
-                                    color = NavyPrimary,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = NavyPrimary.copy(alpha = 0.1f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
-                                Text(
-                                    text = "Choose",
-                                    color = NavyPrimary,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.ArrowDropDown,
-                                    contentDescription = null,
-                                    tint = NavyPrimary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Month Stepper and Quick Chips Row
+            // Section 1: Month Selection Box (opens dialog on tap)
+            Card(
+                onClick = { showMonthDialog = true },
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = LightCardBg),
+                border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = { viewModel.selectPreviousMonth() },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ChevronLeft,
-                            contentDescription = "Previous Month",
-                            tint = NavyPrimary
-                        )
-                    }
-
                     Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        val isAllTime = uiState.selectedMonthLabel == "All Time"
-                        FilterChip(
-                            selected = isAllTime,
-                            onClick = { viewModel.selectMonth("All Time") },
-                            label = {
-                                Text(
-                                    text = "All Time",
-                                    fontWeight = if (isAllTime) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = NavyPrimary,
-                                selectedLabelColor = Color.White,
-                                containerColor = LightCardBg,
-                                labelColor = NavyPrimary
-                            ),
-                            border = if (isAllTime) null else BorderStroke(1.dp, Color(0xFFCBD5E1))
-                        )
-
-                        uiState.availableMonths.take(12).forEach { month ->
-                            val isSelected = month == uiState.selectedMonthLabel
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { viewModel.selectMonth(month) },
-                                label = {
-                                    Text(
-                                        text = month,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = NavyPrimary,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = LightCardBg,
-                                    labelColor = NavyPrimary
-                                ),
-                                border = if (isSelected) null else BorderStroke(1.dp, Color(0xFFCBD5E1))
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .background(NavyPrimary.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarMonth,
+                                contentDescription = "Select Month",
+                                tint = NavyPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Select Month",
+                                color = TextSubtle,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = uiState.selectedMonthLabel.ifBlank { "Select Month" },
+                                color = NavyPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
 
-                    IconButton(
-                        onClick = { viewModel.selectNextMonth() },
-                        modifier = Modifier.size(36.dp)
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = NavyPrimary.copy(alpha = 0.1f)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = "Next Month",
-                            tint = NavyPrimary
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(
+                                text = "Choose",
+                                color = NavyPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = NavyPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
