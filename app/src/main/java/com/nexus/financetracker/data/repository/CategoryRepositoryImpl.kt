@@ -47,7 +47,11 @@ class CategoryRepositoryImpl @Inject constructor(
         if (validation != null) {
             throw IllegalArgumentException(validation)
         }
-        val docRef = categoriesCollection.add(category.toFirestoreMap()).await()
+        val docRef = try {
+            categoriesCollection.add(category.toFirestoreMap()).await()
+        } catch (e: Exception) {
+            categoriesCollection.add(category.toLegacyFirestoreMap()).await()
+        }
         return docRef.id
     }
 

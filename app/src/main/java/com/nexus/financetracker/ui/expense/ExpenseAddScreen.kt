@@ -10,7 +10,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarToday
@@ -37,8 +36,8 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-// App Theme Colors (Matching Deep Sapphire Navy Design System)
 private val NavyPrimary = Color(0xFF072044)
+private val CardBlue = Color(0xFF2563EB)
 private val LightCardBg = Color(0xFFF1F5F9)
 private val TextSubtle = Color(0xFF64748B)
 private val CardBorderColor = Color(0xFFCBD5E1)
@@ -48,24 +47,36 @@ private val CardBorderColor = Color(0xFFCBD5E1)
 fun ExpenseAddScreen(
     viewModel: ExpenseViewModel,
     expenseId: String? = null,
+    categoryId: String? = null,
     onNavigateBack: () -> Unit
 ) {
     val formState by viewModel.formState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val dateFormatter = remember { SimpleDateFormat("EEE, MMM dd, yyyy", Locale.getDefault()) }
 
-    LaunchedEffect(expenseId) {
+    LaunchedEffect(expenseId, categoryId) {
         if (!expenseId.isNullOrBlank() && expenseId != "{expenseId}") {
             viewModel.loadExpenseForEdit(expenseId)
         } else {
-            viewModel.resetForm()
+            val cleanCatId = if (!categoryId.isNullOrBlank() && categoryId != "{categoryId}") categoryId else null
+            viewModel.resetForm(preferredCategoryId = cleanCatId)
         }
     }
 
-    var showAddCategoryDialog by remember { mutableStateOf(false) }
-    var newCategoryInput by remember { mutableStateOf("") }
-    var categoryDialogError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(categoryId, uiState.allCategories) {
+        val cleanCatId = if (!categoryId.isNullOrBlank() && categoryId != "{categoryId}") categoryId else null
+        if (cleanCatId != null && (expenseId.isNullOrBlank() || expenseId == "{expenseId}")) {
+            val found = uiState.allCategories.find { it.id == cleanCatId }
+                ?: viewModel.formState.value.availableCategories.find { it.id == cleanCatId }
+                ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == cleanCatId }
+            if (found != null) {
+                viewModel.onCategorySelected(found)
+                viewModel.onClassificationSelected(found.classification)
+            }
+        }
+    }
 
     val calendar = remember { Calendar.getInstance() }
 
@@ -172,40 +183,6 @@ fun ExpenseAddScreen(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
-                // Header Banner
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = LightCardBg
-                    ),
-                    border = BorderStroke(1.dp, CardBorderColor)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.TrendingDown,
-                            contentDescription = null,
-                            tint = NavyPrimary
-                        )
-                        Column {
-                            Text(
-                                text = "Quick Expense Entry",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = NavyPrimary
-                            )
-                            Text(
-                                text = "Defaults to today's date & your last used account and category.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextSubtle
-                            )
-                        }
-                    }
-                }
 
                 // Amount Input Field
                 OutlinedTextField(
@@ -249,114 +226,54 @@ fun ExpenseAddScreen(
                     }
                 }
 
-                // Category Selection
-                Text(
-                    text = "Category",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NavyPrimary
-                )
-                FlowRow(
+                // Pre-selected Category & Classification Card
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = LightCardBg),
+                    border = BorderStroke(1.dp, CardBorderColor)
                 ) {
-                    formState.availableCategories.forEach { category ->
-                        val isSelected = formState.categoryId == category.id
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { viewModel.onCategorySelected(category) },
-                            label = {
-                                Text(
-                                    category.name,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            leadingIcon = if (isSelected) {
-                                { Icon(Icons.Default.Category, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                            } else null,
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = NavyPrimary,
-                                selectedLabelColor = Color.White,
-                                selectedLeadingIconColor = Color.White,
-                                containerColor = LightCardBg,
-                                labelColor = NavyPrimary,
-                                iconColor = NavyPrimary
-                            ),
-                            border = if (isSelected) null else BorderStroke(1.dp, CardBorderColor)
-                        )
-                    }
-
-                    // + Custom Category Chip
-                    FilterChip(
-                        selected = false,
-                        onClick = {
-                            newCategoryInput = ""
-                            categoryDialogError = null
-                            showAddCategoryDialog = true
-                        },
-                        label = { Text("+ Custom", fontWeight = FontWeight.SemiBold) },
-                        leadingIcon = {
-                            Icon(Icons.Default.Add, contentDescription = "Add custom category", modifier = Modifier.size(16.dp))
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = Color.White,
-                            labelColor = NavyPrimary,
-                            iconColor = NavyPrimary
-                        ),
-                        border = BorderStroke(1.dp, NavyPrimary.copy(alpha = 0.5f))
-                    )
-                }
-
-                if (showAddCategoryDialog) {
-                    AlertDialog(
-                        onDismissRequest = { showAddCategoryDialog = false },
-                        title = { Text("New Expense Category", fontWeight = FontWeight.Bold, color = NavyPrimary) },
-                        text = {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    "Create a new custom category. Stable ID ensures past expenses remain categorized even if renamed.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = TextSubtle
-                                )
-                                OutlinedTextField(
-                                    value = newCategoryInput,
-                                    onValueChange = {
-                                        newCategoryInput = it
-                                        categoryDialogError = null
-                                    },
-                                    label = { Text("Category Name") },
-                                    placeholder = { Text("e.g. Gaming, Pet Care, Gym") },
-                                    singleLine = true,
-                                    isError = categoryDialogError != null,
-                                    supportingText = categoryDialogError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        },
-                        confirmButton = {
-                            Button(
-                                onClick = {
-                                    viewModel.createCategory(
-                                        name = newCategoryInput,
-                                        onSuccess = { showAddCategoryDialog = false },
-                                        onError = { categoryDialogError = it }
-                                    )
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary)
-                            ) {
-                                Text("Add Category")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showAddCategoryDialog = false }) {
-                                Text("Cancel")
-                            }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "Category",
+                                fontSize = 12.sp,
+                                color = TextSubtle,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = formState.categoryName.ifBlank { "Expense Category" },
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = NavyPrimary
+                            )
                         }
-                    )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (formState.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)) {
+                                NavyPrimary.copy(alpha = 0.12f)
+                            } else {
+                                CardBlue.copy(alpha = 0.12f)
+                            }
+                        ) {
+                            Text(
+                                text = if (formState.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)) "Committed" else "Discretionary",
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (formState.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)) NavyPrimary else CardBlue
+                            )
+                        }
+                    }
                 }
 
-                // Account Selection (Card, Cash, Secondary Account)
+                // Payment Account Selection (Card, Cash, Secondary Account)
                 Text(
                     text = "Payment Account",
                     fontSize = 14.sp,
@@ -404,122 +321,16 @@ fun ExpenseAddScreen(
                     }
                 }
 
-                // Classification Selection (Committed vs Discretionary)
-                Text(
-                    text = "Spending Classification",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NavyPrimary
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val isCommitted = formState.classification == ExpenseClassification.COMMITTED
-                    FilterChip(
-                        selected = isCommitted,
-                        onClick = { viewModel.onClassificationSelected(ExpenseClassification.COMMITTED) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                "Committed (Fixed)",
-                                fontWeight = if (isCommitted) FontWeight.Bold else FontWeight.Normal
-                            )
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NavyPrimary,
-                            selectedLabelColor = Color.White,
-                            selectedLeadingIconColor = Color.White,
-                            containerColor = LightCardBg,
-                            labelColor = NavyPrimary,
-                            iconColor = NavyPrimary
-                        ),
-                        border = if (isCommitted) null else BorderStroke(1.dp, CardBorderColor)
-                    )
-
-                    val isDiscretionary = formState.classification == ExpenseClassification.DISCRETIONARY
-                    FilterChip(
-                        selected = isDiscretionary,
-                        onClick = { viewModel.onClassificationSelected(ExpenseClassification.DISCRETIONARY) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.ShoppingCart,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                "Discretionary",
-                                fontWeight = if (isDiscretionary) FontWeight.Bold else FontWeight.Normal
-                            )
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NavyPrimary,
-                            selectedLabelColor = Color.White,
-                            selectedLeadingIconColor = Color.White,
-                            containerColor = LightCardBg,
-                            labelColor = NavyPrimary,
-                            iconColor = NavyPrimary
-                        ),
-                        border = if (isDiscretionary) null else BorderStroke(1.dp, CardBorderColor)
-                    )
-                }
-
-                // Date Selection with Back-dating Presets (Member 2 Order 6)
-                Text(
-                    text = "Transaction Date",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NavyPrimary
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val cal = Calendar.getInstance().apply { time = formState.date }
-                    val todayCal = Calendar.getInstance()
-                    val isToday = cal.get(Calendar.YEAR) == todayCal.get(Calendar.YEAR) &&
-                            cal.get(Calendar.DAY_OF_YEAR) == todayCal.get(Calendar.DAY_OF_YEAR)
-
-                    todayCal.add(Calendar.DAY_OF_YEAR, -1)
-                    val isYesterday = cal.get(Calendar.YEAR) == todayCal.get(Calendar.YEAR) &&
-                            cal.get(Calendar.DAY_OF_YEAR) == todayCal.get(Calendar.DAY_OF_YEAR)
-
-                    FilterChip(
-                        selected = isToday,
-                        onClick = { viewModel.onQuickDateSelected(0) },
-                        label = { Text("Today", fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal) },
-                        modifier = Modifier.weight(1f),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NavyPrimary,
-                            selectedLabelColor = Color.White
-                        )
-                    )
-
-                    FilterChip(
-                        selected = isYesterday,
-                        onClick = { viewModel.onQuickDateSelected(1) },
-                        label = { Text("Yesterday", fontWeight = if (isYesterday) FontWeight.Bold else FontWeight.Normal) },
-                        modifier = Modifier.weight(1f),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NavyPrimary,
-                            selectedLabelColor = Color.White
-                        )
-                    )
-
-                    FilterChip(
-                        selected = !isToday && !isYesterday,
-                        onClick = {
+                // Date Selection (defaults to Today)
+                OutlinedTextField(
+                    value = dateFormatter.format(formState.date),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Expense Date") },
+                    leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null, tint = NavyPrimary) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
                             showDatePicker(formState.date) { selected ->
                                 viewModel.onDateSelected(selected)
                             }

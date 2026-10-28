@@ -75,6 +75,7 @@ fun AppNavGraph(
         Screen.Dashboard.route,
         Screen.Income.route,
         Screen.Expenses.route,
+        Screen.CategoryDashboard.route,
         Screen.Goals.route,
         Screen.Settings.route,
         Screen.Profile.route,
@@ -120,7 +121,12 @@ fun AppNavGraph(
                         }
                     },
                     onQuickAdd = {
-                        navController.navigate(Screen.AddExpense.createRoute())
+                        val activeRoute = navController.currentDestination?.route ?: currentRoute
+                        if (activeRoute == Screen.Expenses.route) {
+                            navController.navigate(Screen.CategoryDashboard.route)
+                        } else {
+                            navController.navigate(Screen.AddExpense.createRoute())
+                        }
                     }
                 )
             }
@@ -328,12 +334,32 @@ fun AppNavGraph(
                 ExpenseScreen(
                     viewModel = expenseViewModel,
                     onAddExpense = {
-                        navController.navigate(Screen.AddExpense.createRoute())
+                        navController.navigate(Screen.CategoryDashboard.route)
                     },
                     onEditExpense = { expenseId ->
                         navController.navigate(Screen.AddExpense.createRoute(expenseId))
                     },
                     onBack = onBackToDashboard
+                )
+            }
+
+            composable(Screen.CategoryDashboard.route) {
+                val expenseViewModel: ExpenseViewModel = hiltViewModel()
+                com.nexus.financetracker.ui.expense.category.CategoryDashboardScreen(
+                    viewModel = expenseViewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToNewCategory = { navController.navigate(Screen.AddCategory.route) },
+                    onCategorySelected = { categoryId ->
+                        navController.navigate(Screen.AddExpense.createRoute(categoryId = categoryId))
+                    }
+                )
+            }
+
+            composable(Screen.AddCategory.route) {
+                val expenseViewModel: ExpenseViewModel = hiltViewModel()
+                com.nexus.financetracker.ui.expense.category.CategoryAddScreen(
+                    viewModel = expenseViewModel,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
@@ -344,14 +370,21 @@ fun AppNavGraph(
                         type = NavType.StringType
                         nullable = true
                         defaultValue = null
+                    },
+                    navArgument("categoryId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
                     }
                 )
             ) { backStackEntry ->
-                val expenseId = backStackEntry.arguments?.getString("expenseId")
+                val expenseId = backStackEntry.arguments?.getString("expenseId")?.takeIf { it.isNotBlank() && it != "{expenseId}" }
+                val categoryId = backStackEntry.arguments?.getString("categoryId")?.takeIf { it.isNotBlank() && it != "{categoryId}" }
                 val expenseViewModel: ExpenseViewModel = hiltViewModel()
                 ExpenseAddScreen(
                     viewModel = expenseViewModel,
                     expenseId = expenseId,
+                    categoryId = categoryId,
                     onNavigateBack = {
                         expenseViewModel.resetForm()
                         navController.popBackStack()

@@ -35,8 +35,11 @@ data class ExpenseUiState(
     val selectedAccountFilter: String? = null,
     val selectedCategoryFilter: String? = null,
     val selectedMonthLabel: String = "",
+    val availableMonths: List<String> = emptyList(),
+    val monthlyExpenseTotals: Map<String, Double> = emptyMap(),
     val isPeriodAllTime: Boolean = false,
     val totalExpenseLKR: Double = 0.0,
+    val overallExpenseLKR: Double = 0.0,
     val cardExpenseLKR: Double = 0.0,
     val cashExpenseLKR: Double = 0.0,
     val secondaryExpenseLKR: Double = 0.0,
@@ -105,15 +108,59 @@ data class BulkExpenseItem(
  * Standard default categories provided out-of-the-box for low-friction expense recording (FR9/FR10).
  */
 val DEFAULT_EXPENSE_CATEGORIES = listOf(
-    Category(id = "cat_food", name = "Food & Dining"),
-    Category(id = "cat_groceries", name = "Groceries"),
-    Category(id = "cat_transport", name = "Transport"),
-    Category(id = "cat_utilities", name = "Bills & Utilities"),
-    Category(id = "cat_rent", name = "Rent & Housing"),
-    Category(id = "cat_shopping", name = "Shopping"),
-    Category(id = "cat_entertainment", name = "Entertainment"),
-    Category(id = "cat_health", name = "Health & Medical"),
-    Category(id = "cat_other", name = "Other")
+    Category(
+        id = "cat_food",
+        name = "Food & Dining",
+        classification = ExpenseClassification.DISCRETIONARY,
+        estimatedAmount = 25000.0
+    ),
+    Category(
+        id = "cat_transport",
+        name = "Transport",
+        classification = ExpenseClassification.DISCRETIONARY,
+        estimatedAmount = 15000.0
+    ),
+    Category(
+        id = "cat_entertainment",
+        name = "Subscriptions",
+        classification = ExpenseClassification.COMMITTED,
+        recurringFrequency = "Monthly"
+    ),
+    Category(
+        id = "cat_rent",
+        name = "Rent",
+        classification = ExpenseClassification.COMMITTED,
+        recurringFrequency = "Monthly"
+    ),
+    Category(
+        id = "cat_health",
+        name = "Health",
+        classification = ExpenseClassification.COMMITTED,
+        recurringFrequency = "Monthly"
+    ),
+    Category(
+        id = "cat_shopping",
+        name = "Shopping",
+        classification = ExpenseClassification.DISCRETIONARY,
+        estimatedAmount = 10000.0
+    ),
+    Category(
+        id = "cat_groceries",
+        name = "Groceries",
+        classification = ExpenseClassification.DISCRETIONARY,
+        estimatedAmount = 20000.0
+    ),
+    Category(
+        id = "cat_utilities",
+        name = "Bills & Utilities",
+        classification = ExpenseClassification.COMMITTED,
+        recurringFrequency = "Monthly"
+    ),
+    Category(
+        id = "cat_other",
+        name = "Other",
+        classification = ExpenseClassification.DISCRETIONARY
+    )
 )
 
 @HiltViewModel
@@ -188,6 +235,51 @@ class ExpenseViewModel @Inject constructor(
     fun onToggleAllTimePeriod(allTime: Boolean) {
         _uiState.value = _uiState.value.copy(isPeriodAllTime = allTime)
         recomputeUiState()
+    }
+
+    fun selectMonth(monthLabel: String) {
+        if (monthLabel.equals("All Time", ignoreCase = true) || monthLabel.equals("All Time History", ignoreCase = true)) {
+            onToggleAllTimePeriod(true)
+            return
+        }
+        val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
+        try {
+            val parsed = monthFormat.parse(monthLabel)
+            if (parsed != null) {
+                selectedCalendar.time = parsed
+            }
+        } catch (_: Exception) {}
+        _uiState.value = _uiState.value.copy(
+            selectedMonthLabel = monthLabel,
+            isPeriodAllTime = false
+        )
+        recomputeUiState()
+    }
+
+    private fun getMonthDateRange(monthLabel: String, monthFormat: SimpleDateFormat): Pair<Date, Date> {
+        val cal = Calendar.getInstance()
+        try {
+            val parsed = monthFormat.parse(monthLabel)
+            if (parsed != null) {
+                cal.time = parsed
+            }
+        } catch (_: Exception) {}
+
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val startOfMonth = cal.time
+
+        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
+        cal.set(Calendar.HOUR_OF_DAY, 23)
+        cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59)
+        cal.set(Calendar.MILLISECOND, 999)
+        val endOfMonth = cal.time
+
+        return Pair(startOfMonth, endOfMonth)
     }
 
     // --- Sorting and Filtering ---
@@ -272,6 +364,7 @@ class ExpenseViewModel @Inject constructor(
         }
 
         val total = periodExpenses.sumOf { it.amountLKR }
+        val overallTotal = allExpenses.sumOf { it.amountLKR }
         val card = periodExpenses.filter { it.account.equals(ExpenseAccount.CARD, ignoreCase = true) }.sumOf { it.amountLKR }
         val cash = periodExpenses.filter { it.account.equals(ExpenseAccount.CASH, ignoreCase = true) }.sumOf { it.amountLKR }
         val secondary = periodExpenses.filter { it.account.equals(ExpenseAccount.SECONDARY, ignoreCase = true) }.sumOf { it.amountLKR }
@@ -282,11 +375,44 @@ class ExpenseViewModel @Inject constructor(
         val cashPct = if (total > 0.0) (cash / total) * 100.0 else 0.0
         val secondaryPct = if (total > 0.0) (secondary / total) * 100.0 else 0.0
 
+        // Generate rolling 24 months (current month + past 23 months)
+        val rollingMonths = (0 downTo -23).map { offset ->
+            val c = Calendar.getInstance().apply { add(Calendar.MONTH, offset) }
+            monthLabelFormat.format(c.time)
+        }
+
+        // Include any historical months present in expense records
+        val expenseMonths = allExpenses.map {
+            monthLabelFormat.format(it.date)
+        }
+
+        // Merge and sort chronologically descending (newest first)
+        val allMonths = (rollingMonths + expenseMonths).distinct().sortedByDescending { label ->
+            try {
+                monthLabelFormat.parse(label)?.time ?: 0L
+            } catch (e: Exception) {
+                0L
+            }
+        }
+
+        // Calculate total expenses for each month
+        val monthlyTotals = mutableMapOf<String, Double>()
+        allMonths.forEach { label ->
+            val (sMonth, eMonth) = getMonthDateRange(label, monthLabelFormat)
+            val monthSum = allExpenses.filter { expense ->
+                !expense.date.before(sMonth) && !expense.date.after(eMonth)
+            }.sumOf { it.amountLKR }
+            monthlyTotals[label] = monthSum
+        }
+
         _uiState.value = _uiState.value.copy(
             expenses = periodExpenses,
             filteredExpenses = sorted,
             selectedMonthLabel = if (isAllTime) "All Time History" else monthLabel,
+            availableMonths = allMonths,
+            monthlyExpenseTotals = monthlyTotals,
             totalExpenseLKR = total,
+            overallExpenseLKR = overallTotal,
             cardExpenseLKR = card,
             cashExpenseLKR = cash,
             secondaryExpenseLKR = secondary,
@@ -331,17 +457,28 @@ class ExpenseViewModel @Inject constructor(
                         }
 
                         val defaultAccount = latestExpense?.account ?: ExpenseAccount.CARD
-                        val defaultCatId = latestExpense?.categoryId ?: combined.firstOrNull()?.id ?: "cat_food"
+                        val currentSelectedId = _formState.value.categoryId
+                        val hasUserSelection = currentSelectedId.isNotBlank() && currentSelectedId != "cat_food"
+
+                        val defaultCatId = if (hasUserSelection) {
+                            currentSelectedId
+                        } else {
+                            latestExpense?.categoryId ?: combined.firstOrNull()?.id ?: "cat_food"
+                        }
                         val defaultCatName = catMap[defaultCatId]
                             ?: combined.firstOrNull()?.name ?: "Food & Dining"
+                        val matchingCat = combined.find { it.id == defaultCatId }
+                        val defaultClassification = matchingCat?.classification
+                            ?: latestExpense?.classification
+                            ?: ExpenseClassification.DISCRETIONARY
 
                         _formState.value = _formState.value.copy(
                             availableCategories = combined,
-                            account = defaultAccount,
+                            account = if (_formState.value.amountText.isNotBlank()) _formState.value.account else defaultAccount,
                             categoryId = defaultCatId,
                             categoryName = defaultCatName,
-                            date = Date(),
-                            classification = latestExpense?.classification ?: ExpenseClassification.DISCRETIONARY,
+                            date = if (_formState.value.amountText.isNotBlank()) _formState.value.date else Date(),
+                            classification = defaultClassification,
                             isLoadingDefaults = false
                         )
                     } else {
@@ -461,7 +598,71 @@ class ExpenseViewModel @Inject constructor(
             try {
                 val newId = categoryRepository.addCategory(newCategory)
                 val created = newCategory.copy(id = newId)
+                val updatedCustom = (_uiState.value.customCategories + created).distinctBy { it.id }
+                val updatedAll = (DEFAULT_EXPENSE_CATEGORIES + updatedCustom).distinctBy { it.id }
+                val updatedMap = updatedAll.associate { it.id to it.name }
+                _uiState.value = _uiState.value.copy(
+                    customCategories = updatedCustom,
+                    allCategories = updatedAll,
+                    categoriesMap = updatedMap
+                )
+                _formState.value = _formState.value.copy(
+                    availableCategories = updatedAll
+                )
                 onCategorySelected(created)
+                onSuccess(created)
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Failed to create category")
+            }
+        }
+    }
+
+    fun createCategoryWithDetails(
+        name: String,
+        classification: String = ExpenseClassification.DISCRETIONARY,
+        estimatedAmount: Double? = null,
+        recurringFrequency: String? = null,
+        onSuccess: (Category) -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val userId = currentUserId ?: run {
+            onError("User not signed in")
+            return
+        }
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) {
+            onError("Category name cannot be empty")
+            return
+        }
+        if (trimmed.length > 40) {
+            onError("Category name cannot exceed 40 characters")
+            return
+        }
+        val newCategory = Category(
+            userId = userId,
+            name = trimmed,
+            classification = classification,
+            estimatedAmount = if (classification.equals(ExpenseClassification.DISCRETIONARY, ignoreCase = true)) estimatedAmount else null,
+            recurringFrequency = if (classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)) recurringFrequency else null,
+            createdAt = Date()
+        )
+        viewModelScope.launch {
+            try {
+                val newId = categoryRepository.addCategory(newCategory)
+                val created = newCategory.copy(id = newId)
+                val updatedCustom = (_uiState.value.customCategories + created).distinctBy { it.id }
+                val updatedAll = (DEFAULT_EXPENSE_CATEGORIES + updatedCustom).distinctBy { it.id }
+                val updatedMap = updatedAll.associate { it.id to it.name }
+                _uiState.value = _uiState.value.copy(
+                    customCategories = updatedCustom,
+                    allCategories = updatedAll,
+                    categoriesMap = updatedMap
+                )
+                _formState.value = _formState.value.copy(
+                    availableCategories = updatedAll
+                )
+                onCategorySelected(created)
+                onClassificationSelected(created.classification)
                 onSuccess(created)
             } catch (e: Exception) {
                 onError(e.localizedMessage ?: "Failed to create category")
@@ -632,17 +833,29 @@ class ExpenseViewModel @Inject constructor(
         _formState.value = _formState.value.copy(note = note)
     }
 
-    fun resetForm() {
-        val currentCats = _formState.value.availableCategories
-        val defaultCat = currentCats.firstOrNull() ?: DEFAULT_EXPENSE_CATEGORIES.first()
+    fun resetForm(preferredCategoryId: String? = null) {
+        val currentCats = if (_uiState.value.allCategories.isNotEmpty()) {
+            _uiState.value.allCategories
+        } else if (_formState.value.availableCategories.isNotEmpty()) {
+            _formState.value.availableCategories
+        } else {
+            DEFAULT_EXPENSE_CATEGORIES
+        }
+        val targetCat = if (!preferredCategoryId.isNullOrBlank() && preferredCategoryId != "{categoryId}") {
+            currentCats.find { it.id == preferredCategoryId }
+                ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == preferredCategoryId }
+                ?: currentCats.first()
+        } else {
+            currentCats.first()
+        }
         _formState.value = ExpenseFormState(
             editingExpenseId = null,
             originalCreatedAt = null,
             amountText = "",
-            categoryId = defaultCat.id,
-            categoryName = defaultCat.name,
+            categoryId = targetCat.id,
+            categoryName = targetCat.name,
             account = ExpenseAccount.CARD,
-            classification = ExpenseClassification.DISCRETIONARY,
+            classification = targetCat.classification,
             date = Date(),
             note = "",
             isSubmitting = false,
