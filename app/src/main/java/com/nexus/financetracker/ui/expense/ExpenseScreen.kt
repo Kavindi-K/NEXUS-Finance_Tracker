@@ -1,5 +1,7 @@
 package com.nexus.financetracker.ui.expense
 
+import android.app.DatePickerDialog
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,13 +9,17 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.CallMerge
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -23,7 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,11 +41,17 @@ import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseAccount
 import com.nexus.financetracker.domain.model.ExpenseClassification
 import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 // App Theme Colors (Matching Deep Sapphire Navy Design System)
 private val NavyPrimary = Color(0xFF072044)
+private val NavyCardBg = Color(0xFF132D52)
+private val NavyCardBorder = Color(0x33FFFFFF)
+private val TextHeaderSubtle = Color(0xFFBAC7D5)
 private val TextSubtle = Color(0xFF64748B)
+private val LightCardBg = Color(0xFFF1F5F9)
 
 /**
  * Expenses Screen — Conforms to Member 2 Order 3 (feature/expense-list).
@@ -51,11 +66,13 @@ fun ExpenseScreen(
     viewModel: ExpenseViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
     val fullDateTimeFormatter = remember { SimpleDateFormat("EEEE, MMM dd, yyyy • hh:mm a", Locale.getDefault()) }
 
     var selectedExpenseForDetail by remember { mutableStateOf<Expense?>(null) }
     var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
+    var showBulkAddSheet by remember { mutableStateOf(false) }
 
     // Category Management State
     var showCategoryManagementSheet by remember { mutableStateOf(false) }
@@ -102,13 +119,13 @@ fun ExpenseScreen(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)),
+                                .background(Color(0xFFF1F5F9)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = getCategoryIcon(catName),
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
+                                tint = NavyPrimary,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -131,7 +148,7 @@ fun ExpenseScreen(
                         text = "- LKR %,.2f".format(expense.amountLKR),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.error
+                        color = Color(0xFFDC2626)
                     )
                 }
 
@@ -140,6 +157,18 @@ fun ExpenseScreen(
                 // Metadata Rows
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     DetailRow(label = "Date & Time", value = fullDateTimeFormatter.format(expense.date))
+                    val isBackdated = remember(expense) {
+                        val calDate = Calendar.getInstance().apply { time = expense.date }
+                        val calCreated = Calendar.getInstance().apply { time = expense.createdAt }
+                        calDate.get(Calendar.YEAR) != calCreated.get(Calendar.YEAR) ||
+                            calDate.get(Calendar.DAY_OF_YEAR) != calCreated.get(Calendar.DAY_OF_YEAR)
+                    }
+                    if (isBackdated) {
+                        DetailRow(
+                            label = "Entry Status",
+                            value = "Backdated (Logged on ${dateFormatter.format(expense.createdAt)})"
+                        )
+                    }
                     DetailRow(label = "Payment Account", value = ExpenseAccount.getDisplayName(expense.account))
                     DetailRow(label = "Classification", value = ExpenseClassification.getDisplayName(expense.classification))
                     if (!expense.note.isNullOrBlank()) {
@@ -253,13 +282,49 @@ fun ExpenseScreen(
                             color = NavyPrimary
                         )
                         Text(
-                            text = "Create, rename, or merge categories. Past expenses remain mapped.",
+                            text = "Tap any category to filter expenses, or manage custom ones.",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSubtle
                         )
                     }
                     IconButton(onClick = { showCategoryManagementSheet = false }) {
                         Icon(Icons.Default.Close, contentDescription = "Close", tint = NavyPrimary)
+                    }
+                }
+
+                if (uiState.selectedCategoryFilter != null) {
+                    val activeCatName = uiState.categoriesMap[uiState.selectedCategoryFilter]
+                        ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == uiState.selectedCategoryFilter }?.name
+                        ?: uiState.selectedCategoryFilter ?: ""
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFE0E7FF),
+                        border = BorderStroke(1.dp, Color(0xFF818CF8)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Active Filter: $activeCatName",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = NavyPrimary
+                            )
+                            TextButton(
+                                onClick = {
+                                    viewModel.onCategoryFilterSelected(null)
+                                    showCategoryManagementSheet = false
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text("Clear Filter", color = Color(0xFF1E3A8A), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
                     }
                 }
 
@@ -332,10 +397,19 @@ fun ExpenseScreen(
 
                         items(uiState.customCategories, key = { it.id }) { cat ->
                             val count = uiState.expenses.count { it.categoryId == cat.id }
+                            val isSelectedCategory = uiState.selectedCategoryFilter == cat.id
                             Surface(
+                                onClick = {
+                                    if (isSelectedCategory) {
+                                        viewModel.onCategoryFilterSelected(null)
+                                    } else {
+                                        viewModel.onCategoryFilterSelected(cat.id)
+                                    }
+                                    showCategoryManagementSheet = false
+                                },
                                 shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFFF8FAFC),
-                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                color = if (isSelectedCategory) Color(0xFFE0E7FF) else Color(0xFFF8FAFC),
+                                border = BorderStroke(1.dp, if (isSelectedCategory) NavyPrimary else Color(0xFFE2E8F0)),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
@@ -354,13 +428,13 @@ fun ExpenseScreen(
                                             modifier = Modifier
                                                 .size(36.dp)
                                                 .clip(CircleShape)
-                                                .background(Color(0xFFE0E7FF)),
+                                                .background(if (isSelectedCategory) NavyPrimary else Color(0xFFE0E7FF)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Category,
+                                                imageVector = if (isSelectedCategory) Icons.Default.Check else Icons.Default.Category,
                                                 contentDescription = null,
-                                                tint = Color(0xFF1E3A8A),
+                                                tint = if (isSelectedCategory) Color.White else Color(0xFF1E3A8A),
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         }
@@ -372,9 +446,9 @@ fun ExpenseScreen(
                                                 color = NavyPrimary
                                             )
                                             Text(
-                                                text = "$count past ${if (count == 1) "expense" else "expenses"}",
+                                                text = if (isSelectedCategory) "Active filter (Tap to clear)" else "$count past ${if (count == 1) "expense" else "expenses"} • Tap to filter",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = TextSubtle
+                                                color = if (isSelectedCategory) Color(0xFF1E3A8A) else TextSubtle
                                             )
                                         }
                                     }
@@ -430,9 +504,19 @@ fun ExpenseScreen(
 
                     items(DEFAULT_EXPENSE_CATEGORIES, key = { it.id }) { cat ->
                         val count = uiState.expenses.count { it.categoryId == cat.id }
+                        val isSelectedCategory = uiState.selectedCategoryFilter == cat.id
                         Surface(
+                            onClick = {
+                                if (isSelectedCategory) {
+                                    viewModel.onCategoryFilterSelected(null)
+                                } else {
+                                    viewModel.onCategoryFilterSelected(cat.id)
+                                }
+                                showCategoryManagementSheet = false
+                            },
                             shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFF1F5F9),
+                            color = if (isSelectedCategory) Color(0xFFE0E7FF) else Color(0xFFF1F5F9),
+                            border = BorderStroke(1.dp, if (isSelectedCategory) NavyPrimary else Color(0xFFE2E8F0)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -446,8 +530,33 @@ fun ExpenseScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Icon(getCategoryIcon(cat.name), contentDescription = null, tint = NavyPrimary, modifier = Modifier.size(20.dp))
-                                    Text(cat.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = NavyPrimary)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isSelectedCategory) NavyPrimary else Color.White),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isSelectedCategory) Icons.Default.Check else getCategoryIcon(cat.name),
+                                            contentDescription = null,
+                                            tint = if (isSelectedCategory) Color.White else NavyPrimary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = cat.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = if (isSelectedCategory) FontWeight.Bold else FontWeight.Medium,
+                                            color = NavyPrimary
+                                        )
+                                        Text(
+                                            text = if (isSelectedCategory) "Active filter (Tap to clear)" else "Tap to filter",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (isSelectedCategory) Color(0xFF1E3A8A) else TextSubtle
+                                        )
+                                    }
                                 }
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
@@ -641,6 +750,29 @@ fun ExpenseScreen(
         )
     }
 
+    // Bulk Add Missed Expenses Bottom Sheet
+    if (showBulkAddSheet) {
+        BulkAddExpensesSheet(
+            categories = uiState.allCategories.ifEmpty { DEFAULT_EXPENSE_CATEGORIES },
+            onDismiss = { showBulkAddSheet = false },
+            onSubmit = { items ->
+                viewModel.submitBulkExpenses(
+                    items = items,
+                    onSuccess = { count ->
+                        Toast.makeText(context, "Added $count missed expenses successfully", Toast.LENGTH_SHORT).show()
+                        items.firstOrNull()?.date?.let { firstDate ->
+                            viewModel.navigateToExpenseMonth(firstDate)
+                        }
+                        showBulkAddSheet = false
+                    },
+                    onError = { err ->
+                        Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                    }
+                )
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -655,6 +787,13 @@ fun ExpenseScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showBulkAddSheet = true }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                            contentDescription = "Bulk Add Missed Expenses",
+                            tint = NavyPrimary
+                        )
+                    }
                     IconButton(onClick = { showCategoryManagementSheet = true }) {
                         Icon(
                             imageVector = Icons.Default.Category,
@@ -671,8 +810,9 @@ fun ExpenseScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddExpense,
-                containerColor = MaterialTheme.colorScheme.error,
-                contentColor = MaterialTheme.colorScheme.onError
+                containerColor = NavyPrimary,
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Expense")
             }
@@ -686,7 +826,7 @@ fun ExpenseScreen(
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.error)
+                CircularProgressIndicator(color = NavyPrimary)
             }
         } else {
             LazyColumn(
@@ -695,15 +835,16 @@ fun ExpenseScreen(
                     .padding(padding)
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
-                contentPadding = PaddingValues(top = 10.dp, bottom = 80.dp)
+                contentPadding = PaddingValues(top = 10.dp, bottom = 96.dp)
             ) {
                 // 1. Month Navigation / Period Selector Header
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(14.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                     ) {
                         Row(
                             modifier = Modifier
@@ -742,14 +883,15 @@ fun ExpenseScreen(
                     }
                 }
 
-                // 2. Overview Summary Card
+                // 2. Overview Summary Card (Signature NEXUS Deep Navy Hero Card)
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                            containerColor = NavyCardBg
                         ),
-                        shape = RoundedCornerShape(16.dp)
+                        border = BorderStroke(1.dp, NavyCardBorder),
+                        shape = RoundedCornerShape(20.dp)
                     ) {
                         Column(
                             modifier = Modifier.padding(18.dp),
@@ -767,19 +909,19 @@ fun ExpenseScreen(
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.TrendingDown,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error
+                                        tint = Color(0xFFFCA5A5)
                                     )
                                     Text(
                                         text = "Total Expenses",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                        color = TextHeaderSubtle
                                     )
                                 }
                                 Text(
                                     text = "${uiState.filteredExpenses.size} of ${uiState.expenses.size} records",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                                    color = TextHeaderSubtle.copy(alpha = 0.8f)
                                 )
                             }
 
@@ -787,10 +929,10 @@ fun ExpenseScreen(
                                 text = "LKR %,.2f".format(uiState.totalExpenseLKR),
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                                color = Color.White
                             )
 
-                            HorizontalDivider(color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f))
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
 
                             // Accounts Breakdown Row
                             Row(
@@ -840,7 +982,7 @@ fun ExpenseScreen(
 
                             // Visual Account Proportion Bar (Card: Blue, Cash: Green, Secondary: Purple)
                             if (uiState.totalExpenseLKR > 0) {
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -877,9 +1019,9 @@ fun ExpenseScreen(
                     }
                 }
 
-                // 3. Filter and Sort Controls
+                // 3. Filter and Modern Sort Controls
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         // Account Filter Row
                         Row(
                             modifier = Modifier
@@ -890,7 +1032,11 @@ fun ExpenseScreen(
                             FilterChip(
                                 selected = uiState.selectedAccountFilter == null,
                                 onClick = { viewModel.onAccountFilterSelected(null) },
-                                label = { Text("All Accounts (${uiState.expenses.size})") }
+                                label = { Text("All Accounts (${uiState.expenses.size})") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = NavyPrimary,
+                                    selectedLabelColor = Color.White
+                                )
                             )
                             ExpenseAccount.ALL.forEach { account ->
                                 val count = uiState.expenses.count { it.account.equals(account, ignoreCase = true) }
@@ -903,47 +1049,184 @@ fun ExpenseScreen(
                                     selected = uiState.selectedAccountFilter.equals(account, ignoreCase = true),
                                     onClick = { viewModel.onAccountFilterSelected(account) },
                                     leadingIcon = {
-                                        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Icon(
+                                            imageVector = icon,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = if (uiState.selectedAccountFilter.equals(account, ignoreCase = true)) Color.White else NavyPrimary
+                                        )
                                     },
-                                    label = { Text("${ExpenseAccount.getDisplayName(account)} ($count)") }
+                                    label = { Text("${ExpenseAccount.getDisplayName(account)} ($count)") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = NavyPrimary,
+                                        selectedLabelColor = Color.White
+                                    )
                                 )
                             }
                         }
 
-                        // Sort Row
+                        // Modern Sleek Sort Control Bar
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Sort:",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = TextSubtle
-                            )
-                            SortChip(
-                                label = "Date ↓",
-                                selected = uiState.selectedSortOrder == ExpenseSortOrder.DATE_DESC,
-                                onClick = { viewModel.onSortOrderSelected(ExpenseSortOrder.DATE_DESC) }
-                            )
-                            SortChip(
-                                label = "Date ↑",
-                                selected = uiState.selectedSortOrder == ExpenseSortOrder.DATE_ASC,
-                                onClick = { viewModel.onSortOrderSelected(ExpenseSortOrder.DATE_ASC) }
-                            )
-                            SortChip(
-                                label = "Amount ↓",
-                                selected = uiState.selectedSortOrder == ExpenseSortOrder.AMOUNT_DESC,
-                                onClick = { viewModel.onSortOrderSelected(ExpenseSortOrder.AMOUNT_DESC) }
-                            )
-                            SortChip(
-                                label = "Amount ↑",
-                                selected = uiState.selectedSortOrder == ExpenseSortOrder.AMOUNT_ASC,
-                                onClick = { viewModel.onSortOrderSelected(ExpenseSortOrder.AMOUNT_ASC) }
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Sort,
+                                    contentDescription = null,
+                                    tint = TextSubtle,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Sort by",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextSubtle
+                                )
+                            }
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val isDateActive = uiState.selectedSortOrder == ExpenseSortOrder.DATE_DESC || uiState.selectedSortOrder == ExpenseSortOrder.DATE_ASC
+                                val isDateDesc = uiState.selectedSortOrder == ExpenseSortOrder.DATE_DESC
+
+                                Surface(
+                                    onClick = {
+                                        if (isDateActive) {
+                                            viewModel.onSortOrderSelected(if (isDateDesc) ExpenseSortOrder.DATE_ASC else ExpenseSortOrder.DATE_DESC)
+                                        } else {
+                                            viewModel.onSortOrderSelected(ExpenseSortOrder.DATE_DESC)
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = if (isDateActive) NavyPrimary else Color.White,
+                                    border = BorderStroke(1.dp, if (isDateActive) NavyPrimary else Color(0xFFCBD5E1))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CalendarToday,
+                                            contentDescription = null,
+                                            tint = if (isDateActive) Color.White else NavyPrimary,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Text(
+                                            text = if (isDateActive) {
+                                                if (isDateDesc) "Date (Newest)" else "Date (Oldest)"
+                                            } else "Date",
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isDateActive) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isDateActive) Color.White else NavyPrimary
+                                        )
+                                        if (isDateActive) {
+                                            Icon(
+                                                imageVector = if (isDateDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                val isAmountActive = uiState.selectedSortOrder == ExpenseSortOrder.AMOUNT_DESC || uiState.selectedSortOrder == ExpenseSortOrder.AMOUNT_ASC
+                                val isAmountDesc = uiState.selectedSortOrder == ExpenseSortOrder.AMOUNT_DESC
+
+                                Surface(
+                                    onClick = {
+                                        if (isAmountActive) {
+                                            viewModel.onSortOrderSelected(if (isAmountDesc) ExpenseSortOrder.AMOUNT_ASC else ExpenseSortOrder.AMOUNT_DESC)
+                                        } else {
+                                            viewModel.onSortOrderSelected(ExpenseSortOrder.AMOUNT_DESC)
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = if (isAmountActive) NavyPrimary else Color.White,
+                                    border = BorderStroke(1.dp, if (isAmountActive) NavyPrimary else Color(0xFFCBD5E1))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            text = if (isAmountActive) {
+                                                if (isAmountDesc) "Amount (High)" else "Amount (Low)"
+                                            } else "Amount",
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isAmountActive) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isAmountActive) Color.White else NavyPrimary
+                                        )
+                                        if (isAmountActive) {
+                                            Icon(
+                                                imageVector = if (isAmountDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Active Category Filter Badge
+                        if (uiState.selectedCategoryFilter != null) {
+                            val activeCatName = uiState.categoriesMap[uiState.selectedCategoryFilter]
+                                ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == uiState.selectedCategoryFilter }?.name
+                                ?: uiState.selectedCategoryFilter ?: ""
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFFE0E7FF),
+                                border = BorderStroke(1.dp, Color(0xFF818CF8)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = getCategoryIcon(activeCatName),
+                                            contentDescription = null,
+                                            tint = NavyPrimary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            text = "Category: $activeCatName",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = NavyPrimary
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { viewModel.onCategoryFilterSelected(null) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Clear Category Filter",
+                                            tint = NavyPrimary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -981,22 +1264,42 @@ fun ExpenseScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = NavyPrimary
                                     )
-                                    Text(
-                                        text = if (uiState.selectedAccountFilter != null) {
+                                    val activeCatName = uiState.selectedCategoryFilter?.let { catId ->
+                                        uiState.categoriesMap[catId] ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == catId }?.name ?: catId
+                                    }
+                                    val emptyMessage = when {
+                                        activeCatName != null && uiState.selectedAccountFilter != null ->
+                                            "No $activeCatName records found for ${ExpenseAccount.getDisplayName(uiState.selectedAccountFilter!!)} in ${uiState.selectedMonthLabel}."
+                                        activeCatName != null ->
+                                            "No expense records found for category '$activeCatName' in ${uiState.selectedMonthLabel}."
+                                        uiState.selectedAccountFilter != null ->
                                             "No records found for ${ExpenseAccount.getDisplayName(uiState.selectedAccountFilter!!)} in ${uiState.selectedMonthLabel}."
-                                        } else {
+                                        else ->
                                             "No expense records found for ${uiState.selectedMonthLabel}."
-                                        },
+                                    }
+                                    Text(
+                                        text = emptyMessage,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = TextSubtle
                                     )
+                                    if (uiState.selectedCategoryFilter != null || uiState.selectedAccountFilter != null) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                viewModel.onCategoryFilterSelected(null)
+                                                viewModel.onAccountFilterSelected(null)
+                                            },
+                                            shape = RoundedCornerShape(10.dp)
+                                        ) {
+                                            Text("Clear Filters", color = NavyPrimary)
+                                        }
+                                    }
                                     Spacer(Modifier.height(4.dp))
                                     Button(
                                         onClick = onAddExpense,
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.error
+                                            containerColor = NavyPrimary
                                         ),
-                                        shape = RoundedCornerShape(10.dp)
+                                        shape = RoundedCornerShape(12.dp)
                                     ) {
                                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(Modifier.width(8.dp))
@@ -1025,19 +1328,6 @@ fun ExpenseScreen(
 }
 
 @Composable
-private fun SortChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = { Text(label, fontSize = 11.sp) }
-    )
-}
-
-@Composable
 private fun DetailRow(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1060,7 +1350,8 @@ private fun AccountSummaryPill(
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(10.dp),
-        color = if (isSelected) MaterialTheme.colorScheme.error.copy(alpha = 0.25f) else Color.Transparent
+        color = if (isSelected) Color.White.copy(alpha = 0.2f) else Color.Transparent,
+        border = if (isSelected) BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)) else null
     ) {
         Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
             Row(
@@ -1070,14 +1361,14 @@ private fun AccountSummaryPill(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                    color = TextHeaderSubtle
                 )
                 if (percentage > 0.0) {
                     Text(
                         text = "(%.0f%%)".format(percentage),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
+                        color = Color.White.copy(alpha = 0.9f)
                     )
                 }
             }
@@ -1085,7 +1376,7 @@ private fun AccountSummaryPill(
                 text = "LKR %,.0f".format(amount),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onErrorContainer
+                color = Color.White
             )
         }
     }
@@ -1099,11 +1390,18 @@ private fun ExpenseItemCard(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val isBackdated = remember(expense) {
+        val calDate = Calendar.getInstance().apply { time = expense.date }
+        val calCreated = Calendar.getInstance().apply { time = expense.createdAt }
+        calDate.get(Calendar.YEAR) != calCreated.get(Calendar.YEAR) ||
+            calDate.get(Calendar.DAY_OF_YEAR) != calCreated.get(Calendar.DAY_OF_YEAR)
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -1119,37 +1417,68 @@ private fun ExpenseItemCard(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)),
+                    .background(Color(0xFFF1F5F9)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = getCategoryIcon(categoryName),
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
+                    tint = NavyPrimary,
                     modifier = Modifier.size(22.dp)
                 )
             }
 
             // Info Column
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = categoryName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = NavyPrimary
-                )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Category Name + Backdated Badge (Side-by-side)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = categoryName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NavyPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+
+                    if (isBackdated) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFF1F5F9),
+                            border = BorderStroke(0.5.dp, Color(0xFFCBD5E1))
+                        ) {
+                            Text(
+                                text = "Backdated",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF475569),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                            )
+                        }
+                    }
+                }
 
                 if (!expense.note.isNullOrBlank()) {
                     Text(
                         text = expense.note,
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSubtle,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                Spacer(Modifier.height(4.dp))
-
+                // Metadata Row: Date • Account • Fixed
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -1157,7 +1486,9 @@ private fun ExpenseItemCard(
                     Text(
                         text = formattedDate,
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF94A3B8)
+                        color = Color(0xFF94A3B8),
+                        maxLines = 1,
+                        softWrap = false
                     )
                     Text(
                         text = "•",
@@ -1179,6 +1510,8 @@ private fun ExpenseItemCard(
                             style = MaterialTheme.typography.labelSmall,
                             color = accText,
                             fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            softWrap = false,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
@@ -1192,6 +1525,8 @@ private fun ExpenseItemCard(
                                 text = "Fixed",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color(0xFF92400E),
+                                maxLines = 1,
+                                softWrap = false,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -1208,7 +1543,7 @@ private fun ExpenseItemCard(
                     text = "- LKR %,.2f".format(expense.amountLKR),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.error
+                    color = Color(0xFFDC2626)
                 )
 
                 IconButton(
@@ -1239,5 +1574,373 @@ private fun getCategoryIcon(name: String): ImageVector {
         lower.contains("entertain") || lower.contains("movie") || lower.contains("game") -> Icons.Default.Movie
         lower.contains("health") || lower.contains("medic") || lower.contains("doctor") -> Icons.Default.LocalHospital
         else -> Icons.Default.Category
+    }
+}
+
+/**
+ * Bulk-Add Missed Expenses Bottom Sheet — Conforms to Member 2 Order 6 (feature/expense-backdate).
+ * Allows batch recording past transactions using actual transaction dates, ensuring correct monthly totals.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BulkAddExpensesSheet(
+    categories: List<Category>,
+    onDismiss: () -> Unit,
+    onSubmit: (List<BulkExpenseItem>) -> Unit
+) {
+    val context = LocalContext.current
+    val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
+    val initialDate = remember {
+        Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -1) // Defaults to yesterday
+        }.time
+    }
+    var batchDate by remember { mutableStateOf(initialDate) }
+
+    val defaultCatId = categories.firstOrNull()?.id ?: "cat_food"
+    var items by remember {
+        mutableStateOf(
+            listOf(
+                BulkExpenseItem(date = initialDate, categoryId = defaultCatId),
+                BulkExpenseItem(date = initialDate, categoryId = defaultCatId)
+            )
+        )
+    }
+
+    val datePicker = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            val newCal = Calendar.getInstance().apply {
+                set(Calendar.YEAR, year)
+                set(Calendar.MONTH, month)
+                set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                set(Calendar.HOUR_OF_DAY, 12)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+            }
+            batchDate = newCal.time
+            items = items.map { it.copy(date = newCal.time) }
+        },
+        Calendar.getInstance().get(Calendar.YEAR),
+        Calendar.getInstance().get(Calendar.MONTH),
+        Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
+    )
+
+    val totalAmount = remember(items) {
+        items.mapNotNull { it.amountLKR }.sum()
+    }
+    val validCount = remember(items) {
+        items.count { it.isValid }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Bulk-Add Missed Expenses",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = NavyPrimary
+                    )
+                    Text(
+                        text = "Catch up on past expenses. Monthly totals update automatically.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSubtle
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = NavyPrimary)
+                }
+            }
+
+            // Batch Date Selector
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Batch Date: ${dateFormatter.format(batchDate)}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = NavyPrimary
+                        )
+                        OutlinedButton(
+                            onClick = { datePicker.show() },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Change Date", fontSize = 12.sp)
+                        }
+                    }
+
+                    // Quick date presets
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            "Today" to 0,
+                            "Yesterday" to 1,
+                            "2 Days Ago" to 2,
+                            "Last Sunday" to -1
+                        ).forEach { (label, daysAgo) ->
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    val newDate = if (daysAgo >= 0) {
+                                        Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -daysAgo) }.time
+                                    } else {
+                                        Calendar.getInstance().apply {
+                                            set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
+                                            if (time.after(Date())) add(Calendar.WEEK_OF_YEAR, -1)
+                                        }.time
+                                    }
+                                    batchDate = newDate
+                                    items = items.map { it.copy(date = newDate) }
+                                },
+                                label = { Text(label, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Items List
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .heightIn(max = 380.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                itemsIndexed(items, key = { _, item -> item.tempId }) { index, item ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Entry #${index + 1}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NavyPrimary
+                                )
+                                if (items.size > 1) {
+                                    IconButton(
+                                        onClick = { items = items.filterIndexed { i, _ -> i != index } },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Remove entry",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Amount & Note
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = item.amountText,
+                                    onValueChange = { newAmt ->
+                                        if (newAmt.isEmpty() || newAmt.matches(Regex("^\\d*\\.?\\d{0,2}\$"))) {
+                                            items = items.toMutableList().also {
+                                                it[index] = item.copy(amountText = newAmt)
+                                            }
+                                        }
+                                    },
+                                    label = { Text("Amount") },
+                                    prefix = { Text("LKR ") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1.2f),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+
+                                OutlinedTextField(
+                                    value = item.note,
+                                    onValueChange = { newNote ->
+                                        items = items.toMutableList().also {
+                                            it[index] = item.copy(note = newNote)
+                                        }
+                                    },
+                                    label = { Text("Note (optional)") },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1.5f),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                            }
+
+                            // Category selection chips
+                            Text(
+                                text = "Category:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSubtle
+                            )
+                            Row(
+                                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                categories.take(6).forEach { cat ->
+                                    val isSelected = item.categoryId == cat.id
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            items = items.toMutableList().also {
+                                                it[index] = item.copy(categoryId = cat.id)
+                                            }
+                                        },
+                                        label = { Text(cat.name, fontSize = 11.sp) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = NavyPrimary,
+                                            selectedLabelColor = Color.White
+                                        )
+                                    )
+                                }
+                            }
+
+                            // Account selection chips
+                            Text(
+                                text = "Paid via:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSubtle
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(ExpenseAccount.CARD, ExpenseAccount.CASH, ExpenseAccount.SECONDARY).forEach { acc ->
+                                    val isSelected = item.account == acc
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            items = items.toMutableList().also {
+                                                it[index] = item.copy(account = acc)
+                                            }
+                                        },
+                                        label = { Text(ExpenseAccount.getDisplayName(acc), fontSize = 11.sp) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color(0xFF1E3A8A),
+                                            selectedLabelColor = Color.White
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    OutlinedButton(
+                        onClick = {
+                            items = items + BulkExpenseItem(date = batchDate, categoryId = defaultCatId)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Add Another Missed Expense")
+                    }
+                }
+            }
+
+            // Summary & Submit Button
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFFEFF6FF),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Batch Total",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF1E3A8A)
+                        )
+                        Text(
+                            text = "LKR %,.2f".format(totalAmount),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E3A8A)
+                        )
+                    }
+                    Text(
+                        text = "$validCount valid ${if (validCount == 1) "entry" else "entries"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF1E3A8A)
+                    )
+                }
+            }
+
+            Button(
+                onClick = { onSubmit(items) },
+                enabled = validCount > 0,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = if (validCount > 0) "Save $validCount Missed Expenses" else "Enter Amount to Save",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            }
+        }
     }
 }
