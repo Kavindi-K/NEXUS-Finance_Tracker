@@ -1,5 +1,7 @@
 package com.nexus.financetracker.ui.expense
 
+import android.app.DatePickerDialog
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,12 +9,15 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.CallMerge
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.*
@@ -23,7 +28,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,6 +39,8 @@ import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseAccount
 import com.nexus.financetracker.domain.model.ExpenseClassification
 import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 // App Theme Colors (Matching Deep Sapphire Navy Design System)
@@ -51,11 +60,13 @@ fun ExpenseScreen(
     viewModel: ExpenseViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
     val fullDateTimeFormatter = remember { SimpleDateFormat("EEEE, MMM dd, yyyy • hh:mm a", Locale.getDefault()) }
 
     var selectedExpenseForDetail by remember { mutableStateOf<Expense?>(null) }
     var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
+    var showBulkAddSheet by remember { mutableStateOf(false) }
 
     // Category Management State
     var showCategoryManagementSheet by remember { mutableStateOf(false) }
@@ -140,6 +151,18 @@ fun ExpenseScreen(
                 // Metadata Rows
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     DetailRow(label = "Date & Time", value = fullDateTimeFormatter.format(expense.date))
+                    val isBackdated = remember(expense) {
+                        val calDate = Calendar.getInstance().apply { time = expense.date }
+                        val calCreated = Calendar.getInstance().apply { time = expense.createdAt }
+                        calDate.get(Calendar.YEAR) != calCreated.get(Calendar.YEAR) ||
+                            calDate.get(Calendar.DAY_OF_YEAR) != calCreated.get(Calendar.DAY_OF_YEAR)
+                    }
+                    if (isBackdated) {
+                        DetailRow(
+                            label = "Entry Status",
+                            value = "Backdated (Logged on ${dateFormatter.format(expense.createdAt)})"
+                        )
+                    }
                     DetailRow(label = "Payment Account", value = ExpenseAccount.getDisplayName(expense.account))
                     DetailRow(label = "Classification", value = ExpenseClassification.getDisplayName(expense.classification))
                     if (!expense.note.isNullOrBlank()) {
@@ -641,6 +664,29 @@ fun ExpenseScreen(
         )
     }
 
+    // Bulk Add Missed Expenses Bottom Sheet
+    if (showBulkAddSheet) {
+        BulkAddExpensesSheet(
+            categories = uiState.allCategories.ifEmpty { DEFAULT_EXPENSE_CATEGORIES },
+            onDismiss = { showBulkAddSheet = false },
+            onSubmit = { items ->
+                viewModel.submitBulkExpenses(
+                    items = items,
+                    onSuccess = { count ->
+                        Toast.makeText(context, "Added $count missed expenses successfully", Toast.LENGTH_SHORT).show()
+                        items.firstOrNull()?.date?.let { firstDate ->
+                            viewModel.navigateToExpenseMonth(firstDate)
+                        }
+                        showBulkAddSheet = false
+                    },
+                    onError = { err ->
+                        Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                    }
+                )
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -655,6 +701,13 @@ fun ExpenseScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showBulkAddSheet = true }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                            contentDescription = "Bulk Add Missed Expenses",
+                            tint = NavyPrimary
+                        )
+                    }
                     IconButton(onClick = { showCategoryManagementSheet = true }) {
                         Icon(
                             imageVector = Icons.Default.Category,
@@ -1196,6 +1249,27 @@ private fun ExpenseItemCard(
                             )
                         }
                     }
+
+                    val isBackdated = remember(expense) {
+                        val calDate = Calendar.getInstance().apply { time = expense.date }
+                        val calCreated = Calendar.getInstance().apply { time = expense.createdAt }
+                        calDate.get(Calendar.YEAR) != calCreated.get(Calendar.YEAR) ||
+                            calDate.get(Calendar.DAY_OF_YEAR) != calCreated.get(Calendar.DAY_OF_YEAR)
+                    }
+                    if (isBackdated) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFF1F5F9),
+                            border = BorderStroke(0.5.dp, Color(0xFFCBD5E1))
+                        ) {
+                            Text(
+                                text = "Backdated",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF475569),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1239,5 +1313,373 @@ private fun getCategoryIcon(name: String): ImageVector {
         lower.contains("entertain") || lower.contains("movie") || lower.contains("game") -> Icons.Default.Movie
         lower.contains("health") || lower.contains("medic") || lower.contains("doctor") -> Icons.Default.LocalHospital
         else -> Icons.Default.Category
+    }
+}
+
+/**
+ * Bulk-Add Missed Expenses Bottom Sheet — Conforms to Member 2 Order 6 (feature/expense-backdate).
+ * Allows batch recording past transactions using actual transaction dates, ensuring correct monthly totals.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BulkAddExpensesSheet(
+    categories: List<Category>,
+    onDismiss: () -> Unit,
+    onSubmit: (List<BulkExpenseItem>) -> Unit
+) {
+    val context = LocalContext.current
+    val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
+    val initialDate = remember {
+        Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -1) // Defaults to yesterday
+        }.time
+    }
+    var batchDate by remember { mutableStateOf(initialDate) }
+
+    val defaultCatId = categories.firstOrNull()?.id ?: "cat_food"
+    var items by remember {
+        mutableStateOf(
+            listOf(
+                BulkExpenseItem(date = initialDate, categoryId = defaultCatId),
+                BulkExpenseItem(date = initialDate, categoryId = defaultCatId)
+            )
+        )
+    }
+
+    val datePicker = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            val newCal = Calendar.getInstance().apply {
+                set(Calendar.YEAR, year)
+                set(Calendar.MONTH, month)
+                set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                set(Calendar.HOUR_OF_DAY, 12)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+            }
+            batchDate = newCal.time
+            items = items.map { it.copy(date = newCal.time) }
+        },
+        Calendar.getInstance().get(Calendar.YEAR),
+        Calendar.getInstance().get(Calendar.MONTH),
+        Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
+    )
+
+    val totalAmount = remember(items) {
+        items.mapNotNull { it.amountLKR }.sum()
+    }
+    val validCount = remember(items) {
+        items.count { it.isValid }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Bulk-Add Missed Expenses",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = NavyPrimary
+                    )
+                    Text(
+                        text = "Catch up on past expenses. Monthly totals update automatically.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSubtle
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = NavyPrimary)
+                }
+            }
+
+            // Batch Date Selector
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Batch Date: ${dateFormatter.format(batchDate)}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = NavyPrimary
+                        )
+                        OutlinedButton(
+                            onClick = { datePicker.show() },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Change Date", fontSize = 12.sp)
+                        }
+                    }
+
+                    // Quick date presets
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            "Today" to 0,
+                            "Yesterday" to 1,
+                            "2 Days Ago" to 2,
+                            "Last Sunday" to -1
+                        ).forEach { (label, daysAgo) ->
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    val newDate = if (daysAgo >= 0) {
+                                        Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -daysAgo) }.time
+                                    } else {
+                                        Calendar.getInstance().apply {
+                                            set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
+                                            if (time.after(Date())) add(Calendar.WEEK_OF_YEAR, -1)
+                                        }.time
+                                    }
+                                    batchDate = newDate
+                                    items = items.map { it.copy(date = newDate) }
+                                },
+                                label = { Text(label, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Items List
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .heightIn(max = 380.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                itemsIndexed(items, key = { _, item -> item.tempId }) { index, item ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Entry #${index + 1}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NavyPrimary
+                                )
+                                if (items.size > 1) {
+                                    IconButton(
+                                        onClick = { items = items.filterIndexed { i, _ -> i != index } },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Remove entry",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Amount & Note
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = item.amountText,
+                                    onValueChange = { newAmt ->
+                                        if (newAmt.isEmpty() || newAmt.matches(Regex("^\\d*\\.?\\d{0,2}\$"))) {
+                                            items = items.toMutableList().also {
+                                                it[index] = item.copy(amountText = newAmt)
+                                            }
+                                        }
+                                    },
+                                    label = { Text("Amount") },
+                                    prefix = { Text("LKR ") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1.2f),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+
+                                OutlinedTextField(
+                                    value = item.note,
+                                    onValueChange = { newNote ->
+                                        items = items.toMutableList().also {
+                                            it[index] = item.copy(note = newNote)
+                                        }
+                                    },
+                                    label = { Text("Note (optional)") },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1.5f),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                            }
+
+                            // Category selection chips
+                            Text(
+                                text = "Category:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSubtle
+                            )
+                            Row(
+                                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                categories.take(6).forEach { cat ->
+                                    val isSelected = item.categoryId == cat.id
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            items = items.toMutableList().also {
+                                                it[index] = item.copy(categoryId = cat.id)
+                                            }
+                                        },
+                                        label = { Text(cat.name, fontSize = 11.sp) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = NavyPrimary,
+                                            selectedLabelColor = Color.White
+                                        )
+                                    )
+                                }
+                            }
+
+                            // Account selection chips
+                            Text(
+                                text = "Paid via:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSubtle
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(ExpenseAccount.CARD, ExpenseAccount.CASH, ExpenseAccount.SECONDARY).forEach { acc ->
+                                    val isSelected = item.account == acc
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            items = items.toMutableList().also {
+                                                it[index] = item.copy(account = acc)
+                                            }
+                                        },
+                                        label = { Text(ExpenseAccount.getDisplayName(acc), fontSize = 11.sp) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color(0xFF1E3A8A),
+                                            selectedLabelColor = Color.White
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    OutlinedButton(
+                        onClick = {
+                            items = items + BulkExpenseItem(date = batchDate, categoryId = defaultCatId)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Add Another Missed Expense")
+                    }
+                }
+            }
+
+            // Summary & Submit Button
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFFEFF6FF),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Batch Total",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF1E3A8A)
+                        )
+                        Text(
+                            text = "LKR %,.2f".format(totalAmount),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E3A8A)
+                        )
+                    }
+                    Text(
+                        text = "$validCount valid ${if (validCount == 1) "entry" else "entries"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF1E3A8A)
+                    )
+                }
+            }
+
+            Button(
+                onClick = { onSubmit(items) },
+                enabled = validCount > 0,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = if (validCount > 0) "Save $validCount Missed Expenses" else "Enter Amount to Save",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            }
+        }
     }
 }

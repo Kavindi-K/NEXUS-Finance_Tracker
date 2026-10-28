@@ -152,6 +152,31 @@ class ExpenseRepositoryImpl @Inject constructor(
         return docRef.id
     }
 
+    override suspend fun addExpenses(expenses: List<Expense>): List<String> {
+        if (expenses.isEmpty()) return emptyList()
+        val createdIds = mutableListOf<String>()
+        val entitiesToCache = mutableListOf<ExpenseEntity>()
+
+        // Use Firestore batch writes (up to 400 operations per batch chunk)
+        expenses.chunked(400).forEach { chunk ->
+            val batch = firestore.batch()
+            chunk.forEach { exp ->
+                val newDocRef = expensesCollection.document()
+                batch.set(newDocRef, exp.toFirestoreMap())
+                createdIds.add(newDocRef.id)
+                entitiesToCache.add(ExpenseEntity.fromDomain(exp.copy(id = newDocRef.id)))
+            }
+            batch.commit().await()
+        }
+
+        // Cache in Room offline database via insertAll
+        try {
+            expenseDao.insertAll(entitiesToCache)
+        } catch (_: Exception) {}
+
+        return createdIds
+    }
+
     override suspend fun updateExpense(expense: Expense) {
         expensesCollection.document(expense.id).set(expense.toFirestoreMap()).await()
         try {

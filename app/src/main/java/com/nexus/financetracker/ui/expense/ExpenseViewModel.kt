@@ -71,6 +71,33 @@ data class ExpenseFormState(
 
     val computedAmountLKR: Double?
         get() = amountText.toDoubleOrNull()
+
+    val isBackdated: Boolean
+        get() {
+            val cal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            return date.before(cal.time)
+        }
+}
+
+/**
+ * Representation of an individual item in a bulk expense entry batch.
+ */
+data class BulkExpenseItem(
+    val tempId: String = java.util.UUID.randomUUID().toString(),
+    val amountText: String = "",
+    val categoryId: String = "cat_food",
+    val account: String = ExpenseAccount.CARD,
+    val classification: String = ExpenseClassification.DISCRETIONARY,
+    val date: Date = Date(),
+    val note: String = ""
+) {
+    val amountLKR: Double? get() = amountText.toDoubleOrNull()
+    val isValid: Boolean get() = (amountLKR ?: 0.0) > 0.0 && categoryId.isNotBlank()
 }
 
 /**
@@ -514,6 +541,70 @@ class ExpenseViewModel @Inject constructor(
 
     fun onDateSelected(date: Date) {
         _formState.value = _formState.value.copy(date = date, errorMessage = null)
+    }
+
+    /**
+     * Quick preset for back-dating (e.g. 0 = Today, 1 = Yesterday, 2 = 2 days ago).
+     */
+    fun onQuickDateSelected(daysAgo: Int) {
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.DAY_OF_YEAR, -daysAgo)
+        onDateSelected(cal.time)
+    }
+
+    /**
+     * Jump the month navigation in the history screen to match the backdated expense's month.
+     */
+    fun navigateToExpenseMonth(date: Date) {
+        selectedCalendar.time = date
+        _uiState.value = _uiState.value.copy(isPeriodAllTime = false)
+        recomputeUiState()
+    }
+
+    /**
+     * Submits a list of missed expenses in bulk using atomic Firestore batch write and Room insertAll.
+     * Conforms to Member 2 Order 6 (feature/expense-backdate).
+     */
+    fun submitBulkExpenses(
+        items: List<BulkExpenseItem>,
+        onSuccess: (count: Int) -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val userId = currentUserId
+        if (userId.isNullOrBlank()) {
+            onError("User session expired. Please sign in again.")
+            return
+        }
+
+        val validItems = items.filter { it.isValid }
+        if (validItems.isEmpty()) {
+            onError("Please enter at least one valid expense item with an amount greater than 0")
+            return
+        }
+
+        val now = Date()
+        val expenses = validItems.map { item ->
+            Expense(
+                userId = userId,
+                amountLKR = item.amountLKR ?: 0.0,
+                categoryId = item.categoryId,
+                account = item.account,
+                classification = item.classification,
+                note = item.note.trim().takeIf { it.isNotBlank() },
+                date = item.date, // Actual transaction date (back-dated)
+                createdAt = now   // Current system timestamp
+            )
+        }
+
+        viewModelScope.launch {
+            try {
+                expenseRepository.addExpenses(expenses)
+                loadExpenses()
+                onSuccess(expenses.size)
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Failed to record bulk expenses. Please try again.")
+            }
+        }
     }
 
     fun onNoteChanged(note: String) {
