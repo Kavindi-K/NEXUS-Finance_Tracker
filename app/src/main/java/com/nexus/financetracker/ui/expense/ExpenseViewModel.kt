@@ -33,6 +33,7 @@ data class ExpenseUiState(
     val filteredExpenses: List<Expense> = emptyList(),
     val selectedSortOrder: ExpenseSortOrder = ExpenseSortOrder.DATE_DESC,
     val selectedAccountFilter: String? = null,
+    val selectedCategoryFilter: String? = null,
     val selectedMonthLabel: String = "",
     val isPeriodAllTime: Boolean = false,
     val totalExpenseLKR: Double = 0.0,
@@ -201,6 +202,11 @@ class ExpenseViewModel @Inject constructor(
         recomputeUiState()
     }
 
+    fun onCategoryFilterSelected(categoryId: String?) {
+        _uiState.value = _uiState.value.copy(selectedCategoryFilter = categoryId)
+        recomputeUiState()
+    }
+
     private fun recomputeUiState() {
         val allExpenses = rawExpenses
         val isAllTime = _uiState.value.isPeriodAllTime
@@ -241,18 +247,26 @@ class ExpenseViewModel @Inject constructor(
             periodExpenses.filter { it.account.equals(selectedAccount, ignoreCase = true) }
         }
 
+        // Category filter
+        val selectedCategory = _uiState.value.selectedCategoryFilter
+        val categoryFiltered = if (selectedCategory.isNullOrBlank()) {
+            accountFiltered
+        } else {
+            accountFiltered.filter { it.categoryId == selectedCategory }
+        }
+
         // Apply sorting
         val sorted = when (_uiState.value.selectedSortOrder) {
-            ExpenseSortOrder.DATE_DESC -> accountFiltered.sortedWith(
+            ExpenseSortOrder.DATE_DESC -> categoryFiltered.sortedWith(
                 compareByDescending<Expense> { it.date }.thenByDescending { it.createdAt }
             )
-            ExpenseSortOrder.DATE_ASC -> accountFiltered.sortedWith(
+            ExpenseSortOrder.DATE_ASC -> categoryFiltered.sortedWith(
                 compareBy<Expense> { it.date }.thenBy { it.createdAt }
             )
-            ExpenseSortOrder.AMOUNT_DESC -> accountFiltered.sortedWith(
+            ExpenseSortOrder.AMOUNT_DESC -> categoryFiltered.sortedWith(
                 compareByDescending<Expense> { it.amountLKR }.thenByDescending { it.date }
             )
-            ExpenseSortOrder.AMOUNT_ASC -> accountFiltered.sortedWith(
+            ExpenseSortOrder.AMOUNT_ASC -> categoryFiltered.sortedWith(
                 compareBy<Expense> { it.amountLKR }.thenByDescending { it.date }
             )
         }
@@ -504,6 +518,9 @@ class ExpenseViewModel @Inject constructor(
                         categoryName = targetName
                     )
                 }
+                if (_uiState.value.selectedCategoryFilter == sourceCategoryId) {
+                    _uiState.value = _uiState.value.copy(selectedCategoryFilter = targetCategoryId)
+                }
                 loadExpenses()
                 onSuccess()
             } catch (e: Exception) {
@@ -520,6 +537,10 @@ class ExpenseViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 categoryRepository.deleteCategory(categoryId)
+                if (_uiState.value.selectedCategoryFilter == categoryId) {
+                    _uiState.value = _uiState.value.copy(selectedCategoryFilter = null)
+                }
+                loadExpenses()
                 onSuccess()
             } catch (e: Exception) {
                 onError(e.localizedMessage ?: "Failed to delete category")

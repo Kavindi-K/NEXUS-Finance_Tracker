@@ -282,13 +282,49 @@ fun ExpenseScreen(
                             color = NavyPrimary
                         )
                         Text(
-                            text = "Create, rename, or merge categories. Past expenses remain mapped.",
+                            text = "Tap any category to filter expenses, or manage custom ones.",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSubtle
                         )
                     }
                     IconButton(onClick = { showCategoryManagementSheet = false }) {
                         Icon(Icons.Default.Close, contentDescription = "Close", tint = NavyPrimary)
+                    }
+                }
+
+                if (uiState.selectedCategoryFilter != null) {
+                    val activeCatName = uiState.categoriesMap[uiState.selectedCategoryFilter]
+                        ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == uiState.selectedCategoryFilter }?.name
+                        ?: uiState.selectedCategoryFilter ?: ""
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFE0E7FF),
+                        border = BorderStroke(1.dp, Color(0xFF818CF8)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Active Filter: $activeCatName",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = NavyPrimary
+                            )
+                            TextButton(
+                                onClick = {
+                                    viewModel.onCategoryFilterSelected(null)
+                                    showCategoryManagementSheet = false
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text("Clear Filter", color = Color(0xFF1E3A8A), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
                     }
                 }
 
@@ -361,10 +397,19 @@ fun ExpenseScreen(
 
                         items(uiState.customCategories, key = { it.id }) { cat ->
                             val count = uiState.expenses.count { it.categoryId == cat.id }
+                            val isSelectedCategory = uiState.selectedCategoryFilter == cat.id
                             Surface(
+                                onClick = {
+                                    if (isSelectedCategory) {
+                                        viewModel.onCategoryFilterSelected(null)
+                                    } else {
+                                        viewModel.onCategoryFilterSelected(cat.id)
+                                    }
+                                    showCategoryManagementSheet = false
+                                },
                                 shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFFF8FAFC),
-                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                color = if (isSelectedCategory) Color(0xFFE0E7FF) else Color(0xFFF8FAFC),
+                                border = BorderStroke(1.dp, if (isSelectedCategory) NavyPrimary else Color(0xFFE2E8F0)),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
@@ -383,13 +428,13 @@ fun ExpenseScreen(
                                             modifier = Modifier
                                                 .size(36.dp)
                                                 .clip(CircleShape)
-                                                .background(Color(0xFFE0E7FF)),
+                                                .background(if (isSelectedCategory) NavyPrimary else Color(0xFFE0E7FF)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Category,
+                                                imageVector = if (isSelectedCategory) Icons.Default.Check else Icons.Default.Category,
                                                 contentDescription = null,
-                                                tint = Color(0xFF1E3A8A),
+                                                tint = if (isSelectedCategory) Color.White else Color(0xFF1E3A8A),
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         }
@@ -401,9 +446,9 @@ fun ExpenseScreen(
                                                 color = NavyPrimary
                                             )
                                             Text(
-                                                text = "$count past ${if (count == 1) "expense" else "expenses"}",
+                                                text = if (isSelectedCategory) "Active filter (Tap to clear)" else "$count past ${if (count == 1) "expense" else "expenses"} • Tap to filter",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = TextSubtle
+                                                color = if (isSelectedCategory) Color(0xFF1E3A8A) else TextSubtle
                                             )
                                         }
                                     }
@@ -459,9 +504,19 @@ fun ExpenseScreen(
 
                     items(DEFAULT_EXPENSE_CATEGORIES, key = { it.id }) { cat ->
                         val count = uiState.expenses.count { it.categoryId == cat.id }
+                        val isSelectedCategory = uiState.selectedCategoryFilter == cat.id
                         Surface(
+                            onClick = {
+                                if (isSelectedCategory) {
+                                    viewModel.onCategoryFilterSelected(null)
+                                } else {
+                                    viewModel.onCategoryFilterSelected(cat.id)
+                                }
+                                showCategoryManagementSheet = false
+                            },
                             shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFF1F5F9),
+                            color = if (isSelectedCategory) Color(0xFFE0E7FF) else Color(0xFFF1F5F9),
+                            border = BorderStroke(1.dp, if (isSelectedCategory) NavyPrimary else Color(0xFFE2E8F0)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -475,8 +530,33 @@ fun ExpenseScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Icon(getCategoryIcon(cat.name), contentDescription = null, tint = NavyPrimary, modifier = Modifier.size(20.dp))
-                                    Text(cat.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = NavyPrimary)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isSelectedCategory) NavyPrimary else Color.White),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isSelectedCategory) Icons.Default.Check else getCategoryIcon(cat.name),
+                                            contentDescription = null,
+                                            tint = if (isSelectedCategory) Color.White else NavyPrimary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = cat.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = if (isSelectedCategory) FontWeight.Bold else FontWeight.Medium,
+                                            color = NavyPrimary
+                                        )
+                                        Text(
+                                            text = if (isSelectedCategory) "Active filter (Tap to clear)" else "Tap to filter",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (isSelectedCategory) Color(0xFF1E3A8A) else TextSubtle
+                                        )
+                                    }
                                 }
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
@@ -1098,6 +1178,56 @@ fun ExpenseScreen(
                                 }
                             }
                         }
+
+                        // Active Category Filter Badge
+                        if (uiState.selectedCategoryFilter != null) {
+                            val activeCatName = uiState.categoriesMap[uiState.selectedCategoryFilter]
+                                ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == uiState.selectedCategoryFilter }?.name
+                                ?: uiState.selectedCategoryFilter ?: ""
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFFE0E7FF),
+                                border = BorderStroke(1.dp, Color(0xFF818CF8)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = getCategoryIcon(activeCatName),
+                                            contentDescription = null,
+                                            tint = NavyPrimary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            text = "Category: $activeCatName",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = NavyPrimary
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { viewModel.onCategoryFilterSelected(null) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Clear Category Filter",
+                                            tint = NavyPrimary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -1134,15 +1264,35 @@ fun ExpenseScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = NavyPrimary
                                     )
-                                    Text(
-                                        text = if (uiState.selectedAccountFilter != null) {
+                                    val activeCatName = uiState.selectedCategoryFilter?.let { catId ->
+                                        uiState.categoriesMap[catId] ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == catId }?.name ?: catId
+                                    }
+                                    val emptyMessage = when {
+                                        activeCatName != null && uiState.selectedAccountFilter != null ->
+                                            "No $activeCatName records found for ${ExpenseAccount.getDisplayName(uiState.selectedAccountFilter!!)} in ${uiState.selectedMonthLabel}."
+                                        activeCatName != null ->
+                                            "No expense records found for category '$activeCatName' in ${uiState.selectedMonthLabel}."
+                                        uiState.selectedAccountFilter != null ->
                                             "No records found for ${ExpenseAccount.getDisplayName(uiState.selectedAccountFilter!!)} in ${uiState.selectedMonthLabel}."
-                                        } else {
+                                        else ->
                                             "No expense records found for ${uiState.selectedMonthLabel}."
-                                        },
+                                    }
+                                    Text(
+                                        text = emptyMessage,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = TextSubtle
                                     )
+                                    if (uiState.selectedCategoryFilter != null || uiState.selectedAccountFilter != null) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                viewModel.onCategoryFilterSelected(null)
+                                                viewModel.onAccountFilterSelected(null)
+                                            },
+                                            shape = RoundedCornerShape(10.dp)
+                                        ) {
+                                            Text("Clear Filters", color = NavyPrimary)
+                                        }
+                                    }
                                     Spacer(Modifier.height(4.dp))
                                     Button(
                                         onClick = onAddExpense,
