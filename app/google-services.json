@@ -12,7 +12,20 @@
           "package_name": "com.nexus.financetracker"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "859568003787-rjt1e7h237ltg5sr7vsgb33l4e7ierbm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nexus.financetracker",
+            "certificate_hash": "14bb5f062ee42302a71bd3eda1e93e4948b6a233"
+          }
+        },
+        {
+          "client_id": "859568003787-fq8pqgk0tcpkge8u7butjcf61qa4ba9q.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAnLrjOzxTjBuYyDpDCxm1Y8QCkZwLmmqg"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "859568003787-fq8pqgk0tcpkge8u7butjcf61qa4ba9q.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

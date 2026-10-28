@@ -13,6 +13,7 @@ interface AuthRepository {
     suspend fun saveUserProfile(profile: UserProfile): Result<Unit>
     suspend fun register(email: String, password: String, profile: UserProfile): Result<Unit>
     suspend fun login(email: String, password: String): Result<Unit>
+    suspend fun signInWithGoogle(idToken: String): Result<Unit>
     suspend fun updatePassword(newPassword: String): Result<Unit>
     suspend fun sendPasswordResetEmail(email: String): Result<Unit>
     fun signOut()
