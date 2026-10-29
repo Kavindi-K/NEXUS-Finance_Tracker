@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
+import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.domain.model.Category
 import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseAccount
@@ -51,6 +52,7 @@ data class ExpenseUiState(
     val categoriesMap: Map<String, String> = emptyMap(),
     val customCategories: List<Category> = emptyList(),
     val allCategories: List<Category> = emptyList(),
+    val isOffline: Boolean = false,
     val isLoading: Boolean = true,
     val errorMessage: String? = null
 )
@@ -167,7 +169,8 @@ val DEFAULT_EXPENSE_CATEGORIES = listOf(
 class ExpenseViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val categoryRepository: CategoryRepository,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ExpenseUiState())
@@ -185,6 +188,15 @@ class ExpenseViewModel @Inject constructor(
     init {
         loadExpenses()
         loadCategoriesAndDefaults()
+        observeNetworkStatus()
+    }
+
+    private fun observeNetworkStatus() {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.value = _uiState.value.copy(isOffline = !online)
+            }
+        }
     }
 
     /**
