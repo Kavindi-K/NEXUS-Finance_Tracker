@@ -123,13 +123,13 @@ fun RegisterScreen(
             )
         }
 
-        // --- 2. Bottom White Form Sheet ---
+        // --- 2. Bottom Form Sheet ---
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            color = Color.White
+            color = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
@@ -144,7 +144,7 @@ fun RegisterScreen(
                     text = "CREATE ACCOUNT",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
+                    color = MaterialTheme.colorScheme.onSurface,
                     letterSpacing = 1.sp
                 )
                 Spacer(Modifier.height(20.dp))
@@ -268,24 +268,24 @@ fun RegisterScreen(
                         .height(52.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BrandNavy,
-                        contentColor = Color.White
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
                     if (uiState.isLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("Creating account…", color = Color.White)
+                        Text("Creating account…", color = MaterialTheme.colorScheme.onPrimary)
                     } else {
                         Text(
                             text = "Register",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 }
@@ -297,14 +297,14 @@ fun RegisterScreen(
                         .padding(vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                     Text(
                         text = "  OR  ",
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFF94A3B8),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.SemiBold
                     )
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                 }
 
                 // --- Google Sign-In Button ---
@@ -320,10 +320,10 @@ fun RegisterScreen(
                         .fillMaxWidth()
                         .height(52.dp),
                     shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White,
-                        contentColor = Color(0xFF1E293B)
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 ) {
                     Image(
@@ -336,7 +336,7 @@ fun RegisterScreen(
                         text = "Continue with Google",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1E293B)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -348,7 +348,7 @@ fun RegisterScreen(
                 ) {
                     Text(
                         text = "Already have an account? Sign In",
-                        color = BrandNavy,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
