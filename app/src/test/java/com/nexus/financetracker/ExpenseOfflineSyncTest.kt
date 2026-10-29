@@ -163,3 +163,4 @@ class ExpenseOfflineSyncTest {
         assertTrue(offlineState.isOffline)
     }
 }
+
