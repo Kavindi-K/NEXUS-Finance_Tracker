@@ -985,6 +985,55 @@ fun ExpenseScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = PaddingValues(top = 10.dp, bottom = 96.dp)
             ) {
+                // Offline Indicator Banner (Member 2 Order 7)
+                if (uiState.isOffline) {
+                    item {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFFEF3C7),
+                            border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFFDE68A)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CloudOff,
+                                        contentDescription = "Offline Mode",
+                                        tint = Color(0xFFB45309),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Offline Mode Active",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF92400E)
+                                    )
+                                    Text(
+                                        text = "Changes saved to local Room cache and will sync automatically once reconnected.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFFB45309)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // 1. Month Selector Filter Card (Matching Income Screen)
                 item {
                     Card(
