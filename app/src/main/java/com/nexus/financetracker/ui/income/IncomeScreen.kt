@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -26,19 +27,23 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
 // Design System Colors matching Dashboard Wireframe (#132D52 and #E2E8F0)
+private val NavyPrimary = Color(0xFF072044)
 private val NavyCardBg = Color(0xFF132D52)
 private val NavyCardBorder = Color(0x33FFFFFF)
 private val TextHeaderSubtle = Color(0xFFBAC7D5)
-private val LightCardBg = Color(0xFFE2E8F0)
+private val TextSubtle = Color(0xFF64748B)
+private val LightCardBg = Color(0xFFF1F5F9)
 
 /**
  * Income Screen — Conforms to FR3-FR8 and Branch 08 feature/income-freelance.
@@ -65,6 +70,150 @@ fun IncomeScreen(
     // Intercept hardware/gesture back press to return from Stream Detail to Main Income Overview
     BackHandler(enabled = isStreamDetail) {
         viewModel.onSourceFilterSelected(null)
+    }
+
+    var showMonthDialog by remember { mutableStateOf(false) }
+    val currencyFormat = remember {
+        NumberFormat.getNumberInstance(Locale.US).apply {
+            minimumFractionDigits = 2
+            maximumFractionDigits = 2
+        }
+    }
+
+    if (showMonthDialog) {
+        AlertDialog(
+            onDismissRequest = { showMonthDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        tint = NavyPrimary
+                    )
+                    Text(
+                        text = "Select Month",
+                        color = NavyPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 380.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    // Option 1: "All Time"
+                    val isAllTimeSelected = uiState.isPeriodAllTime
+                    Surface(
+                        onClick = {
+                            viewModel.onToggleAllTimePeriod(true)
+                            showMonthDialog = false
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isAllTimeSelected) NavyPrimary.copy(alpha = 0.12f) else Color.Transparent,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 3.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "All Time",
+                                    fontSize = 15.sp,
+                                    fontWeight = if (isAllTimeSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isAllTimeSelected) NavyPrimary else Color(0xFF1E293B)
+                                )
+                                Text(
+                                    text = "Income: LKR ${currencyFormat.format(uiState.totalConfirmedLKR)}",
+                                    fontSize = 12.sp,
+                                    color = TextSubtle,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+                            if (isAllTimeSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = NavyPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Option 2: Available Months
+                    uiState.availableMonths.forEach { month ->
+                        val isSelected = !uiState.isPeriodAllTime && month == uiState.selectedMonthLabel
+                        val monthIncome = uiState.monthlyIncomeTotals[month] ?: 0.0
+
+                        Surface(
+                            onClick = {
+                                viewModel.selectMonth(month)
+                                showMonthDialog = false
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) NavyPrimary.copy(alpha = 0.12f) else Color.Transparent,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 3.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = month,
+                                        fontSize = 15.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) NavyPrimary else Color(0xFF1E293B)
+                                    )
+                                    if (monthIncome > 0) {
+                                        Text(
+                                            text = "Income: LKR ${currencyFormat.format(monthIncome)}",
+                                            fontSize = 12.sp,
+                                            color = TextSubtle,
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                    }
+                                }
+
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = NavyPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showMonthDialog = false }) {
+                    Text("Close", color = NavyPrimary, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 
     Scaffold(
@@ -127,50 +276,77 @@ fun IncomeScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 0. Date Period Selector (Month Navigation / All-Time Toggle)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // 0. Month Selector Filter Card
+            Card(
+                onClick = { showMonthDialog = true },
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = LightCardBg),
+                border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = { viewModel.onPreviousMonthClicked() },
-                        enabled = !uiState.isPeriodAllTime,
-                        modifier = Modifier.size(32.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Month")
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .background(NavyPrimary.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarMonth,
+                                contentDescription = "Select Month",
+                                tint = NavyPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Select Month",
+                                color = TextSubtle,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = if (uiState.isPeriodAllTime) "All Time" else uiState.selectedMonthLabel.ifBlank { "Select Month" },
+                                color = NavyPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
 
-                    Text(
-                        text = if (uiState.isPeriodAllTime) "All Time History" else uiState.selectedMonthLabel,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    IconButton(
-                        onClick = { viewModel.onNextMonthClicked() },
-                        enabled = !uiState.isPeriodAllTime,
-                        modifier = Modifier.size(32.dp)
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = NavyPrimary.copy(alpha = 0.1f)
                     ) {
-                        Icon(Icons.Default.ChevronRight, contentDescription = "Next Month")
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(
+                                text = "Choose",
+                                color = NavyPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = NavyPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    FilterChip(
-                        selected = !uiState.isPeriodAllTime,
-                        onClick = { viewModel.onToggleAllTimePeriod(false) },
-                        label = { Text("Month", style = MaterialTheme.typography.labelSmall) }
-                    )
-                    FilterChip(
-                        selected = uiState.isPeriodAllTime,
-                        onClick = { viewModel.onToggleAllTimePeriod(true) },
-                        label = { Text("All Time", style = MaterialTheme.typography.labelSmall) }
-                    )
                 }
             }
 

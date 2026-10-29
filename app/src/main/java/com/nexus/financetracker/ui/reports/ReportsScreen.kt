@@ -100,6 +100,55 @@ fun ReportsScreen(
                         .heightIn(max = 380.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
+                    // Option 1: All Time
+                    val isAllTimeSelected = uiState.selectedMonthLabel == "All Time"
+                    val allTimeReport = uiState.monthlyReports["All Time"]
+                    Surface(
+                        onClick = {
+                            viewModel.selectMonth("All Time")
+                            showMonthDialog = false
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isAllTimeSelected) NavyPrimary.copy(alpha = 0.12f) else Color.Transparent,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 3.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "All Time",
+                                    fontSize = 15.sp,
+                                    fontWeight = if (isAllTimeSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isAllTimeSelected) NavyPrimary else Color(0xFF1E293B)
+                                )
+                                if (allTimeReport != null && (allTimeReport.totalIncomeLKR > 0 || allTimeReport.totalExpensesLKR > 0)) {
+                                    Text(
+                                        text = "Income: LKR ${currencyFormat.format(allTimeReport.totalIncomeLKR)}",
+                                        fontSize = 12.sp,
+                                        color = TextSubtle,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                }
+                            }
+                            if (isAllTimeSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = NavyPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Option 2: Available Months
                     uiState.availableMonths.forEach { month ->
                         val isSelected = month == uiState.selectedMonthLabel
                         val reportForMonth = uiState.monthlyReports[month]
