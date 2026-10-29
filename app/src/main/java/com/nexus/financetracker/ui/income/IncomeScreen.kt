@@ -92,11 +92,11 @@ fun IncomeScreen(
                     Icon(
                         imageVector = Icons.Default.CalendarMonth,
                         contentDescription = null,
-                        tint = NavyPrimary
+                        tint = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = "Select Month",
-                        color = NavyPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
                     )
@@ -117,7 +117,7 @@ fun IncomeScreen(
                             showMonthDialog = false
                         },
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isAllTimeSelected) NavyPrimary.copy(alpha = 0.12f) else Color.Transparent,
+                        color = if (isAllTimeSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 3.dp)
@@ -134,12 +134,12 @@ fun IncomeScreen(
                                     text = "All Time",
                                     fontSize = 15.sp,
                                     fontWeight = if (isAllTimeSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isAllTimeSelected) NavyPrimary else Color(0xFF1E293B)
+                                    color = if (isAllTimeSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = "Income: LKR ${currencyFormat.format(uiState.totalConfirmedLKR)}",
                                     fontSize = 12.sp,
-                                    color = TextSubtle,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Normal
                                 )
                             }
@@ -147,7 +147,7 @@ fun IncomeScreen(
                                 Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = "Selected",
-                                    tint = NavyPrimary,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -165,7 +165,7 @@ fun IncomeScreen(
                                 showMonthDialog = false
                             },
                             shape = RoundedCornerShape(10.dp),
-                            color = if (isSelected) NavyPrimary.copy(alpha = 0.12f) else Color.Transparent,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 3.dp)
@@ -182,13 +182,13 @@ fun IncomeScreen(
                                         text = month,
                                         fontSize = 15.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) NavyPrimary else Color(0xFF1E293B)
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                     )
                                     if (monthIncome > 0) {
                                         Text(
                                             text = "Income: LKR ${currencyFormat.format(monthIncome)}",
                                             fontSize = 12.sp,
-                                            color = TextSubtle,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             fontWeight = FontWeight.Normal
                                         )
                                     }
@@ -198,7 +198,7 @@ fun IncomeScreen(
                                     Icon(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = "Selected",
-                                        tint = NavyPrimary,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -209,10 +209,10 @@ fun IncomeScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showMonthDialog = false }) {
-                    Text("Close", color = NavyPrimary, fontWeight = FontWeight.SemiBold)
+                    Text("Close", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                 }
             },
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(16.dp)
         )
     }
@@ -281,8 +281,8 @@ fun IncomeScreen(
             Card(
                 onClick = { showMonthDialog = true },
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = LightCardBg),
-                border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -299,26 +299,26 @@ fun IncomeScreen(
                         Box(
                             modifier = Modifier
                                 .size(38.dp)
-                                .background(NavyPrimary.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.CalendarMonth,
                                 contentDescription = "Select Month",
-                                tint = NavyPrimary,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
                         Column {
                             Text(
                                 text = "Select Month",
-                                color = TextSubtle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
                                 text = if (uiState.isPeriodAllTime) "All Time" else uiState.selectedMonthLabel.ifBlank { "Select Month" },
-                                color = NavyPrimary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -327,7 +327,7 @@ fun IncomeScreen(
 
                     Surface(
                         shape = RoundedCornerShape(20.dp),
-                        color = NavyPrimary.copy(alpha = 0.1f)
+                        color = MaterialTheme.colorScheme.primaryContainer
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -336,14 +336,14 @@ fun IncomeScreen(
                         ) {
                             Text(
                                 text = "Choose",
-                                color = NavyPrimary,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
                                 contentDescription = null,
-                                tint = NavyPrimary,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -628,7 +628,8 @@ fun IncomeScreen(
                                 Surface(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(16.dp),
-                                    color = LightCardBg
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                 ) {
                                     Box(
                                         modifier = Modifier
@@ -741,7 +742,8 @@ fun IncomeScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    color = LightCardBg
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 ) {
                     Box(
                         modifier = Modifier
@@ -870,8 +872,9 @@ private fun IncomeCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = LightCardBg
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Column(
             modifier = Modifier
@@ -911,6 +914,7 @@ private fun IncomeCard(
                         text = displayTitle,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1
                     )
 
@@ -1043,8 +1047,8 @@ private fun IncomeCard(
                     onClick = onConfirmPayment,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color(0xFFE8F5E9),
-                        contentColor = Color(0xFF2E7D32)
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     ),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                 ) {
@@ -1343,7 +1347,7 @@ private fun IncomeBreakdownBottomSheet(
                         color = if (isSelected) {
                             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
                         } else {
-                            LightCardBg
+                            MaterialTheme.colorScheme.surfaceVariant
                         },
                         border = if (isSelected) {
                             BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
@@ -1457,7 +1461,7 @@ private fun StreamHeroCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = LightCardBg),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Column(
