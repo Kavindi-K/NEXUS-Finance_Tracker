@@ -1118,48 +1118,40 @@ fun ExpenseScreen(
                             containerColor = NavyCardBg
                         ),
                         border = BorderStroke(1.dp, NavyCardBorder),
-                        shape = RoundedCornerShape(20.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.TrendingDown,
-                                        contentDescription = null,
-                                        tint = Color(0xFFFCA5A5)
-                                    )
-                                    Text(
-                                        text = "Total Expenses",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = TextHeaderSubtle
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.TrendingDown,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFCA5A5),
+                                    modifier = Modifier.size(20.dp)
+                                )
                                 Text(
-                                    text = "${uiState.filteredExpenses.size} of ${uiState.expenses.size} records",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = TextHeaderSubtle.copy(alpha = 0.8f)
+                                    text = "Total Expenses",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextHeaderSubtle
                                 )
                             }
 
                             Text(
                                 text = "LKR %,.2f".format(uiState.totalExpenseLKR),
-                                style = MaterialTheme.typography.headlineMedium,
+                                style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.ExtraBold,
+                                fontSize = 24.sp,
                                 color = Color.White
                             )
 
-                            HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.15f), thickness = 0.8.dp)
 
                             // Accounts Breakdown Row
                             Row(
@@ -1207,41 +1199,6 @@ fun ExpenseScreen(
                                 )
                             }
 
-                            // Visual Account Proportion Bar (Card: Blue, Cash: Green, Secondary: Purple)
-                            if (uiState.totalExpenseLKR > 0) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(6.dp)
-                                        .clip(RoundedCornerShape(3.dp))
-                                ) {
-                                    if (uiState.cardExpenseLKR > 0) {
-                                        Box(
-                                            modifier = Modifier
-                                                .weight((uiState.cardExpenseLKR / uiState.totalExpenseLKR).toFloat())
-                                                .fillMaxHeight()
-                                                .background(Color(0xFF3B82F6))
-                                        )
-                                    }
-                                    if (uiState.cashExpenseLKR > 0) {
-                                        Box(
-                                            modifier = Modifier
-                                                .weight((uiState.cashExpenseLKR / uiState.totalExpenseLKR).toFloat())
-                                                .fillMaxHeight()
-                                                .background(Color(0xFF10B981))
-                                        )
-                                    }
-                                    if (uiState.secondaryExpenseLKR > 0) {
-                                        Box(
-                                            modifier = Modifier
-                                                .weight((uiState.secondaryExpenseLKR / uiState.totalExpenseLKR).toFloat())
-                                                .fillMaxHeight()
-                                                .background(Color(0xFFA855F7))
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
                 }
@@ -1587,13 +1544,13 @@ private fun AccountSummaryPill(
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 12.sp,
                     color = TextHeaderSubtle
                 )
                 if (percentage > 0.0) {
                     Text(
                         text = "(%.0f%%)".format(percentage),
-                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White.copy(alpha = 0.9f)
                     )
@@ -1601,7 +1558,7 @@ private fun AccountSummaryPill(
             }
             Text(
                 text = "LKR %,.0f".format(amount),
-                style = MaterialTheme.typography.bodyMedium,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )

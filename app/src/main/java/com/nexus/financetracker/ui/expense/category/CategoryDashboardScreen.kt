@@ -29,6 +29,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,6 +76,19 @@ fun CategoryDashboardScreen(
     var searchQuery by remember { mutableStateOf("") }
     var categoryForReview by remember { mutableStateOf<Category?>(null) }
     val reviewedCategories by viewModel.reviewedCategories.collectAsState()
+
+    var categoryForNewEstimation by remember { mutableStateOf<Category?>(null) }
+    var newEstimationInput by remember { mutableStateOf("") }
+    val dismissedBannerCategories = remember { mutableStateListOf<String>() }
+
+    val pendingCategory = remember(categories, reviewedCategories, dismissedBannerCategories) {
+        categories.firstOrNull { cat ->
+            val isComm = cat.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+            val reviewKey = "${cat.id}_$currentMonthLabel"
+            !isComm && (reviewKey in reviewedCategories) && (cat.estimatedAmount == null || cat.estimatedAmount == 0.0) && (cat.id !in dismissedBannerCategories)
+        }
+    }
+    val activeBannerCat = categoryForNewEstimation ?: pendingCategory
     val isEndOfMonth = remember {
         val date = java.time.LocalDate.now()
         // End of the month review: last 5 days of the month (e.g. 27th onwards)
@@ -211,6 +231,135 @@ fun CategoryDashboardScreen(
                 )
             )
 
+            // New Month Estimation Banner (Opens when review is done; disappears after adding estimation)
+            AnimatedVisibility(
+                visible = activeBannerCat != null,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                activeBannerCat?.let { bannerCat ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9)),
+                        border = BorderStroke(1.5.dp, DarkNavyBg)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Savings,
+                                        contentDescription = null,
+                                        tint = DarkNavyBg,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "New Month Estimation",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = DarkNavyBg
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        dismissedBannerCategories.add(bannerCat.id)
+                                        categoryForNewEstimation = null
+                                        newEstimationInput = ""
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Dismiss",
+                                        tint = TextMutedSlate,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = "Review completed! Current estimate & spent for '${bannerCat.name}' are reset to 0. Enter new estimation budget for the upcoming month:",
+                                fontSize = 12.sp,
+                                color = TextMutedSlate
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedTextField(
+                                    value = newEstimationInput,
+                                    onValueChange = { input ->
+                                        newEstimationInput = input.filter { it.isDigit() }
+                                    },
+                                    placeholder = { Text("e.g. 25000", fontSize = 13.sp, color = TextMutedSlate) },
+                                    prefix = { Text("LKR ", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = DarkNavyBg) },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedContainerColor = Color.White,
+                                        unfocusedContainerColor = Color.White,
+                                        focusedBorderColor = DarkNavyBg,
+                                        unfocusedBorderColor = Color(0xFFCBD5E1),
+                                        focusedTextColor = DarkNavyBg,
+                                        unfocusedTextColor = DarkNavyBg,
+                                        cursorColor = DarkNavyBg
+                                    )
+                                )
+
+                                Button(
+                                    onClick = {
+                                        val amount = newEstimationInput.toDoubleOrNull()
+                                        if (amount != null && amount > 0) {
+                                            viewModel.updateCategoryEstimation(
+                                                categoryId = bannerCat.id,
+                                                newEstimation = amount,
+                                                onSuccess = {
+                                                    Toast.makeText(
+                                                        context,
+                                                        "New estimation of LKR %,.0f set for ${bannerCat.name}!".format(amount),
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                    dismissedBannerCategories.add(bannerCat.id)
+                                                    categoryForNewEstimation = null
+                                                    newEstimationInput = ""
+                                                },
+                                                onError = { err ->
+                                                    Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                                                }
+                                            )
+                                        } else {
+                                            Toast.makeText(context, "Please enter a valid amount", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = DarkNavyBg),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("Add", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Category Count / Header indicator
             Text(
                 text = "${filteredCategories.size} ${if (filteredCategories.size == 1) "Category" else "Categories"}",
@@ -265,9 +414,13 @@ fun CategoryDashboardScreen(
                         val showReview = isEndOfMonth && hasSurplus && !isReviewed
                         val surplus = (est - spent).coerceAtLeast(0.0)
 
+                        // When review is completed, spent resets to 0.0 for the new month cycle
+                        val displaySpent = if (isReviewed) 0.0 else spent
+                        val displayEst = if (isReviewed && (category.estimatedAmount == null || category.estimatedAmount == 0.0)) 0.0 else (category.estimatedAmount ?: 0.0)
+
                         CategoryRowCard(
-                            category = category,
-                            spentAmount = spent,
+                            category = category.copy(estimatedAmount = displayEst),
+                            spentAmount = displaySpent,
                             showReviewButton = showReview,
                             surplusAmount = surplus,
                             onReviewSurplus = { categoryForReview = category },
@@ -353,11 +506,16 @@ fun CategoryDashboardScreen(
                 ) {
                     Button(
                         onClick = {
-                            viewModel.addCategorySurplusToContribution(
+                            viewModel.completeCategoryReview(
                                 categoryId = cat.id,
                                 categoryName = cat.name,
                                 surplusAmount = diff,
-                                monthLabel = currentMonthLabel
+                                monthLabel = currentMonthLabel,
+                                addToContribution = true,
+                                onSuccess = { resetCat ->
+                                    categoryForNewEstimation = resetCat
+                                    newEstimationInput = ""
+                                }
                             )
                             Toast.makeText(
                                 context,
@@ -375,7 +533,17 @@ fun CategoryDashboardScreen(
 
                     OutlinedButton(
                         onClick = {
-                            viewModel.markCategoryReviewed(cat.id, currentMonthLabel)
+                            viewModel.completeCategoryReview(
+                                categoryId = cat.id,
+                                categoryName = cat.name,
+                                surplusAmount = diff,
+                                monthLabel = currentMonthLabel,
+                                addToContribution = false,
+                                onSuccess = { resetCat ->
+                                    categoryForNewEstimation = resetCat
+                                    newEstimationInput = ""
+                                }
+                            )
                             Toast.makeText(
                                 context,
                                 "Added LKR %,.0f back to general savings.".format(diff),
@@ -552,7 +720,7 @@ private fun CategoryRowCard(
                             )
                         } else {
                             Text(
-                                text = "Flexible",
+                                text = "Est: LKR 0 • Spent: LKR %,.0f".format(spentAmount),
                                 color = TextMutedSlate,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium

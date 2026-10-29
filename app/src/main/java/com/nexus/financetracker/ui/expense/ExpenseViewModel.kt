@@ -335,6 +335,96 @@ class ExpenseViewModel @Inject constructor(
         contributionManager.markCategoryReviewed(categoryId, monthLabel)
     }
 
+    /**
+     * Completes category review: allocates surplus or adds back to savings,
+     * and resets the category estimation to 0.0 for the completed month cycle.
+     */
+    fun completeCategoryReview(
+        categoryId: String,
+        categoryName: String,
+        surplusAmount: Double,
+        monthLabel: String,
+        addToContribution: Boolean,
+        onSuccess: (Category) -> Unit = {}
+    ) {
+        val userId = currentUserId ?: auth.currentUser?.uid ?: return
+        if (addToContribution) {
+            contributionManager.addContribution(
+                userId = userId,
+                categoryId = categoryId,
+                categoryName = categoryName,
+                amountLKR = surplusAmount,
+                monthLabel = monthLabel
+            )
+        } else {
+            contributionManager.markCategoryReviewed(categoryId, monthLabel)
+        }
+
+        val cat = _uiState.value.allCategories.find { it.id == categoryId }
+            ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == categoryId }
+
+        if (cat != null) {
+            val resetCategory = cat.copy(userId = userId, estimatedAmount = 0.0)
+            viewModelScope.launch {
+                try {
+                    categoryRepository.updateCategory(resetCategory)
+                    val updatedAll = _uiState.value.allCategories.map {
+                        if (it.id == categoryId) resetCategory else it
+                    }
+                    val updatedCustom = _uiState.value.customCategories.filter { it.id != categoryId } + resetCategory
+                    val updatedMap = updatedAll.associate { it.id to it.name }
+                    _uiState.value = _uiState.value.copy(
+                        allCategories = updatedAll,
+                        customCategories = updatedCustom,
+                        categoriesMap = updatedMap
+                    )
+                    recomputeUiState()
+                } catch (_: Exception) {}
+                onSuccess(resetCategory)
+            }
+        }
+    }
+
+    /**
+     * Updates category estimation value for the new month cycle.
+     */
+    fun updateCategoryEstimation(
+        categoryId: String,
+        newEstimation: Double,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val userId = currentUserId ?: auth.currentUser?.uid ?: return
+        val cat = _uiState.value.allCategories.find { it.id == categoryId }
+            ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == categoryId }
+
+        if (cat == null) {
+            onError("Category not found")
+            return
+        }
+
+        val updated = cat.copy(userId = userId, estimatedAmount = newEstimation)
+        viewModelScope.launch {
+            try {
+                categoryRepository.updateCategory(updated)
+                val updatedAll = _uiState.value.allCategories.map {
+                    if (it.id == categoryId) updated else it
+                }
+                val updatedCustom = _uiState.value.customCategories.filter { it.id != categoryId } + updated
+                val updatedMap = updatedAll.associate { it.id to it.name }
+                _uiState.value = _uiState.value.copy(
+                    allCategories = updatedAll,
+                    customCategories = updatedCustom,
+                    categoriesMap = updatedMap
+                )
+                recomputeUiState()
+                onSuccess()
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Failed to update estimation")
+            }
+        }
+    }
+
     // --- Sorting and Filtering ---
 
     fun onSortOrderSelected(order: ExpenseSortOrder) {
