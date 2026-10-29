@@ -8,6 +8,7 @@ import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.repository.GoalRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
+import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.domain.model.Category
 import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseClassification
@@ -50,7 +51,8 @@ class DashboardViewModel @Inject constructor(
     private val goalRepository: GoalRepository,
     private val categoryRepository: CategoryRepository,
     private val authRepository: AuthRepository,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -58,6 +60,15 @@ class DashboardViewModel @Inject constructor(
 
     init {
         loadDashboardSummary()
+        observeNetworkStatus()
+    }
+
+    private fun observeNetworkStatus() {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.value = _uiState.value.copy(isOffline = !online)
+            }
+        }
     }
 
     fun loadDashboardSummary() {
@@ -375,6 +386,7 @@ data class PriorityGoalItem(
  */
 data class DashboardUiState(
     val isLoading: Boolean = true,
+    val isOffline: Boolean = false,
     val greeting: String = DashboardViewModel.getGreeting(),
     val userName: String = "User",
     val userPhotoUrl: String? = null,
