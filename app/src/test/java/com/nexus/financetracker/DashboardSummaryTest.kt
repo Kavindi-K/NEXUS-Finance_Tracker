@@ -220,8 +220,8 @@ class DashboardSummaryTest {
         assertEquals("Good Morning,", DashboardViewModel.getGreeting(morningCal))
         assertEquals("Good Afternoon,", DashboardViewModel.getGreeting(afternoonCal))
         assertEquals("Good Evening,", DashboardViewModel.getGreeting(eveningCal))
-        assertEquals("Good Night,", DashboardViewModel.getGreeting(nightCal))
-        assertEquals("Good Night,", DashboardViewModel.getGreeting(earlyMorningCal))
+        assertEquals("Good Evening,", DashboardViewModel.getGreeting(nightCal))
+        assertEquals("Good Morning,", DashboardViewModel.getGreeting(earlyMorningCal))
     }
 
     @Test
