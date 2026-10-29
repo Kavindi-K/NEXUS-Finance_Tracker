@@ -136,9 +136,9 @@ service cloud.firestore {
         'classification', 'estimatedAmount', 'recurringFrequency'])
         && d.name is string && d.name.size() >= 1 && d.name.size() <= 40
         && (!('mergingInto' in d) || d.mergingInto is string)
-        && (!('classification' in d) || d.classification in ['committed', 'discretionary'])
+        && (!('classification' in d) || d.classification in ['committed', 'discretionary', 'COMMITTED', 'DISCRETIONARY', 'Committed', 'Discretionary'])
         && (!('estimatedAmount' in d) || d.estimatedAmount is number)
-        && (!('recurringFrequency' in d) || d.recurringFrequency in ['weekly', 'monthly', 'yearly'])
+        && (!('recurringFrequency' in d) || d.recurringFrequency in ['weekly', 'monthly', 'yearly', 'Weekly', 'Monthly', 'Yearly', 'WEEKLY', 'MONTHLY', 'YEARLY'])
         && d.createdAt is timestamp;
     }
 

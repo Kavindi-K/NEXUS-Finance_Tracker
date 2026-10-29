@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.automirrored.filled.ShowChart
+import com.nexus.financetracker.ui.common.DiscretionaryEstimationVsActualLineChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -996,6 +998,224 @@ fun ReportsScreen(
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Graph 5: Discretionary Categories: Estimation vs Actual Expense Line Graph Card
+            val comparisons = currentReport?.discretionaryComparisons.orEmpty()
+            var isDetailsExpanded by remember { mutableStateOf(false) }
+            val detailsArrowRotation by animateFloatAsState(
+                targetValue = if (isDetailsExpanded) 180f else 0f,
+                label = "discretionaryDetailsArrowRotation"
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = LightCardBg)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Discretionary Estimation vs Actual",
+                                color = NavyPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Line graph comparison · $selectedLabel",
+                                color = TextSubtle,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ShowChart,
+                            contentDescription = null,
+                            tint = NavyPrimary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (comparisons.isEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ShowChart,
+                                contentDescription = null,
+                                tint = TextSubtle.copy(alpha = 0.5f),
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "No discretionary categories recorded for $selectedLabel",
+                                color = TextSubtle,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        // 1. Line Chart: Always displayed
+                        DiscretionaryEstimationVsActualLineChart(
+                            items = comparisons,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = Color(0xFFCBD5E1), thickness = 0.8.dp)
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // 2. Expandable Details Header with Down Arrow
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { isDetailsExpanded = !isDetailsExpanded },
+                            color = Color.Transparent
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Estimation vs Actual Details",
+                                        color = NavyPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "(${comparisons.size})",
+                                        color = TextSubtle,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = if (isDetailsExpanded) "Hide" else "Show Details",
+                                        color = TextSubtle,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = if (isDetailsExpanded) "Collapse details" else "Expand details",
+                                        tint = NavyPrimary,
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .rotate(detailsArrowRotation)
+                                    )
+                                }
+                            }
+                        }
+
+                        // 3. Detail rows: Expanded only when user taps the down arrow
+                        AnimatedVisibility(visible = isDetailsExpanded) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                comparisons.forEach { compItem ->
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = Color.White,
+                                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.weight(1f),
+                                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                                            ) {
+                                                Text(
+                                                    text = compItem.categoryName,
+                                                    color = NavyPrimary,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = "Est: LKR ${currencyFormat.format(compItem.estimatedAmountLKR)}",
+                                                        color = NavyPrimary,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                    Text(
+                                                        text = "•",
+                                                        color = TextSubtle,
+                                                        fontSize = 10.sp
+                                                    )
+                                                    Text(
+                                                        text = "Act: LKR ${currencyFormat.format(compItem.actualExpenseLKR)}",
+                                                        color = Color(0xFFDC2626),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                }
+                                            }
+
+                                            val diff = compItem.differenceLKR
+                                            val isSurplus = diff >= 0
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = if (isSurplus) Color(0xFFDCFCE7) else Color(0xFFFEE2E2)
+                                            ) {
+                                                Text(
+                                                    text = if (isSurplus) "+LKR ${currencyFormat.format(diff)}" else "-LKR ${currencyFormat.format(-diff)}",
+                                                    color = if (isSurplus) Color(0xFF15803D) else Color(0xFFDC2626),
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

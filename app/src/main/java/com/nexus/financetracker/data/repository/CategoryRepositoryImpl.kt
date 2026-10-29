@@ -1,6 +1,7 @@
 package com.nexus.financetracker.data.repository
 
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.nexus.financetracker.data.local.dao.ExpenseDao
 import com.nexus.financetracker.domain.model.Category
 import kotlinx.coroutines.channels.awaitClose
@@ -53,6 +54,18 @@ class CategoryRepositoryImpl @Inject constructor(
             categoriesCollection.add(category.toLegacyFirestoreMap()).await()
         }
         return docRef.id
+    }
+
+    override suspend fun updateCategory(category: Category) {
+        val validation = category.validate()
+        if (validation != null) {
+            throw IllegalArgumentException(validation)
+        }
+        try {
+            categoriesCollection.document(category.id).set(category.toFirestoreMap(), SetOptions.merge()).await()
+        } catch (e: Exception) {
+            categoriesCollection.document(category.id).set(category.toLegacyFirestoreMap(), SetOptions.merge()).await()
+        }
     }
 
     override suspend fun renameCategory(categoryId: String, newName: String) {

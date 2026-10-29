@@ -51,6 +51,16 @@ data class MonthlyGoalReport(
     val targetDate: Date? = null
 )
 
+data class DiscretionaryCategoryComparison(
+    val categoryId: String = "",
+    val categoryName: String = "",
+    val estimatedAmountLKR: Double = 0.0,
+    val actualExpenseLKR: Double = 0.0
+) {
+    val differenceLKR: Double get() = estimatedAmountLKR - actualExpenseLKR
+    val isWithinBudget: Boolean get() = actualExpenseLKR <= estimatedAmountLKR
+}
+
 data class MonthlyIncomeReport(
     val monthKey: String,
     val monthLabel: String,
@@ -59,6 +69,7 @@ data class MonthlyIncomeReport(
     val totalExpensesLKR: Double = 0.0,
     val netResultLKR: Double = 0.0,
     val categorySpendings: List<CategorySpending> = emptyList(),
+    val discretionaryComparisons: List<DiscretionaryCategoryComparison> = emptyList(),
     val hasIncomeRecords: Boolean = false,
     val hasExpenseRecords: Boolean = false,
     val goalReports: List<MonthlyGoalReport> = emptyList(),
@@ -226,6 +237,23 @@ class ReportsViewModel @Inject constructor(
                         )
                     }
 
+                    // Discretionary categories comparison for this month
+                    val allCombinedCategories = (categories + com.nexus.financetracker.ui.expense.DEFAULT_EXPENSE_CATEGORIES).distinctBy { it.id }
+                    val discretionaryCats = allCombinedCategories.filter {
+                        it.classification.equals(com.nexus.financetracker.domain.model.ExpenseClassification.DISCRETIONARY, ignoreCase = true) &&
+                            it.mergingInto.isNullOrBlank()
+                    }
+                    val discretionaryComparisons = discretionaryCats.map { cat ->
+                        val spent = monthExpenses.filter { it.categoryId == cat.id }.sumOf { it.amountLKR }
+                        val est = cat.estimatedAmount ?: 0.0
+                        DiscretionaryCategoryComparison(
+                            categoryId = cat.id,
+                            categoryName = cat.name,
+                            estimatedAmountLKR = est,
+                            actualExpenseLKR = spent
+                        )
+                    }
+
                     reports[label] = MonthlyIncomeReport(
                         monthKey = monthKeyFormat.format(startOfMonth),
                         monthLabel = label,
@@ -234,6 +262,7 @@ class ReportsViewModel @Inject constructor(
                         totalExpensesLKR = totalExpense,
                         netResultLKR = netResult,
                         categorySpendings = categorySpendings,
+                        discretionaryComparisons = discretionaryComparisons,
                         hasIncomeRecords = monthConfirmedIncomes.isNotEmpty(),
                         hasExpenseRecords = monthExpenses.isNotEmpty(),
                         goalReports = goalReports,
@@ -285,6 +314,23 @@ class ReportsViewModel @Inject constructor(
                     )
                 }
 
+                val allDiscretionaryComparisons = (categories + com.nexus.financetracker.ui.expense.DEFAULT_EXPENSE_CATEGORIES)
+                    .distinctBy { it.id }
+                    .filter {
+                        it.classification.equals(com.nexus.financetracker.domain.model.ExpenseClassification.DISCRETIONARY, ignoreCase = true) &&
+                            it.mergingInto.isNullOrBlank()
+                    }
+                    .map { cat ->
+                        val spent = expenses.filter { it.categoryId == cat.id }.sumOf { it.amountLKR }
+                        val est = cat.estimatedAmount ?: 0.0
+                        DiscretionaryCategoryComparison(
+                            categoryId = cat.id,
+                            categoryName = cat.name,
+                            estimatedAmountLKR = est,
+                            actualExpenseLKR = spent
+                        )
+                    }
+
                 reports["All Time"] = MonthlyIncomeReport(
                     monthKey = "all_time",
                     monthLabel = "All Time",
@@ -293,6 +339,7 @@ class ReportsViewModel @Inject constructor(
                     totalExpensesLKR = allTotalExpense,
                     netResultLKR = allNetResult,
                     categorySpendings = allCategorySpendings,
+                    discretionaryComparisons = allDiscretionaryComparisons,
                     hasIncomeRecords = allConfirmedIncomes.isNotEmpty(),
                     hasExpenseRecords = expenses.isNotEmpty(),
                     goalReports = allGoalReports,

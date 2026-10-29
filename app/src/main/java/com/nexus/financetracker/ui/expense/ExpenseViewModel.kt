@@ -6,6 +6,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.util.NetworkMonitor
+import com.nexus.financetracker.data.repository.ContributionManager
 import com.nexus.financetracker.domain.model.Category
 import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseAccount
@@ -20,6 +21,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 enum class ExpenseSortOrder {
@@ -170,8 +173,24 @@ class ExpenseViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val categoryRepository: CategoryRepository,
     private val auth: FirebaseAuth,
-    private val networkMonitor: NetworkMonitor
+    private val networkMonitor: NetworkMonitor,
+    private val contributionManager: ContributionManager,
+    @param:ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    private val categoryPrefs by lazy {
+        context.getSharedPreferences("nexus_categories_prefs", Context.MODE_PRIVATE)
+    }
+
+    private fun getDeletedCategoryIds(): Set<String> {
+        return categoryPrefs.getStringSet("deleted_categories", emptySet()) ?: emptySet()
+    }
+
+    private fun saveDeletedCategoryId(id: String) {
+        val set = getDeletedCategoryIds().toMutableSet()
+        set.add(id)
+        categoryPrefs.edit().putStringSet("deleted_categories", set).apply()
+    }
 
     private val _uiState = MutableStateFlow(ExpenseUiState())
     val uiState: StateFlow<ExpenseUiState> = _uiState.asStateFlow()
@@ -292,6 +311,28 @@ class ExpenseViewModel @Inject constructor(
         val endOfMonth = cal.time
 
         return Pair(startOfMonth, endOfMonth)
+    }
+
+    fun addCategorySurplusToContribution(
+        categoryId: String,
+        categoryName: String,
+        surplusAmount: Double,
+        monthLabel: String
+    ) {
+        val userId = auth.currentUser?.uid ?: return
+        contributionManager.addContribution(
+            userId = userId,
+            categoryId = categoryId,
+            categoryName = categoryName,
+            amountLKR = surplusAmount,
+            monthLabel = monthLabel
+        )
+    }
+
+    val reviewedCategories = contributionManager.reviewedCategories
+
+    fun markCategoryReviewed(categoryId: String, monthLabel: String) {
+        contributionManager.markCategoryReviewed(categoryId, monthLabel)
     }
 
     // --- Sorting and Filtering ---
@@ -451,7 +492,10 @@ class ExpenseViewModel @Inject constructor(
             categoryRepository.getCategories(userId)
                 .catch { emit(emptyList()) }
                 .collect { customCats ->
-                    val combined = (DEFAULT_EXPENSE_CATEGORIES + customCats).distinctBy { it.id }
+                    val deletedIds = getDeletedCategoryIds()
+                    val combined = (customCats + DEFAULT_EXPENSE_CATEGORIES)
+                        .filter { it.id !in deletedIds }
+                        .distinctBy { it.id }
                     val catMap = combined.associate { it.id to it.name }
 
                     _uiState.value = _uiState.value.copy(
@@ -650,12 +694,14 @@ class ExpenseViewModel @Inject constructor(
             onError("Category name cannot exceed 40 characters")
             return
         }
+        val isComm = classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+        val normalizedType = if (isComm) ExpenseClassification.COMMITTED else ExpenseClassification.DISCRETIONARY
         val newCategory = Category(
             userId = userId,
             name = trimmed,
-            classification = classification,
-            estimatedAmount = if (classification.equals(ExpenseClassification.DISCRETIONARY, ignoreCase = true)) estimatedAmount else null,
-            recurringFrequency = if (classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)) recurringFrequency else null,
+            classification = normalizedType,
+            estimatedAmount = if (!isComm) estimatedAmount else null,
+            recurringFrequency = if (isComm) (recurringFrequency?.lowercase() ?: "monthly") else null,
             createdAt = Date()
         )
         viewModelScope.launch {
@@ -663,7 +709,10 @@ class ExpenseViewModel @Inject constructor(
                 val newId = categoryRepository.addCategory(newCategory)
                 val created = newCategory.copy(id = newId)
                 val updatedCustom = (_uiState.value.customCategories + created).distinctBy { it.id }
-                val updatedAll = (DEFAULT_EXPENSE_CATEGORIES + updatedCustom).distinctBy { it.id }
+                val deletedIds = getDeletedCategoryIds()
+                val updatedAll = (updatedCustom + DEFAULT_EXPENSE_CATEGORIES)
+                    .filter { it.id !in deletedIds }
+                    .distinctBy { it.id }
                 val updatedMap = updatedAll.associate { it.id to it.name }
                 _uiState.value = _uiState.value.copy(
                     customCategories = updatedCustom,
@@ -742,11 +791,74 @@ class ExpenseViewModel @Inject constructor(
         }
     }
 
+    fun updateCategory(
+        category: Category,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val userId = currentUserId ?: run {
+            onError("User not signed in")
+            return
+        }
+        val trimmed = category.name.trim()
+        if (trimmed.isBlank()) {
+            onError("Category name cannot be empty")
+            return
+        }
+        if (trimmed.length > 40) {
+            onError("Category name cannot exceed 40 characters")
+            return
+        }
+        val isComm = category.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+        val normalizedType = if (isComm) ExpenseClassification.COMMITTED else ExpenseClassification.DISCRETIONARY
+        val updatedCategory = category.copy(
+            userId = userId,
+            name = trimmed,
+            classification = normalizedType,
+            estimatedAmount = if (!isComm) category.estimatedAmount else null,
+            recurringFrequency = if (isComm) (category.recurringFrequency?.lowercase() ?: "monthly") else null
+        )
+        viewModelScope.launch {
+            try {
+                categoryRepository.updateCategory(updatedCategory)
+                val updatedAll = _uiState.value.allCategories.map {
+                    if (it.id == updatedCategory.id) updatedCategory else it
+                }
+                val updatedCustom = (_uiState.value.customCategories.filter { it.id != updatedCategory.id } + updatedCategory)
+                val updatedMap = updatedAll.associate { it.id to it.name }
+                _uiState.value = _uiState.value.copy(
+                    customCategories = updatedCustom,
+                    allCategories = updatedAll,
+                    categoriesMap = updatedMap
+                )
+                _formState.value = _formState.value.copy(
+                    availableCategories = updatedAll
+                )
+                recomputeUiState()
+                onSuccess()
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Failed to update category")
+            }
+        }
+    }
+
     fun deleteCategory(
         categoryId: String,
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
+        saveDeletedCategoryId(categoryId)
+        val updatedAll = _uiState.value.allCategories.filter { it.id != categoryId }
+        val updatedCustom = _uiState.value.customCategories.filter { it.id != categoryId }
+        val updatedMap = updatedAll.associate { it.id to it.name }
+        _uiState.value = _uiState.value.copy(
+            allCategories = updatedAll,
+            customCategories = updatedCustom,
+            categoriesMap = updatedMap
+        )
+        _formState.value = _formState.value.copy(
+            availableCategories = updatedAll
+        )
         viewModelScope.launch {
             try {
                 categoryRepository.deleteCategory(categoryId)
