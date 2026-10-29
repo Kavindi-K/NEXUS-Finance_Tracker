@@ -184,48 +184,6 @@ fun ExpenseAddScreen(
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
 
-                // Amount Input Field
-                OutlinedTextField(
-                    value = formState.amountText,
-                    onValueChange = viewModel::onAmountChanged,
-                    label = { Text("Amount (LKR)") },
-                    prefix = { Text("LKR ", fontWeight = FontWeight.Bold, color = NavyPrimary) },
-                    placeholder = { Text("0.00") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = NavyPrimary,
-                        focusedLabelColor = NavyPrimary,
-                        cursorColor = NavyPrimary
-                    ),
-                    supportingText = {
-                        formState.computedAmountLKR?.let { lkr ->
-                            Text("Formatted: LKR %,.2f".format(lkr), color = NavyPrimary, fontWeight = FontWeight.Medium)
-                        } ?: Text("Enter expense amount in LKR", color = TextSubtle)
-                    }
-                )
-
-                // Quick Increment Chips
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf(500.0, 1000.0, 2500.0, 5000.0).forEach { increment ->
-                        SuggestionChip(
-                            onClick = { viewModel.onQuickAmountAdd(increment) },
-                            label = { Text("+%,d".format(increment.toInt()), fontWeight = FontWeight.SemiBold) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, CardBorderColor),
-                            colors = SuggestionChipDefaults.suggestionChipColors(
-                                containerColor = LightCardBg,
-                                labelColor = NavyPrimary
-                            )
-                        )
-                    }
-                }
-
                 // Pre-selected Category & Classification Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -270,6 +228,48 @@ fun ExpenseAddScreen(
                                 color = if (formState.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)) NavyPrimary else CardBlue
                             )
                         }
+                    }
+                }
+
+                // Amount Input Field
+                OutlinedTextField(
+                    value = formState.amountText,
+                    onValueChange = viewModel::onAmountChanged,
+                    label = { Text("Amount (LKR)") },
+                    prefix = { Text("LKR ", fontWeight = FontWeight.Bold, color = NavyPrimary) },
+                    placeholder = { Text("0.00") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NavyPrimary,
+                        focusedLabelColor = NavyPrimary,
+                        cursorColor = NavyPrimary
+                    ),
+                    supportingText = {
+                        formState.computedAmountLKR?.let { lkr ->
+                            Text("Formatted: LKR %,.2f".format(lkr), color = NavyPrimary, fontWeight = FontWeight.Medium)
+                        } ?: Text("Enter expense amount in LKR", color = TextSubtle)
+                    }
+                )
+
+                // Quick Increment Chips
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(500.0, 1000.0, 2500.0, 5000.0).forEach { increment ->
+                        SuggestionChip(
+                            onClick = { viewModel.onQuickAmountAdd(increment) },
+                            label = { Text("+%,d".format(increment.toInt()), fontWeight = FontWeight.SemiBold) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, CardBorderColor),
+                            colors = SuggestionChipDefaults.suggestionChipColors(
+                                containerColor = LightCardBg,
+                                labelColor = NavyPrimary
+                            )
+                        )
                     }
                 }
 
