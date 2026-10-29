@@ -14,10 +14,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.nexus.financetracker.data.local.SecurityManager
+
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val notificationsEnabled: Boolean = true,
     val biometricLockEnabled: Boolean = false,
+    val isPinSet: Boolean = false,
     val baseCurrency: String = "LKR",
     val defaultExpenseAccount: String = "Card",
     val userEmail: String? = null,
@@ -34,12 +37,13 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val appSettingsManager: AppSettingsManager,
+    private val securityManager: SecurityManager,
     private val authRepository: AuthRepository,
     private val expenseRepository: ExpenseRepository,
     private val expenseDao: ExpenseDao
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SettingsUiState())
+    private val _uiState = MutableStateFlow(SettingsUiState(isPinSet = securityManager.isPinSet()))
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     val currentUserId: String?
@@ -134,6 +138,19 @@ class SettingsViewModel @Inject constructor(
             authRepository.signOut()
             onSuccess()
         }
+    }
+
+    fun setPin(pin: String): Boolean {
+        val success = securityManager.setPin(pin)
+        if (success) {
+            _uiState.value = _uiState.value.copy(isPinSet = true, message = "4-digit PIN saved successfully")
+        }
+        return success
+    }
+
+    fun removePin() {
+        securityManager.removePin()
+        _uiState.value = _uiState.value.copy(isPinSet = false, message = "4-digit PIN removed")
     }
 
     fun dismissMessage() {

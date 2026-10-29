@@ -5,11 +5,12 @@ package com.nexus.financetracker.ui.navigation
  * Using typed constants ensures compile-time safety across NavHost and bottom bar.
  */
 sealed class Screen(val route: String) {
-    // Splash & Auth Flow
+    // Splash, Auth & Security Flow
     object Splash : Screen("splash")
     object Login : Screen("login")
     object Register : Screen("register")
     object ForgotPassword : Screen("forgot_password")
+    object AppLock : Screen("app_lock")
 
     // Bottom Navigation Destinations
     object Dashboard : Screen("dashboard")
