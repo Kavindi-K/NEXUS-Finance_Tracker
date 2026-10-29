@@ -34,7 +34,17 @@ class AuthRepositoryImpl @Inject constructor(
         val listener = firestore.collection("users").document(userId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    val current = auth.currentUser
+                    if (current != null && current.uid == userId) {
+                        trySend(
+                            UserProfile(
+                                uid = current.uid,
+                                email = current.email ?: "",
+                                displayName = current.displayName ?: "",
+                                photoUrl = current.photoUrl?.toString()
+                            )
+                        )
+                    }
                     return@addSnapshotListener
                 }
                 val profile = snapshot?.toObject(UserProfile::class.java)

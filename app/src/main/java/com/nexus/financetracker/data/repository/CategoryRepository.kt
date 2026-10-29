@@ -13,4 +13,5 @@ interface CategoryRepository {
     suspend fun renameCategory(categoryId: String, newName: String)
     suspend fun mergeCategories(sourceCategoryId: String, targetCategoryId: String)
     suspend fun deleteCategory(categoryId: String)
+    suspend fun clearLocalCache(userId: String)
 }

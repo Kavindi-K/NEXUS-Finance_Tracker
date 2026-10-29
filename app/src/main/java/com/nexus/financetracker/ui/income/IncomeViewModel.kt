@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.nexus.financetracker.data.repository.IncomeRepository
+import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
@@ -112,6 +113,7 @@ data class IncomeUiState(
     val monthlyIncomeTotals: Map<String, Double> = emptyMap(),
     val isPeriodAllTime: Boolean = false,
     val reconciliation: MonthlyReconciliation? = null,
+    val isOffline: Boolean = false,
     val isLoading: Boolean = true,
     val errorMessage: String? = null
 )
@@ -119,7 +121,8 @@ data class IncomeUiState(
 @HiltViewModel
 class IncomeViewModel @Inject constructor(
     private val incomeRepository: IncomeRepository,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(IncomeUiState())
@@ -136,6 +139,15 @@ class IncomeViewModel @Inject constructor(
 
     init {
         loadIncomes()
+        observeNetworkStatus()
+    }
+
+    private fun observeNetworkStatus() {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.value = _uiState.value.copy(isOffline = !online)
+            }
+        }
     }
 
     fun loadIncomes() {
