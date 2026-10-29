@@ -185,17 +185,15 @@ class DashboardViewModel @Inject constructor(
     companion object {
         /**
          * Resolves the greeting string based on the current hour of the day:
-         * - 05:00 - 11:59 -> "Good Morning,"
+         * - 00:00 - 11:59 -> "Good Morning,"
          * - 12:00 - 16:59 -> "Good Afternoon,"
-         * - 17:00 - 20:59 -> "Good Evening,"
-         * - 21:00 - 04:59 -> "Good Night,"
+         * - 17:00 - 23:59 -> "Good Evening,"
          */
         fun getGreeting(calendar: Calendar = Calendar.getInstance()): String {
             return when (calendar.get(Calendar.HOUR_OF_DAY)) {
-                in 5..11 -> "Good Morning,"
+                in 0..11 -> "Good Morning,"
                 in 12..16 -> "Good Afternoon,"
-                in 17..20 -> "Good Evening,"
-                else -> "Good Night,"
+                else -> "Good Evening,"
             }
         }
 

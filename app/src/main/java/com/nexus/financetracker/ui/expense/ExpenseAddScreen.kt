@@ -205,9 +205,8 @@ fun ExpenseAddScreen(
                                 contentDescription = "Offline Mode",
                                 tint = Color(0xFFB45309),
                                 modifier = Modifier.size(18.dp)
-                            )
                             Text(
-                                text = "Offline Mode — Changes saved locally and will sync once reconnected",
+                                text = "Offline Mode - Changes saved locally and will sync once reconnected",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = Color(0xFF92400E)
@@ -215,7 +214,8 @@ fun ExpenseAddScreen(
                         }
                     }
                 }
-
+                            )
+       
                 // Pre-selected Category & Classification Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
