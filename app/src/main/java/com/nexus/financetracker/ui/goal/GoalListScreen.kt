@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.Refresh
+
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -75,11 +75,6 @@ fun GoalListScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = GoalNavyDark)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = viewModel::loadGoals) {
-                        Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh", tint = GoalNavyDark)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
