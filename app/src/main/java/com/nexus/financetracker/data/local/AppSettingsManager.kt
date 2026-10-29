@@ -92,3 +92,4 @@ class AppSettingsManager @Inject constructor(
         _settings.value = _settings.value.copy(defaultExpenseAccount = account)
     }
 }
+

@@ -140,3 +140,4 @@ class SettingsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(message = null)
     }
 }
+
