@@ -208,7 +208,7 @@ class AlertsViewModel @Inject constructor(
                                     id = alertId,
                                     goal = goal,
                                     title = "🎉 Goal Achieved: ${goal.title}!",
-                                    message = "Congratulations! You've reached 100% of your target (LKR %,.0f)!".format(goal.targetAmountLKR),
+                                    message = "Congratulations! You've reached 100% of your target (${"LKR %,.0f".format(goal.targetAmountLKR)})!",
                                     type = GoalAlertType.ACHIEVED,
                                     priority = priorityName,
                                     isUnread = !readIds.contains(alertId)
