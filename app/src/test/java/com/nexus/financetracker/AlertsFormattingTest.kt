@@ -22,3 +22,4 @@ class AlertsFormattingTest {
         assertEquals("Congratulations! You've reached 100% of your target (LKR 50,000)!", formatted)
     }
 }
+
