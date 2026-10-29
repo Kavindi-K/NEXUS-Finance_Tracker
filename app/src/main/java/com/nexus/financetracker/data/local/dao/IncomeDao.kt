@@ -46,3 +46,4 @@ interface IncomeDao {
     @Query("DELETE FROM incomes WHERE userId = :userId")
     suspend fun deleteAllForUser(userId: String)
 }
+

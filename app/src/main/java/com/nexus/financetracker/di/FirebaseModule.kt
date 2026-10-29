@@ -27,10 +27,12 @@ object FirebaseModule {
     fun provideFirebaseFirestore(): FirebaseFirestore {
         val firestore = FirebaseFirestore.getInstance()
         try {
+            // Configure bounded 100 MB persistent cache with automatic LRU garbage collection
+            // to prevent unnecessary computer/device storage bloat while guaranteeing offline capability
             val settings = FirebaseFirestoreSettings.Builder()
                 .setLocalCacheSettings(
                     PersistentCacheSettings.newBuilder()
-                        .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                        .setSizeBytes(104857600L) // 100 MB bound with automatic LRU cleanup
                         .build()
                 )
                 .build()

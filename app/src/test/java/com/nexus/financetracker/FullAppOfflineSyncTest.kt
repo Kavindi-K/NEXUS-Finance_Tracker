@@ -184,3 +184,4 @@ class FullAppOfflineSyncTest {
         assertTrue("Expense screen reflects offline mode", expenseState.isOffline)
     }
 }
+
