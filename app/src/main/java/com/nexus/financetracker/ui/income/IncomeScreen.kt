@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
@@ -479,6 +480,122 @@ fun IncomeScreen(
                             onClick = { viewModel.onFilterSelected(filter) },
                             label = { Text(label) }
                         )
+                    }
+                }
+
+                // Modern Sleek Sort Control Bar (Matching Expenses Dashboard)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Sort,
+                            contentDescription = null,
+                            tint = TextSubtle,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Sort by",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextSubtle
+                        )
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val isDateActive = uiState.selectedSortOrder == IncomeSortOrder.DATE_DESC || uiState.selectedSortOrder == IncomeSortOrder.DATE_ASC
+                        val isDateDesc = uiState.selectedSortOrder == IncomeSortOrder.DATE_DESC
+
+                        Surface(
+                            onClick = {
+                                if (isDateActive) {
+                                    viewModel.onSortOrderSelected(if (isDateDesc) IncomeSortOrder.DATE_ASC else IncomeSortOrder.DATE_DESC)
+                                } else {
+                                    viewModel.onSortOrderSelected(IncomeSortOrder.DATE_DESC)
+                                }
+                            },
+                            shape = RoundedCornerShape(20.dp),
+                            color = if (isDateActive) NavyPrimary else Color.White,
+                            border = BorderStroke(1.dp, if (isDateActive) NavyPrimary else Color(0xFFCBD5E1))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CalendarToday,
+                                    contentDescription = null,
+                                    tint = if (isDateActive) Color.White else NavyPrimary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = if (isDateActive) {
+                                        if (isDateDesc) "Date (Newest)" else "Date (Oldest)"
+                                    } else "Date",
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isDateActive) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isDateActive) Color.White else NavyPrimary
+                                )
+                                if (isDateActive) {
+                                    Icon(
+                                        imageVector = if (isDateDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        val isAmountActive = uiState.selectedSortOrder == IncomeSortOrder.AMOUNT_DESC || uiState.selectedSortOrder == IncomeSortOrder.AMOUNT_ASC
+                        val isAmountDesc = uiState.selectedSortOrder == IncomeSortOrder.AMOUNT_DESC
+
+                        Surface(
+                            onClick = {
+                                if (isAmountActive) {
+                                    viewModel.onSortOrderSelected(if (isAmountDesc) IncomeSortOrder.AMOUNT_ASC else IncomeSortOrder.AMOUNT_DESC)
+                                } else {
+                                    viewModel.onSortOrderSelected(IncomeSortOrder.AMOUNT_DESC)
+                                }
+                            },
+                            shape = RoundedCornerShape(20.dp),
+                            color = if (isAmountActive) NavyPrimary else Color.White,
+                            border = BorderStroke(1.dp, if (isAmountActive) NavyPrimary else Color(0xFFCBD5E1))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = if (isAmountActive) {
+                                        if (isAmountDesc) "Amount (High)" else "Amount (Low)"
+                                    } else "Amount",
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isAmountActive) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isAmountActive) Color.White else NavyPrimary
+                                )
+                                if (isAmountActive) {
+                                    Icon(
+                                        imageVector = if (isAmountDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
