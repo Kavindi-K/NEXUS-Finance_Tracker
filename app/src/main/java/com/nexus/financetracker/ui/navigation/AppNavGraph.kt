@@ -121,12 +121,7 @@ fun AppNavGraph(
                         }
                     },
                     onQuickAdd = {
-                        val activeRoute = navController.currentDestination?.route ?: currentRoute
-                        if (activeRoute == Screen.Expenses.route) {
-                            navController.navigate(Screen.CategoryDashboard.route)
-                        } else {
-                            navController.navigate(Screen.AddExpense.createRoute())
-                        }
+                        navController.navigate(Screen.CategoryDashboard.route)
                     }
                 )
             }
@@ -261,7 +256,7 @@ fun AppNavGraph(
                         }
                     },
                     onLogExpense = {
-                        navController.navigate(Screen.AddExpense.createRoute())
+                        navController.navigate(Screen.CategoryDashboard.route)
                     },
                     onNavigateToSettings = {
                         navController.navigate(Screen.Settings.route) {
@@ -488,7 +483,7 @@ fun AppNavGraph(
                         }
                     },
                     onNavigateToAddExpense = {
-                        navController.navigate(Screen.AddExpense.createRoute())
+                        navController.navigate(Screen.CategoryDashboard.route)
                     },
                     onNavigateToAddIncome = {
                         navController.navigate(Screen.AddIncome.createRoute())
