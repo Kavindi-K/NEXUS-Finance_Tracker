@@ -64,7 +64,7 @@ fun IncomeEntryScreen(
     val isAdSense = formState.source == IncomeSource.ADSENSE
     LaunchedEffect(isAdSense) {
         if (isAdSense && !formState.isEditMode) {
-            viewModel.fetchLiveExchangeRate("USD")
+            viewModel.fetchLiveExchangeRate("USD", formState.dateReceived)
         }
     }
 
@@ -347,10 +347,10 @@ fun IncomeEntryScreen(
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                 } else {
-                                    IconButton(onClick = { viewModel.fetchLiveExchangeRate(formState.currency) }) {
+                                    IconButton(onClick = { viewModel.fetchLiveExchangeRate(formState.currency, formState.dateReceived) }) {
                                         Icon(
                                             imageVector = Icons.Default.Refresh,
-                                            contentDescription = "Refresh live rate",
+                                            contentDescription = "Refresh rate for selected date",
                                             tint = if (formState.isRateLive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(20.dp)
                                         )
@@ -361,9 +361,9 @@ fun IncomeEntryScreen(
                             modifier = Modifier.fillMaxWidth(),
                             supportingText = {
                                 if (formState.isFetchingRate) {
-                                    Text("Fetching live market rate from API...", color = MaterialTheme.colorScheme.primary)
+                                    Text("Fetching rate for ${dateFormatter.format(formState.dateReceived)}...", color = MaterialTheme.colorScheme.primary)
                                 } else if (formState.isRateLive) {
-                                    Text("Live rate: 1 USD = ${formState.exchangeRate} LKR (tap refresh to update, or edit manually)", color = Color(0xFF15803D))
+                                    Text("Rate (${dateFormatter.format(formState.dateReceived)}): 1 USD = ${formState.exchangeRate} LKR (tap refresh to update, or edit manually)", color = Color(0xFF15803D))
                                 } else {
                                     Text("1 USD = ${formState.exchangeRate} LKR (editable)")
                                 }

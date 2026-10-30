@@ -144,7 +144,7 @@ class IncomeViewModel @Inject constructor(
     init {
         loadIncomes()
         observeNetworkStatus()
-        fetchLiveExchangeRate("USD")
+        fetchLiveExchangeRate("USD", _formState.value.dateReceived)
     }
 
     private fun observeNetworkStatus() {
@@ -591,7 +591,7 @@ class IncomeViewModel @Inject constructor(
         )
 
         if (defaults.currency.equals("USD", ignoreCase = true)) {
-            fetchLiveExchangeRate("USD")
+            fetchLiveExchangeRate("USD", _formState.value.dateReceived)
         }
     }
 
@@ -613,11 +613,11 @@ class IncomeViewModel @Inject constructor(
         )
 
         if (uppercaseCurrency == "USD") {
-            fetchLiveExchangeRate("USD")
+            fetchLiveExchangeRate("USD", _formState.value.dateReceived)
         }
     }
 
-    fun fetchLiveExchangeRate(currency: String = "USD") {
+    fun fetchLiveExchangeRate(currency: String = "USD", date: Date? = null) {
         if (currency.equals("LKR", ignoreCase = true)) {
             _formState.value = _formState.value.copy(
                 exchangeRate = "1.0",
@@ -627,9 +627,14 @@ class IncomeViewModel @Inject constructor(
             return
         }
 
+        val targetDate = date ?: _formState.value.dateReceived
         viewModelScope.launch {
             _formState.value = _formState.value.copy(isFetchingRate = true)
-            val result = exchangeRateRepository.getExchangeRate(baseCurrency = currency, targetCurrency = "LKR")
+            val result = exchangeRateRepository.getExchangeRate(
+                baseCurrency = currency,
+                targetCurrency = "LKR",
+                date = targetDate
+            )
             if (_formState.value.currency.equals(currency, ignoreCase = true)) {
                 _formState.value = _formState.value.copy(
                     exchangeRate = String.format(Locale.US, "%.2f", result.rate),
@@ -681,6 +686,9 @@ class IncomeViewModel @Inject constructor(
 
     fun onDateReceivedChanged(date: Date) {
         _formState.value = _formState.value.copy(dateReceived = date, error = null)
+        if (_formState.value.currency.equals("USD", ignoreCase = true) && !_formState.value.isEditMode) {
+            fetchLiveExchangeRate("USD", date)
+        }
     }
 
     fun onExpectedDateChanged(date: Date) {
