@@ -1,5 +1,6 @@
 package com.nexus.financetracker.ui.alerts
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -197,82 +198,87 @@ class AlertsViewModel @Inject constructor(
                 val goalList = mutableListOf<GoalAlert>()
                 val userActiveGoals = allGoals.filter { it.isActive }
                 for (goal in userActiveGoals) {
-                    val calc = GoalCalculation.calculate(goal, allIncomes, allExpenses, now.time)
-                    val priorityName = GoalPriority.getDisplayName(goal.priority)
+                    try {
+                        val calc = GoalCalculation.calculate(goal, allIncomes, allExpenses, now.time)
+                        val priorityName = GoalPriority.getDisplayName(goal.priority)
 
-                    when {
-                        calc.isCompleted -> {
-                            val alertId = "goal_achieved_${goal.id}"
-                            goalList.add(
-                                GoalAlert(
-                                    id = alertId,
-                                    goal = goal,
-                                    title = "🎉 Goal Achieved: ${goal.title}!",
-                                    message = "Congratulations! You've reached 100% of your target (LKR %,.0f)!".format(goal.targetAmountLKR),
-                                    type = GoalAlertType.ACHIEVED,
-                                    priority = priorityName,
-                                    isUnread = !readIds.contains(alertId)
+                        when {
+                            calc.isCompleted -> {
+                                val alertId = "goal_achieved_${goal.id}"
+                                goalList.add(
+                                    GoalAlert(
+                                        id = alertId,
+                                        goal = goal,
+                                        title = "🎉 Goal Achieved: ${goal.title}!",
+                                        message = "Congratulations! You've reached 100% of your target (${"LKR %,.0f".format(goal.targetAmountLKR)})!",
+                                        type = GoalAlertType.ACHIEVED,
+                                        priority = priorityName,
+                                        isUnread = !readIds.contains(alertId)
+                                    )
                                 )
-                            )
-                        }
-                        calc.daysRemaining in 1L..7L -> {
-                            val alertId = "goal_deadline_${goal.id}"
-                            val dayText = if (calc.daysRemaining == 1L) "1 day" else "${calc.daysRemaining} days"
-                            goalList.add(
-                                GoalAlert(
-                                    id = alertId,
-                                    goal = goal,
-                                    title = "⏳ Deadline Soon: ${goal.title}",
-                                    message = "Reminder: You have $dayText left to reach your ${goal.title} goal!",
-                                    type = GoalAlertType.DEADLINE_SOON,
-                                    priority = priorityName,
-                                    isUnread = !readIds.contains(alertId)
-                                )
-                            )
-                        }
-                        calc.paceStatus == PaceStatus.BEHIND_PACE || calc.paceStatus == PaceStatus.OVERDUE -> {
-                            val alertId = "goal_pace_${goal.id}"
-                            val needed = calc.requiredMonthlySavingsLKR
-                            val paceMessage = if (needed > 0) {
-                                "You need LKR %,.0f saved this month to stay on track for your target date.".format(needed)
-                            } else {
-                                "Your savings are currently behind schedule. Review your contributions to stay on track."
                             }
+                            calc.daysRemaining in 1L..7L -> {
+                                val alertId = "goal_deadline_${goal.id}"
+                                val dayText = if (calc.daysRemaining == 1L) "1 day" else "${calc.daysRemaining} days"
+                                goalList.add(
+                                    GoalAlert(
+                                        id = alertId,
+                                        goal = goal,
+                                        title = "⏳ Deadline Soon: ${goal.title}",
+                                        message = "Reminder: You have $dayText left to reach your ${goal.title} goal!",
+                                        type = GoalAlertType.DEADLINE_SOON,
+                                        priority = priorityName,
+                                        isUnread = !readIds.contains(alertId)
+                                    )
+                                )
+                            }
+                            calc.paceStatus == PaceStatus.BEHIND_PACE || calc.paceStatus == PaceStatus.OVERDUE -> {
+                                val alertId = "goal_pace_${goal.id}"
+                                val needed = calc.requiredMonthlySavingsLKR
+                                val paceMessage = if (needed > 0) {
+                                    val formattedNeeded = "%,.0f".format(needed)
+                                    "You need LKR $formattedNeeded saved this month to stay on track for your target date."
+                                } else {
+                                    "Your savings are currently behind schedule. Review your contributions to stay on track."
+                                }
+                                goalList.add(
+                                    GoalAlert(
+                                        id = alertId,
+                                        goal = goal,
+                                        title = "⚠️ ${goal.title}: Target Pace Alert",
+                                        message = paceMessage,
+                                        type = GoalAlertType.PACE_BEHIND,
+                                        priority = priorityName,
+                                        isUnread = !readIds.contains(alertId)
+                                    )
+                                )
+                            }
+                        }
+
+                        // Milestone Celebrations (25%, 50%, 75%)
+                        val currentPercent = calc.progressPercentage.toInt()
+                        val milestone = when {
+                            currentPercent in 75..99 -> 75
+                            currentPercent in 50..74 -> 50
+                            currentPercent in 25..49 -> 25
+                            else -> null
+                        }
+                        if (milestone != null) {
+                            val alertId = "goal_milestone_${milestone}_${goal.id}"
                             goalList.add(
                                 GoalAlert(
                                     id = alertId,
                                     goal = goal,
-                                    title = "⚠️ ${goal.title}: Target Pace Alert",
-                                    message = paceMessage,
-                                    type = GoalAlertType.PACE_BEHIND,
+                                    title = "🏆 Milestone: ${goal.title}",
+                                    message = "Congratulations! You've reached $milestone% of your ${goal.title} goal!",
+                                    type = GoalAlertType.MILESTONE,
                                     priority = priorityName,
                                     isUnread = !readIds.contains(alertId)
                                 )
                             )
                         }
-                    }
-
-                    // Milestone Celebrations (25%, 50%, 75%)
-                    val currentPercent = calc.progressPercentage.toInt()
-                    val milestone = when {
-                        currentPercent in 75..99 -> 75
-                        currentPercent in 50..74 -> 50
-                        currentPercent in 25..49 -> 25
-                        else -> null
-                    }
-                    if (milestone != null) {
-                        val alertId = "goal_milestone_${milestone}_${goal.id}"
-                        goalList.add(
-                            GoalAlert(
-                                id = alertId,
-                                goal = goal,
-                                title = "🏆 Milestone: ${goal.title}",
-                                message = "Congratulations! You've reached $milestone% of your ${goal.title} goal!",
-                                type = GoalAlertType.MILESTONE,
-                                priority = priorityName,
-                                isUnread = !readIds.contains(alertId)
-                            )
-                        )
+                    } catch (e: Exception) {
+                        Log.e("AlertsViewModel", "Error calculating alert for goal ${goal.id}", e)
                     }
                 }
 
@@ -291,32 +297,37 @@ class AlertsViewModel @Inject constructor(
                 val categoryMap = allCategories.associate { it.id to it.name }
                 val leakList = mutableListOf<SpendingLeakAlert>()
 
-                val groupedDiscretionary = discretionaryExpenses.groupBy { expense ->
-                    categoryMap[expense.categoryId]?.takeIf { it.isNotBlank() }
-                        ?: expense.categoryId.takeIf { it.isNotBlank() }
-                        ?: "Dining & Coffee"
-                }.mapValues { (_, list) -> list.sumOf { it.amountLKR } }
+                try {
+                    val groupedDiscretionary = discretionaryExpenses.groupBy { expense ->
+                        categoryMap[expense.categoryId]?.takeIf { it.isNotBlank() }
+                            ?: expense.categoryId.takeIf { it.isNotBlank() }
+                            ?: "Dining & Coffee"
+                    }.mapValues { (_, list) -> list.sumOf { it.amountLKR } }
 
-                for ((catName, sum) in groupedDiscretionary) {
-                    val isLeak = sum >= 15000.0 || (totalWeeklyExpenses > 0 && (sum / totalWeeklyExpenses) >= 0.40 && sum >= 5000.0)
-                    if (isLeak) {
-                        val safeCat = catName.lowercase().replace(" ", "_")
-                        val alertId = "leak_${safeCat}_$weekStr"
-                        val isUnread = !readIds.contains(alertId)
-                        val formattedCat = catName.replaceFirstChar {
-                            if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
-                        }
-                        leakList.add(
-                            SpendingLeakAlert(
-                                id = alertId,
-                                categoryName = formattedCat,
-                                amountLKR = sum,
-                                title = "⚠️ Notice: High Spending on $formattedCat",
-                                message = "Notice: You've spent LKR %,.0f on %s this week.".format(sum, formattedCat.lowercase()),
-                                isUnread = isUnread
+                    for ((catName, sum) in groupedDiscretionary) {
+                        val isLeak = sum >= 15000.0 || (totalWeeklyExpenses > 0 && (sum / totalWeeklyExpenses) >= 0.40 && sum >= 5000.0)
+                        if (isLeak) {
+                            val safeCat = catName.lowercase().replace(" ", "_")
+                            val alertId = "leak_${safeCat}_$weekStr"
+                            val isUnread = !readIds.contains(alertId)
+                            val formattedCat = catName.replaceFirstChar {
+                                if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                            }
+                            val formattedSum = "%,.0f".format(sum)
+                            leakList.add(
+                                SpendingLeakAlert(
+                                    id = alertId,
+                                    categoryName = formattedCat,
+                                    amountLKR = sum,
+                                    title = "⚠️ Notice: High Spending on $formattedCat",
+                                    message = "Notice: You've spent LKR $formattedSum on ${formattedCat.lowercase()} this week.",
+                                    isUnread = isUnread
+                                )
                             )
-                        )
+                        }
                     }
+                } catch (e: Exception) {
+                    Log.e("AlertsViewModel", "Error calculating leak alerts", e)
                 }
 
                 // 5. Daily Quick-Log Expense Reminder (FR9)
@@ -368,6 +379,7 @@ class AlertsViewModel @Inject constructor(
                 )
             }
                 .catch { error ->
+                    Log.e("AlertsViewModel", "Failed to load alerts", error)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         errorMessage = error.localizedMessage ?: "Failed to load alerts"

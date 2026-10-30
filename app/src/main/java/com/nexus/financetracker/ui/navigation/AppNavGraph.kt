@@ -44,6 +44,8 @@ import com.nexus.financetracker.ui.reports.ReportsScreen
 import com.nexus.financetracker.ui.settings.SettingsScreen
 import com.nexus.financetracker.ui.profile.ProfileScreen
 import com.nexus.financetracker.ui.profile.ProfileViewModel
+import com.nexus.financetracker.data.local.SecurityManager
+import com.nexus.financetracker.ui.security.AppLockScreen
 
 /**
  * Root Navigation Graph with single-activity Material 3 Scaffold and Bottom Navigation.
@@ -58,6 +60,7 @@ import com.nexus.financetracker.ui.profile.ProfileViewModel
  */
 @Composable
 fun AppNavGraph(
+    securityManager: SecurityManager,
     authViewModel: AuthViewModel = hiltViewModel(),
     alertsViewModel: AlertsViewModel = hiltViewModel()
 ) {
@@ -69,7 +72,13 @@ fun AppNavGraph(
     // Computed ONCE at first composition — never re-evaluated on recomposition.
     // Prevents NavHost from rebuilding the graph when auth.currentUser changes mid-session.
     val startDestination = remember {
-        if (authViewModel.isUserLoggedIn) Screen.Dashboard.route else Screen.Splash.route
+        if (!authViewModel.isUserLoggedIn) {
+            Screen.Splash.route
+        } else if (securityManager.isAppLockActive() && !securityManager.isSessionUnlocked()) {
+            Screen.AppLock.route
+        } else {
+            Screen.Dashboard.route
+        }
     }
 
     // Top-level destinations that display the bottom navigation bar
@@ -171,6 +180,7 @@ fun AppNavGraph(
             ) {
                 LoginScreen(
                     onLoginSuccess = {
+                        securityManager.unlockSession()
                         navController.navigate(Screen.Dashboard.route) {
                             popUpTo(Screen.Login.route) { inclusive = true }
                         }
@@ -213,11 +223,31 @@ fun AppNavGraph(
             ) {
                 RegisterScreen(
                     onRegisterSuccess = {
+                        securityManager.unlockSession()
                         navController.navigate(Screen.Dashboard.route) {
                             popUpTo(Screen.Login.route) { inclusive = true }
                         }
                     },
                     onNavigateToLogin = { navController.popBackStack() }
+                )
+            }
+
+            // --- App Lock / Security Screen ---
+            composable(Screen.AppLock.route) {
+                AppLockScreen(
+                    securityManager = securityManager,
+                    onUnlockSuccess = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.AppLock.route) { inclusive = true }
+                        }
+                    },
+                    onSignOut = {
+                        securityManager.lockSession()
+                        authViewModel.signOut()
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
                 )
             }
 
@@ -440,6 +470,7 @@ fun AppNavGraph(
             composable(Screen.Profile.route) {
                 ProfileScreen(
                     onLogout = {
+                        securityManager.lockSession()
                         authViewModel.signOut()
                         navController.navigate(Screen.Splash.route) {
                             popUpTo(0) { inclusive = true }
@@ -461,6 +492,7 @@ fun AppNavGraph(
                     userEmail = profileUiState.profile?.email,
                     displayName = profileUiState.profile?.capitalizedDisplayName,
                     onLogout = {
+                        securityManager.lockSession()
                         authViewModel.signOut()
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }

@@ -982,8 +982,8 @@ fun ExpenseScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                contentPadding = PaddingValues(top = 10.dp, bottom = 96.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(top = 2.dp, bottom = 96.dp)
             ) {
                 // Offline Indicator Banner (Member 2 Order 7)
                 if (uiState.isOffline) {
@@ -1046,7 +1046,7 @@ fun ExpenseScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -1056,31 +1056,23 @@ fun ExpenseScreen(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(38.dp)
+                                        .size(34.dp)
                                         .background(NavyPrimary.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.CalendarMonth,
-                                        contentDescription = "Select Month",
+                                        contentDescription = "Month Filter",
                                         tint = NavyPrimary,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
-                                Column {
-                                    Text(
-                                        text = "Select Month",
-                                        color = TextSubtle,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Text(
-                                        text = if (uiState.isPeriodAllTime) "All Time" else uiState.selectedMonthLabel.ifBlank { "Select Month" },
-                                        color = NavyPrimary,
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                                Text(
+                                    text = if (uiState.isPeriodAllTime) "All Time" else uiState.selectedMonthLabel.ifBlank { "All Time" },
+                                    color = NavyPrimary,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
 
                             Surface(
@@ -1088,7 +1080,7 @@ fun ExpenseScreen(
                                 color = NavyPrimary.copy(alpha = 0.1f)
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(2.dp)
                                 ) {
@@ -1217,10 +1209,7 @@ fun ExpenseScreen(
                                 selected = uiState.selectedAccountFilter == null,
                                 onClick = { viewModel.onAccountFilterSelected(null) },
                                 label = { Text("All Accounts (${uiState.expenses.size})") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = NavyPrimary,
-                                    selectedLabelColor = Color.White
-                                )
+                                shape = RoundedCornerShape(20.dp)
                             )
                             ExpenseAccount.ALL.forEach { account ->
                                 val count = uiState.expenses.count { it.account.equals(account, ignoreCase = true) }
@@ -1232,19 +1221,16 @@ fun ExpenseScreen(
                                 FilterChip(
                                     selected = uiState.selectedAccountFilter.equals(account, ignoreCase = true),
                                     onClick = { viewModel.onAccountFilterSelected(account) },
+                                    shape = RoundedCornerShape(20.dp),
                                     leadingIcon = {
                                         Icon(
                                             imageVector = icon,
                                             contentDescription = null,
                                             modifier = Modifier.size(16.dp),
-                                            tint = if (uiState.selectedAccountFilter.equals(account, ignoreCase = true)) Color.White else NavyPrimary
+                                            tint = if (uiState.selectedAccountFilter.equals(account, ignoreCase = true)) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
                                         )
                                     },
-                                    label = { Text("${ExpenseAccount.getDisplayName(account)} ($count)") },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = NavyPrimary,
-                                        selectedLabelColor = Color.White
-                                    )
+                                    label = { Text("${ExpenseAccount.getDisplayName(account)} ($count)") }
                                 )
                             }
                         }
@@ -1289,8 +1275,8 @@ fun ExpenseScreen(
                                         }
                                     },
                                     shape = RoundedCornerShape(20.dp),
-                                    color = if (isDateActive) NavyPrimary else Color.White,
-                                    border = BorderStroke(1.dp, if (isDateActive) NavyPrimary else Color(0xFFCBD5E1))
+                                    color = if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else Color.White,
+                                    border = BorderStroke(1.dp, if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else Color(0xFFCBD5E1))
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -1300,7 +1286,7 @@ fun ExpenseScreen(
                                         Icon(
                                             imageVector = Icons.Default.CalendarToday,
                                             contentDescription = null,
-                                            tint = if (isDateActive) Color.White else NavyPrimary,
+                                            tint = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary,
                                             modifier = Modifier.size(13.dp)
                                         )
                                         Text(
@@ -1309,13 +1295,13 @@ fun ExpenseScreen(
                                             } else "Date",
                                             fontSize = 12.sp,
                                             fontWeight = if (isDateActive) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isDateActive) Color.White else NavyPrimary
+                                            color = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
                                         )
                                         if (isDateActive) {
                                             Icon(
                                                 imageVector = if (isDateDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
                                                 contentDescription = null,
-                                                tint = Color.White,
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                                 modifier = Modifier.size(13.dp)
                                             )
                                         }
@@ -1334,8 +1320,8 @@ fun ExpenseScreen(
                                         }
                                     },
                                     shape = RoundedCornerShape(20.dp),
-                                    color = if (isAmountActive) NavyPrimary else Color.White,
-                                    border = BorderStroke(1.dp, if (isAmountActive) NavyPrimary else Color(0xFFCBD5E1))
+                                    color = if (isAmountActive) MaterialTheme.colorScheme.secondaryContainer else Color.White,
+                                    border = BorderStroke(1.dp, if (isAmountActive) MaterialTheme.colorScheme.secondaryContainer else Color(0xFFCBD5E1))
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -1348,13 +1334,13 @@ fun ExpenseScreen(
                                             } else "Amount",
                                             fontSize = 12.sp,
                                             fontWeight = if (isAmountActive) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isAmountActive) Color.White else NavyPrimary
+                                            color = if (isAmountActive) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
                                         )
                                         if (isAmountActive) {
                                             Icon(
                                                 imageVector = if (isAmountDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
                                                 contentDescription = null,
-                                                tint = Color.White,
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                                 modifier = Modifier.size(13.dp)
                                             )
                                         }
@@ -1494,16 +1480,33 @@ fun ExpenseScreen(
                         }
                     }
                 } else {
-                    items(uiState.filteredExpenses, key = { it.id }) { expense ->
-                        ExpenseItemCard(
-                            expense = expense,
-                            categoryName = uiState.categoriesMap[expense.categoryId]
-                                ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == expense.categoryId }?.name
-                                ?: expense.categoryId,
-                            formattedDate = dateFormatter.format(expense.date),
-                            onClick = { selectedExpenseForDetail = expense },
-                            onDelete = { expenseToDelete = expense }
-                        )
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, CardBorderColor)
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                uiState.filteredExpenses.forEachIndexed { index, expense ->
+                                    ExpenseItemRow(
+                                        expense = expense,
+                                        categoryName = uiState.categoriesMap[expense.categoryId]
+                                            ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == expense.categoryId }?.name
+                                            ?: expense.categoryId,
+                                        formattedDate = dateFormatter.format(expense.date),
+                                        onClick = { selectedExpenseForDetail = expense },
+                                        onDelete = { expenseToDelete = expense }
+                                    )
+                                    if (index < uiState.filteredExpenses.lastIndex) {
+                                        HorizontalDivider(
+                                            color = CardBorderColor,
+                                            thickness = 1.dp
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1567,7 +1570,7 @@ private fun AccountSummaryPill(
 }
 
 @Composable
-private fun ExpenseItemCard(
+private fun ExpenseItemRow(
     expense: Expense,
     categoryName: String,
     formattedDate: String,
@@ -1581,166 +1584,158 @@ private fun ExpenseItemCard(
             calDate.get(Calendar.DAY_OF_YEAR) != calCreated.get(Calendar.DAY_OF_YEAR)
     }
 
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
+        // Category Icon Badge
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFF1F5F9)),
+            contentAlignment = Alignment.Center
         ) {
-            // Category Icon Badge
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFF1F5F9)),
-                contentAlignment = Alignment.Center
+            Icon(
+                imageVector = getCategoryIcon(categoryName),
+                contentDescription = null,
+                tint = NavyPrimary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        // Info Column
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // Category Name + Backdated Badge (Side-by-side)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Icon(
-                    imageVector = getCategoryIcon(categoryName),
-                    contentDescription = null,
-                    tint = NavyPrimary,
-                    modifier = Modifier.size(22.dp)
+                Text(
+                    text = categoryName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = NavyPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+
+                if (isBackdated) {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xFFF1F5F9),
+                        border = BorderStroke(0.5.dp, Color(0xFFCBD5E1))
+                    ) {
+                        Text(
+                            text = "Backdated",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF475569),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                        )
+                    }
+                }
+            }
+
+            if (!expense.note.isNullOrBlank()) {
+                Text(
+                    text = expense.note,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSubtle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
-            // Info Column
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            // Metadata Row: Date • Account • Fixed
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Category Name + Backdated Badge (Side-by-side)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Text(
+                    text = formattedDate,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF94A3B8),
+                    maxLines = 1,
+                    softWrap = false
+                )
+                Text(
+                    text = "•",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF94A3B8)
+                )
+                val (accBg, accText) = when (expense.account.lowercase()) {
+                    ExpenseAccount.CARD -> Color(0xFFE0E7FF) to Color(0xFF1E3A8A)
+                    ExpenseAccount.CASH -> Color(0xFFDCFCE7) to Color(0xFF166534)
+                    ExpenseAccount.SECONDARY -> Color(0xFFF3E8FF) to Color(0xFF6B21A8)
+                    else -> Color(0xFFF1F5F9) to NavyPrimary
+                }
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = accBg
                 ) {
                     Text(
-                        text = categoryName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = NavyPrimary,
+                        text = ExpenseAccount.getDisplayName(expense.account),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accText,
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-
-                    if (isBackdated) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFFF1F5F9),
-                            border = BorderStroke(0.5.dp, Color(0xFFCBD5E1))
-                        ) {
-                            Text(
-                                text = "Backdated",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF475569),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                softWrap = false,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
-                            )
-                        }
-                    }
-                }
-
-                if (!expense.note.isNullOrBlank()) {
-                    Text(
-                        text = expense.note,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSubtle,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        softWrap = false,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
 
-                // Metadata Row: Date • Account • Fixed
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = formattedDate,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF94A3B8),
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                    Text(
-                        text = "•",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF94A3B8)
-                    )
-                    val (accBg, accText) = when (expense.account.lowercase()) {
-                        ExpenseAccount.CARD -> Color(0xFFE0E7FF) to Color(0xFF1E3A8A)
-                        ExpenseAccount.CASH -> Color(0xFFDCFCE7) to Color(0xFF166534)
-                        ExpenseAccount.SECONDARY -> Color(0xFFF3E8FF) to Color(0xFF6B21A8)
-                        else -> Color(0xFFF1F5F9) to NavyPrimary
-                    }
+                if (expense.classification == ExpenseClassification.COMMITTED) {
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = accBg
+                        color = Color(0xFFFEF3C7)
                     ) {
                         Text(
-                            text = ExpenseAccount.getDisplayName(expense.account),
+                            text = "Fixed",
                             style = MaterialTheme.typography.labelSmall,
-                            color = accText,
-                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF92400E),
                             maxLines = 1,
                             softWrap = false,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
-
-                    if (expense.classification == ExpenseClassification.COMMITTED) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFFFEF3C7)
-                        ) {
-                            Text(
-                                text = "Fixed",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF92400E),
-                                maxLines = 1,
-                                softWrap = false,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
                 }
             }
+        }
 
-            // Amount Column + Delete action
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+        // Amount Column + Delete action
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = "- LKR %,.2f".format(expense.amountLKR),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFFDC2626)
+            )
+
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.size(28.dp)
             ) {
-                Text(
-                    text = "- LKR %,.2f".format(expense.amountLKR),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFFDC2626)
+                Icon(
+                    imageVector = Icons.Default.DeleteOutline,
+                    contentDescription = "Delete",
+                    tint = Color(0xFF94A3B8),
+                    modifier = Modifier.size(18.dp)
                 )
-
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = "Delete",
-                        tint = Color(0xFF94A3B8),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
             }
         }
     }

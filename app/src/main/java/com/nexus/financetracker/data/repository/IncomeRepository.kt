@@ -18,4 +18,5 @@ interface IncomeRepository {
     suspend fun addIncome(income: Income): String
     suspend fun updateIncome(income: Income)
     suspend fun deleteIncome(incomeId: String)
+    suspend fun clearLocalCache(userId: String)
 }

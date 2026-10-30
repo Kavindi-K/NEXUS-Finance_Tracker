@@ -54,6 +54,7 @@ fun SettingsScreen(
     var showClearCacheDialog by remember { mutableStateOf(false) }
     var showCurrencyDialog by remember { mutableStateOf(false) }
     var showAccountDialog by remember { mutableStateOf(false) }
+    var showPinDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -113,7 +114,7 @@ fun SettingsScreen(
             },
             text = {
                 Text(
-                    "This will remove ${uiState.cachedExpensesCount} locally cached offline expense records from Room. " +
+                    "This will remove ${uiState.cachedExpensesCount} locally cached offline records across all modules (expenses, income, goals, categories) from Room. " +
                             "Your remote records remain safe on Firestore and will reload upon network sync."
                 )
             },
@@ -249,6 +250,105 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = { showAccountDialog = false }) {
                     Text("Close")
+                }
+            },
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    // 4-Digit Security PIN Configuration Dialog
+    if (showPinDialog) {
+        var pinInput by remember { mutableStateOf("") }
+        var confirmPinInput by remember { mutableStateOf("") }
+        var pinError by remember { mutableStateOf<String?>(null) }
+
+        AlertDialog(
+            onDismissRequest = { showPinDialog = false },
+            title = {
+                Text(
+                    text = if (uiState.isPinSet) "Manage 4-Digit PIN" else "Set 4-Digit PIN",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (uiState.isPinSet) {
+                        Text(
+                            text = "A 4-digit PIN is currently active. You can enter a new 4-digit PIN to replace it, or remove it.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    } else {
+                        Text(
+                            text = "Create a 4-digit security PIN to unlock NEXUS when opening the app.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = pinInput,
+                        onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) pinInput = it },
+                        label = { Text("4-Digit PIN") },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
+                        ),
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = confirmPinInput,
+                        onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) confirmPinInput = it },
+                        label = { Text("Confirm 4-Digit PIN") },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
+                        ),
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (pinError != null) {
+                        Text(
+                            text = pinError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (pinInput.length != 4) {
+                            pinError = "PIN must be exactly 4 digits"
+                        } else if (pinInput != confirmPinInput) {
+                            pinError = "PINs do not match"
+                        } else {
+                            viewModel.setPin(pinInput)
+                            showPinDialog = false
+                        }
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Save PIN")
+                }
+            },
+            dismissButton = {
+                Row {
+                    if (uiState.isPinSet) {
+                        TextButton(
+                            onClick = {
+                                viewModel.removePin()
+                                showPinDialog = false
+                            }
+                        ) {
+                            Text("Remove PIN", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    TextButton(onClick = { showPinDialog = false }) {
+                        Text("Cancel")
+                    }
                 }
             },
             shape = RoundedCornerShape(16.dp)
@@ -429,6 +529,17 @@ fun SettingsScreen(
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
+                    // 4-Digit Security PIN
+                    SettingClickableRow(
+                        icon = Icons.Outlined.Lock,
+                        title = "4-Digit Security PIN",
+                        subtitle = if (uiState.isPinSet) "Configured (used as fallback or primary lock)" else "Not set (optional)",
+                        badgeValue = if (uiState.isPinSet) "Active" else "Set PIN",
+                        onClick = { showPinDialog = true }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
                     // Base Currency
                     SettingClickableRow(
                         icon = Icons.Outlined.Payments,
@@ -483,12 +594,12 @@ fun SettingsScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Cached Expenses",
+                                text = "Cached Records",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "${uiState.cachedExpensesCount} records stored locally",
+                                text = "${uiState.cachedExpensesCount} records cached across all modules",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -610,7 +721,9 @@ private fun SettingToggleRow(
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -693,6 +806,7 @@ private fun SettingClickableRow(
         }
 
         Surface(
+            onClick = onClick,
             shape = RoundedCornerShape(8.dp),
             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
         ) {
