@@ -61,11 +61,13 @@ fun GoalListScreen(
     onAddGoal: () -> Unit,
     onEditGoal: (String) -> Unit,
     onBack: () -> Unit,
+    onNavigateToContributions: () -> Unit = {},
     viewModel: GoalViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currencyFormat = remember { NumberFormat.getNumberInstance(Locale.US).apply { minimumFractionDigits = 2; maximumFractionDigits = 2 } }
     val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
+    val contributions by viewModel.contributions.collectAsStateWithLifecycle()
     var showPrioritySheet by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -76,6 +78,29 @@ fun GoalListScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = GoalNavyDark)
+                    }
+                },
+                actions = {
+                    val availableCount = contributions.count { !it.isAllocated }
+                    IconButton(onClick = onNavigateToContributions) {
+                        BadgedBox(
+                            badge = {
+                                if (availableCount > 0) {
+                                    Badge(
+                                        containerColor = Color(0xFFE65100),
+                                        contentColor = Color.White
+                                    ) {
+                                        Text("$availableCount")
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Savings,
+                                contentDescription = "Contributions",
+                                tint = GoalNavyDark
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -458,6 +483,8 @@ fun GoalListScreen(
                 }
             }
         }
+
+
 
         // 4. Modal Bottom Sheet for Priority Breakdown & Quick Filter (opens on tapping Total Goal Card)
         if (showPrioritySheet) {

@@ -28,9 +28,9 @@ data class Category(
             "createdAt" to createdAt
         )
         mergingInto?.takeIf { it.isNotBlank() }?.let { map["mergingInto"] = it }
-        classification.takeIf { it.isNotBlank() }?.let { map["classification"] = it }
+        classification.takeIf { it.isNotBlank() }?.let { map["classification"] = it.lowercase() }
         estimatedAmount?.let { map["estimatedAmount"] = it }
-        recurringFrequency?.takeIf { it.isNotBlank() }?.let { map["recurringFrequency"] = it }
+        recurringFrequency?.takeIf { it.isNotBlank() }?.let { map["recurringFrequency"] = it.lowercase() }
         return map
     }
 
@@ -42,6 +42,8 @@ data class Category(
             "createdAt" to createdAt
         )
         mergingInto?.takeIf { it.isNotBlank() }?.let { map["mergingInto"] = it }
+        classification.takeIf { it.isNotBlank() }?.let { map["classification"] = it.lowercase() }
+        recurringFrequency?.takeIf { it.isNotBlank() }?.let { map["recurringFrequency"] = it.lowercase() }
         return map
     }
 

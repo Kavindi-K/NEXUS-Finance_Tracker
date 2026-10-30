@@ -37,12 +37,49 @@ private val CardBorderColor = Color(0xFFE2E8F0)
 @Composable
 fun CategoryAddScreen(
     viewModel: ExpenseViewModel,
+    categoryId: String? = null,
     onNavigateBack: () -> Unit
 ) {
-    var categoryName by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf(ExpenseClassification.DISCRETIONARY) }
-    var estimationValueText by remember { mutableStateOf("") }
-    var selectedFrequency by remember { mutableStateOf("Monthly") }
+    val uiState by viewModel.uiState.collectAsState()
+    val existingCategory = remember(categoryId, uiState.allCategories) {
+        categoryId?.let { id -> uiState.allCategories.find { it.id == id } }
+    }
+
+    var categoryName by remember { mutableStateOf(existingCategory?.name ?: "") }
+    var selectedType by remember {
+        mutableStateOf(
+            if (existingCategory?.classification?.equals(ExpenseClassification.COMMITTED, ignoreCase = true) == true)
+                ExpenseClassification.COMMITTED
+            else
+                ExpenseClassification.DISCRETIONARY
+        )
+    }
+    var estimationValueText by remember {
+        val est = existingCategory?.estimatedAmount
+        val text = if (est != null && est > 0.0) {
+            if (est % 1.0 == 0.0) est.toLong().toString() else est.toString()
+        } else ""
+        mutableStateOf(text)
+    }
+    var selectedFrequency by remember {
+        mutableStateOf(existingCategory?.recurringFrequency?.lowercase() ?: "monthly")
+    }
+
+    LaunchedEffect(existingCategory) {
+        existingCategory?.let { cat ->
+            categoryName = cat.name
+            selectedType = if (cat.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)) {
+                ExpenseClassification.COMMITTED
+            } else {
+                ExpenseClassification.DISCRETIONARY
+            }
+            val est = cat.estimatedAmount
+            estimationValueText = if (est != null && est > 0.0) {
+                if (est % 1.0 == 0.0) est.toLong().toString() else est.toString()
+            } else ""
+            selectedFrequency = cat.recurringFrequency?.lowercase() ?: "monthly"
+        }
+    }
 
     var isSubmitting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -54,7 +91,7 @@ fun CategoryAddScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "New category",
+                        text = if (categoryId != null) "Edit category" else "New category",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = NavyPrimary
@@ -137,8 +174,8 @@ fun CategoryAddScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            val isDiscretionary = selectedType == ExpenseClassification.DISCRETIONARY
-                            val isCommitted = selectedType == ExpenseClassification.COMMITTED
+                            val isDiscretionary = selectedType.equals(ExpenseClassification.DISCRETIONARY, ignoreCase = true)
+                            val isCommitted = selectedType.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
 
                             Surface(
                                 onClick = {
@@ -181,7 +218,8 @@ fun CategoryAddScreen(
                     }
 
                     // 3. Conditional Input Fields
-                    if (selectedType == ExpenseClassification.DISCRETIONARY) {
+                    val isCommittedMode = selectedType.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+                    if (!isCommittedMode) {
                         // Estimation Value Field
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
@@ -232,14 +270,14 @@ fun CategoryAddScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                listOf("Weekly", "Monthly", "Yearly").forEach { freq ->
-                                    val isSelected = selectedFrequency == freq
+                                listOf("weekly" to "Weekly", "monthly" to "Monthly", "yearly" to "Yearly").forEach { (freqKey, freqLabel) ->
+                                    val isSelected = selectedFrequency.equals(freqKey, ignoreCase = true)
                                     FilterChip(
                                         selected = isSelected,
-                                        onClick = { selectedFrequency = freq },
+                                        onClick = { selectedFrequency = freqKey },
                                         label = {
                                             Text(
-                                                text = freq,
+                                                text = freqLabel,
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                             )
                                         },
@@ -282,20 +320,47 @@ fun CategoryAddScreen(
                             isSubmitting = true
                             errorMessage = null
                             val est = estimationValueText.toDoubleOrNull()
-                            viewModel.createCategoryWithDetails(
-                                name = categoryName.trim(),
-                                classification = selectedType,
-                                estimatedAmount = est,
-                                recurringFrequency = if (selectedType == ExpenseClassification.COMMITTED) selectedFrequency else null,
-                                onSuccess = {
-                                    isSubmitting = false
-                                    onNavigateBack()
-                                },
-                                onError = { error ->
-                                    isSubmitting = false
-                                    errorMessage = error
-                                }
-                            )
+                            val isComm = selectedType.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+                            val finalClassification = if (isComm) ExpenseClassification.COMMITTED else ExpenseClassification.DISCRETIONARY
+                            val finalFreq = if (isComm) selectedFrequency.lowercase() else null
+                            val finalEst = if (!isComm) est else null
+
+                            if (categoryId != null) {
+                                viewModel.updateCategory(
+                                    category = com.nexus.financetracker.domain.model.Category(
+                                        id = categoryId,
+                                        userId = existingCategory?.userId ?: "",
+                                        name = categoryName.trim(),
+                                        classification = finalClassification,
+                                        estimatedAmount = finalEst,
+                                        recurringFrequency = finalFreq,
+                                        createdAt = existingCategory?.createdAt ?: java.util.Date()
+                                    ),
+                                    onSuccess = {
+                                        isSubmitting = false
+                                        onNavigateBack()
+                                    },
+                                    onError = { error ->
+                                        isSubmitting = false
+                                        errorMessage = error
+                                    }
+                                )
+                            } else {
+                                viewModel.createCategoryWithDetails(
+                                    name = categoryName.trim(),
+                                    classification = finalClassification,
+                                    estimatedAmount = finalEst,
+                                    recurringFrequency = finalFreq,
+                                    onSuccess = {
+                                        isSubmitting = false
+                                        onNavigateBack()
+                                    },
+                                    onError = { error ->
+                                        isSubmitting = false
+                                        errorMessage = error
+                                    }
+                                )
+                            }
                         },
                         enabled = !isSubmitting,
                         modifier = Modifier
@@ -315,7 +380,7 @@ fun CategoryAddScreen(
                             )
                         } else {
                             Text(
-                                text = "Save",
+                                text = if (categoryId != null) "Save changes" else "Save",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
