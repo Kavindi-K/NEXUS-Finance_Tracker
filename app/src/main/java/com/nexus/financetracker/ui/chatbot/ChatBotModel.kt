@@ -1,0 +1,70 @@
+package com.nexus.financetracker.ui.chatbot
+
+import java.util.Date
+import java.util.UUID
+
+enum class MessageSender {
+    USER,
+    BOT
+}
+
+enum class ActionType {
+    ADD_EXPENSE,
+    ADD_INCOME,
+    ADD_GOAL,
+    NAVIGATE
+}
+
+enum class ActionStatus {
+    PENDING,
+    CONFIRMED,
+    CANCELLED
+}
+
+data class ActionPayload(
+    val amount: Double = 0.0,
+    val categoryId: String = "",
+    val categoryName: String = "",
+    val account: String = "cash",
+    val classification: String = "discretionary",
+    val source: String = "other",
+    val note: String = "",
+    val title: String = "",
+    val targetDate: Date = Date(),
+    val destinationRoute: String = ""
+)
+
+data class ChatActionCard(
+    val id: String = UUID.randomUUID().toString(),
+    val type: ActionType,
+    val title: String,
+    val summary: String,
+    val payload: ActionPayload,
+    val status: ActionStatus = ActionStatus.PENDING,
+    val timestamp: Date = Date()
+)
+
+data class ChatMessage(
+    val id: String = UUID.randomUUID().toString(),
+    val sender: MessageSender,
+    val text: String,
+    val actionCard: ChatActionCard? = null,
+    val timestamp: Date = Date(),
+    val isThinking: Boolean = false
+)
+
+data class ChatBotUiState(
+    val messages: List<ChatMessage> = emptyList(),
+    val isTyping: Boolean = false,
+    val quickPrompts: List<String> = listOf(
+        "💡 Monthly Summary",
+        "🔮 Spending Prediction",
+        "🎯 Goals Pace",
+        "💸 Spent 1500 for Food",
+        "⛽ Petrol 2500 Cash",
+        "💰 Salary 150000"
+    ),
+    val userFirstName: String = "User",
+    val isOnline: Boolean = true,
+    val errorMessage: String? = null
+)

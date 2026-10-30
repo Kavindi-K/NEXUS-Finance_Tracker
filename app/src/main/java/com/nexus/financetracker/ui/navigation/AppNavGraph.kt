@@ -40,6 +40,7 @@ import com.nexus.financetracker.ui.income.IncomeScreen
 import com.nexus.financetracker.ui.income.IncomeViewModel
 import com.nexus.financetracker.ui.alerts.AlertsScreen
 import com.nexus.financetracker.ui.alerts.AlertsViewModel
+import com.nexus.financetracker.ui.chatbot.ChatBotScreen
 import com.nexus.financetracker.ui.reports.ReportsScreen
 import com.nexus.financetracker.ui.settings.SettingsScreen
 import com.nexus.financetracker.ui.profile.ProfileScreen
@@ -316,6 +317,11 @@ fun AppNavGraph(
                             launchSingleTop = true
                             restoreState = true
                         }
+                    },
+                    onNavigateToChatBot = {
+                        navController.navigate(Screen.ChatBot.route) {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }
@@ -551,6 +557,25 @@ fun AppNavGraph(
 
             composable(Screen.Reports.route) {
                 ReportsScreen(onBack = onBackToDashboard)
+            }
+
+            composable(Screen.ChatBot.route) {
+                ChatBotScreen(
+                    onNavigateBack = {
+                        val popped = navController.popBackStack()
+                        if (!popped) {
+                            navController.navigate(Screen.Dashboard.route) {
+                                popUpTo(Screen.Dashboard.route) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                    onNavigateToRoute = { route ->
+                        navController.navigate(route) {
+                            launchSingleTop = true
+                        }
+                    }
+                )
             }
         }
     }
