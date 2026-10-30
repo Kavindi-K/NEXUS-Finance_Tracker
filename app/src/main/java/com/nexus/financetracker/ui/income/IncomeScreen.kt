@@ -274,8 +274,8 @@ fun IncomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Offline Indicator Banner
             if (uiState.isOffline) {
@@ -335,7 +335,7 @@ fun IncomeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -345,31 +345,23 @@ fun IncomeScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(38.dp)
+                                .size(34.dp)
                                 .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.CalendarMonth,
-                                contentDescription = "Select Month",
+                                contentDescription = "Month Filter",
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
-                        Column {
-                            Text(
-                                text = "Select Month",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = if (uiState.isPeriodAllTime) "All Time" else uiState.selectedMonthLabel.ifBlank { "Select Month" },
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Text(
+                            text = if (uiState.isPeriodAllTime) "All Time" else uiState.selectedMonthLabel.ifBlank { "All Time" },
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
 
                     Surface(
@@ -377,7 +369,7 @@ fun IncomeScreen(
                         color = MaterialTheme.colorScheme.primaryContainer
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
@@ -525,7 +517,8 @@ fun IncomeScreen(
                         FilterChip(
                             selected = isSelected,
                             onClick = { viewModel.onFilterSelected(filter) },
-                            label = { Text(label) }
+                            label = { Text(label) },
+                            shape = RoundedCornerShape(20.dp)
                         )
                     }
                 }
@@ -572,8 +565,8 @@ fun IncomeScreen(
                                 }
                             },
                             shape = RoundedCornerShape(20.dp),
-                            color = if (isDateActive) NavyPrimary else Color.White,
-                            border = BorderStroke(1.dp, if (isDateActive) NavyPrimary else Color(0xFFCBD5E1))
+                            color = if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else Color.White,
+                            border = BorderStroke(1.dp, if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else Color(0xFFCBD5E1))
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -583,7 +576,7 @@ fun IncomeScreen(
                                 Icon(
                                     imageVector = Icons.Default.CalendarToday,
                                     contentDescription = null,
-                                    tint = if (isDateActive) Color.White else NavyPrimary,
+                                    tint = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary,
                                     modifier = Modifier.size(13.dp)
                                 )
                                 Text(
@@ -592,13 +585,13 @@ fun IncomeScreen(
                                     } else "Date",
                                     fontSize = 12.sp,
                                     fontWeight = if (isDateActive) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isDateActive) Color.White else NavyPrimary
+                                    color = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
                                 )
                                 if (isDateActive) {
                                     Icon(
                                         imageVector = if (isDateDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
                                         contentDescription = null,
-                                        tint = Color.White,
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                         modifier = Modifier.size(13.dp)
                                     )
                                 }
@@ -617,8 +610,8 @@ fun IncomeScreen(
                                 }
                             },
                             shape = RoundedCornerShape(20.dp),
-                            color = if (isAmountActive) NavyPrimary else Color.White,
-                            border = BorderStroke(1.dp, if (isAmountActive) NavyPrimary else Color(0xFFCBD5E1))
+                            color = if (isAmountActive) MaterialTheme.colorScheme.secondaryContainer else Color.White,
+                            border = BorderStroke(1.dp, if (isAmountActive) MaterialTheme.colorScheme.secondaryContainer else Color(0xFFCBD5E1))
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -631,13 +624,13 @@ fun IncomeScreen(
                                     } else "Amount",
                                     fontSize = 12.sp,
                                     fontWeight = if (isAmountActive) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isAmountActive) Color.White else NavyPrimary
+                                    color = if (isAmountActive) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
                                 )
                                 if (isAmountActive) {
                                     Icon(
                                         imageVector = if (isAmountDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
                                         contentDescription = null,
-                                        tint = Color.White,
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                         modifier = Modifier.size(13.dp)
                                     )
                                 }
@@ -730,15 +723,30 @@ fun IncomeScreen(
                                             )
                                         }
 
-                                        pendingList.forEach { income ->
-                                            IncomeCard(
-                                                income = income,
-                                                dateFormatter = dateFormatter,
-                                                onEdit = { onEditIncome(income.id) },
-                                                onDelete = { incomeToDelete = income },
-                                                onConfirmPayment = { incomeToConfirm = income },
-                                                isStreamView = isStreamDetail
-                                            )
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(16.dp),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        ) {
+                                            Column(modifier = Modifier.fillMaxWidth()) {
+                                                pendingList.forEachIndexed { index, income ->
+                                                    IncomeItemRow(
+                                                        income = income,
+                                                        dateFormatter = dateFormatter,
+                                                        onEdit = { onEditIncome(income.id) },
+                                                        onDelete = { incomeToDelete = income },
+                                                        onConfirmPayment = { incomeToConfirm = income },
+                                                        isStreamView = isStreamDetail
+                                                    )
+                                                    if (index < pendingList.lastIndex) {
+                                                        HorizontalDivider(
+                                                            color = MaterialTheme.colorScheme.outlineVariant,
+                                                            thickness = 1.dp
+                                                        )
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
 
@@ -754,30 +762,60 @@ fun IncomeScreen(
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
 
-                                        confirmedList.forEach { income ->
-                                            IncomeCard(
-                                                income = income,
-                                                dateFormatter = dateFormatter,
-                                                onEdit = { onEditIncome(income.id) },
-                                                onDelete = { incomeToDelete = income },
-                                                onConfirmPayment = null,
-                                                isStreamView = isStreamDetail
-                                            )
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(16.dp),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        ) {
+                                            Column(modifier = Modifier.fillMaxWidth()) {
+                                                confirmedList.forEachIndexed { index, income ->
+                                                    IncomeItemRow(
+                                                        income = income,
+                                                        dateFormatter = dateFormatter,
+                                                        onEdit = { onEditIncome(income.id) },
+                                                        onDelete = { incomeToDelete = income },
+                                                        onConfirmPayment = null,
+                                                        isStreamView = isStreamDetail
+                                                    )
+                                                    if (index < confirmedList.lastIndex) {
+                                                        HorizontalDivider(
+                                                            color = MaterialTheme.colorScheme.outlineVariant,
+                                                            thickness = 1.dp
+                                                        )
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 } else {
                                     // Filtered view (Pending or Confirmed)
-                                    uiState.filteredIncomes.forEach { income ->
-                                        IncomeCard(
-                                            income = income,
-                                            dateFormatter = dateFormatter,
-                                            onEdit = { onEditIncome(income.id) },
-                                            onDelete = { incomeToDelete = income },
-                                            onConfirmPayment = if (income.status == IncomeStatus.PENDING) {
-                                                { incomeToConfirm = income }
-                                            } else null,
-                                            isStreamView = isStreamDetail
-                                        )
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                    ) {
+                                        Column(modifier = Modifier.fillMaxWidth()) {
+                                            uiState.filteredIncomes.forEachIndexed { index, income ->
+                                                IncomeItemRow(
+                                                    income = income,
+                                                    dateFormatter = dateFormatter,
+                                                    onEdit = { onEditIncome(income.id) },
+                                                    onDelete = { incomeToDelete = income },
+                                                    onConfirmPayment = if (income.status == IncomeStatus.PENDING) {
+                                                        { incomeToConfirm = income }
+                                                    } else null,
+                                                    isStreamView = isStreamDetail
+                                                )
+                                                if (index < uiState.filteredIncomes.lastIndex) {
+                                                    HorizontalDivider(
+                                                        color = MaterialTheme.colorScheme.outlineVariant,
+                                                        thickness = 1.dp
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -864,7 +902,7 @@ fun IncomeScreen(
 }
 
 @Composable
-private fun IncomeCard(
+private fun IncomeItemRow(
     income: Income,
     dateFormatter: SimpleDateFormat,
     onEdit: () -> Unit,
@@ -915,202 +953,191 @@ private fun IncomeCard(
 
     val showNoteAsSubtitle = !isStreamView && !subtitleNote.isNullOrBlank()
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 10.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp)
+        // Row 1: Icon, Source & Note, and Amount
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Row 1: Icon, Source & Note, and Amount
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isCryptoLoss) MaterialTheme.colorScheme.errorContainer
+                        else if (isConfirmed) MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.tertiaryContainer
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isCryptoLoss) MaterialTheme.colorScheme.errorContainer
-                            else if (isConfirmed) MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.tertiaryContainer
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = if (isCryptoLoss) MaterialTheme.colorScheme.onErrorContainer
-                        else if (isConfirmed) MaterialTheme.colorScheme.onPrimaryContainer
-                        else MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isCryptoLoss) MaterialTheme.colorScheme.onErrorContainer
+                    else if (isConfirmed) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
 
-                Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(10.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = displayTitle,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1
-                    )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = displayTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1
+                )
 
-                    if (showNoteAsSubtitle) {
-                        Spacer(Modifier.height(1.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Description,
-                                contentDescription = null,
-                                modifier = Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = subtitleNote!!,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1
-                            )
-                        }
-                    }
-                }
-
-                Spacer(Modifier.width(8.dp))
-
-                Column(horizontalAlignment = Alignment.End) {
-                    val amountColor = if (isCryptoLoss) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                    val amountText = when {
-                        isCryptoLoss -> "- LKR %,.2f".format(kotlin.math.abs(income.amountLKR))
-                        isCrypto -> "+ LKR %,.2f".format(income.amountLKR)
-                        else -> "LKR %,.2f".format(income.amountLKR)
-                    }
-                    Text(
-                        text = amountText,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = amountColor
-                    )
-
-                    if (isCrypto) {
-                        Surface(
-                            shape = MaterialTheme.shapes.extraSmall,
-                            color = if (isCryptoLoss) MaterialTheme.colorScheme.errorContainer else Color(0xFFE8F5E9)
-                        ) {
-                            Text(
-                                text = if (isCryptoLoss) "Realized Loss" else "Realized Profit",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isCryptoLoss) MaterialTheme.colorScheme.onErrorContainer else Color(0xFF2E7D32),
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    } else if (income.currency != "LKR") {
+                if (showNoteAsSubtitle) {
+                    Spacer(Modifier.height(1.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Description,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.width(4.dp))
                         Text(
-                            text = "$%,.2f %s @ %,.2f".format(income.amountOriginal, income.currency, income.exchangeRate),
+                            text = subtitleNote!!,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.height(6.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-            Spacer(Modifier.height(5.dp))
+            Spacer(Modifier.width(8.dp))
 
-            // Row 2: Status Chip & Date (Left) + Edit/Delete Actions (Right)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+            Column(horizontalAlignment = Alignment.End) {
+                val amountColor = if (isCryptoLoss) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                val amountText = when {
+                    isCryptoLoss -> "- LKR %,.2f".format(kotlin.math.abs(income.amountLKR))
+                    isCrypto -> "+ LKR %,.2f".format(income.amountLKR)
+                    else -> "LKR %,.2f".format(income.amountLKR)
+                }
+                Text(
+                    text = amountText,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = amountColor
+                )
+
+                if (isCrypto) {
                     Surface(
                         shape = MaterialTheme.shapes.extraSmall,
-                        color = if (isConfirmed) Color(0xFFE8F5E9) else Color(0xFFFFF3E0)
+                        color = if (isCryptoLoss) MaterialTheme.colorScheme.errorContainer else Color(0xFFE8F5E9)
                     ) {
                         Text(
-                            text = if (isConfirmed) "Confirmed" else "Pending",
+                            text = if (isCryptoLoss) "Realized Loss" else "Realized Profit",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isConfirmed) Color(0xFF2E7D32) else Color(0xFFE65100),
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            color = if (isCryptoLoss) MaterialTheme.colorScheme.onErrorContainer else Color(0xFF2E7D32),
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                         )
                     }
-
-                    val date = if (isConfirmed) income.dateReceived else income.expectedDate
+                } else if (income.currency != "LKR") {
                     Text(
-                        text = date?.let { dateFormatter.format(it) } ?: "No date",
+                        text = "$%,.2f %s @ %,.2f".format(income.amountOriginal, income.currency, income.exchangeRate),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+        }
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+        Spacer(Modifier.height(4.dp))
+
+        // Row 2: Status Chip & Date (Left) + Edit/Delete Actions (Right)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    shape = MaterialTheme.shapes.extraSmall,
+                    color = if (isConfirmed) Color(0xFFE8F5E9) else Color(0xFFFFF3E0)
                 ) {
-                    IconButton(
-                        onClick = onEdit,
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit",
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onDelete,
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                    Text(
+                        text = if (isConfirmed) "Confirmed" else "Pending",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isConfirmed) Color(0xFF2E7D32) else Color(0xFFE65100),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
                 }
+
+                val date = if (isConfirmed) income.dateReceived else income.expectedDate
+                Text(
+                    text = date?.let { dateFormatter.format(it) } ?: "No date",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
-            // Quick Confirmation Action on Pending Invoices
-            if (!isConfirmed && onConfirmPayment != null) {
-                Spacer(Modifier.height(6.dp))
-                FilledTonalButton(
-                    onClick = onConfirmPayment,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                         modifier = Modifier.size(16.dp)
                     )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "Mark Payment Received",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
+                }
+
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp)
                     )
                 }
+            }
+        }
+
+        // Quick Confirmation Action on Pending Invoices
+        if (!isConfirmed && onConfirmPayment != null) {
+            Spacer(Modifier.height(6.dp))
+            FilledTonalButton(
+                onClick = onConfirmPayment,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "Mark Payment Received",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }

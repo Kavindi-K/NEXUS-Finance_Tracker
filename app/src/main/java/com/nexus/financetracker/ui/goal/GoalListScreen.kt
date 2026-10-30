@@ -345,6 +345,7 @@ fun GoalListScreen(
                                     selected = isSelected,
                                     onClick = { viewModel.onFilterSelected(filter) },
                                     label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+                                    shape = RoundedCornerShape(20.dp),
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = GoalNavyDark,
                                         selectedLabelColor = Color.White
