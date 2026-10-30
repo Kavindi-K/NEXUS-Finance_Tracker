@@ -12,4 +12,5 @@ interface GoalRepository {
     suspend fun addGoal(userId: String, goal: Goal): String
     suspend fun updateGoal(userId: String, goal: Goal)
     suspend fun deleteGoal(userId: String, goalId: String)
+    suspend fun clearLocalCache(userId: String)
 }

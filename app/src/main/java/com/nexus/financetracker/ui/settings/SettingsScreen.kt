@@ -114,7 +114,7 @@ fun SettingsScreen(
             },
             text = {
                 Text(
-                    "This will remove ${uiState.cachedExpensesCount} locally cached offline expense records from Room. " +
+                    "This will remove ${uiState.cachedExpensesCount} locally cached offline records across all modules (expenses, income, goals, categories) from Room. " +
                             "Your remote records remain safe on Firestore and will reload upon network sync."
                 )
             },
@@ -594,12 +594,12 @@ fun SettingsScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Cached Expenses",
+                                text = "Cached Records",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "${uiState.cachedExpensesCount} records stored locally",
+                                text = "${uiState.cachedExpensesCount} records cached across all modules",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

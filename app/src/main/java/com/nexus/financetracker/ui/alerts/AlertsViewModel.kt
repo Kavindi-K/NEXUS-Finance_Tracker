@@ -205,13 +205,12 @@ class AlertsViewModel @Inject constructor(
                         when {
                             calc.isCompleted -> {
                                 val alertId = "goal_achieved_${goal.id}"
-                                val formattedTarget = "%,.0f".format(goal.targetAmountLKR)
                                 goalList.add(
                                     GoalAlert(
                                         id = alertId,
                                         goal = goal,
                                         title = "🎉 Goal Achieved: ${goal.title}!",
-                                        message = "Congratulations! You've reached 100% of your target (LKR $formattedTarget)!",
+                                        message = "Congratulations! You've reached 100% of your target (${"LKR %,.0f".format(goal.targetAmountLKR)})!",
                                         type = GoalAlertType.ACHIEVED,
                                         priority = priorityName,
                                         isUnread = !readIds.contains(alertId)
