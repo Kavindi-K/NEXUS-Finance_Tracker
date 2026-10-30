@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CurrencyBitcoin
 import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,6 +60,14 @@ fun IncomeEntryScreen(
         }
     }
 
+    // Auto-fetch live market exchange rate whenever AdSense (USD) is chosen
+    val isAdSense = formState.source == IncomeSource.ADSENSE
+    LaunchedEffect(isAdSense) {
+        if (isAdSense && !formState.isEditMode) {
+            viewModel.fetchLiveExchangeRate("USD")
+        }
+    }
+
     val calendar = remember { Calendar.getInstance() }
 
     fun showDatePicker(initialDate: Date, onDateSelected: (Date) -> Unit) {
@@ -76,7 +85,6 @@ fun IncomeEntryScreen(
         ).show()
     }
 
-    val isAdSense = formState.source == IncomeSource.ADSENSE
     val isSalary = formState.source == IncomeSource.SALARY
     val isFreelance = formState.source == IncomeSource.FREELANCE
     val isCrypto = formState.source == IncomeSource.CRYPTO
@@ -331,9 +339,35 @@ fun IncomeEntryScreen(
                             onValueChange = viewModel::onExchangeRateChanged,
                             label = { Text("Exchange Rate to LKR") },
                             leadingIcon = { Icon(Icons.Default.CurrencyExchange, contentDescription = null) },
+                            trailingIcon = {
+                                if (formState.isFetchingRate) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    IconButton(onClick = { viewModel.fetchLiveExchangeRate(formState.currency) }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = "Refresh live rate",
+                                            tint = if (formState.isRateLive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.fillMaxWidth(),
-                            supportingText = { Text("1 USD = ${formState.exchangeRate} LKR") }
+                            supportingText = {
+                                if (formState.isFetchingRate) {
+                                    Text("Fetching live market rate from API...", color = MaterialTheme.colorScheme.primary)
+                                } else if (formState.isRateLive) {
+                                    Text("Live rate: 1 USD = ${formState.exchangeRate} LKR (tap refresh to update, or edit manually)", color = Color(0xFF15803D))
+                                } else {
+                                    Text("1 USD = ${formState.exchangeRate} LKR (editable)")
+                                }
+                            }
                         )
                     }
                 }

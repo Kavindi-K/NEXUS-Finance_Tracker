@@ -3,6 +3,7 @@ package com.nexus.financetracker.ui.income
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.nexus.financetracker.data.repository.ExchangeRateRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
 import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.domain.model.Income
@@ -77,6 +78,8 @@ data class IncomeFormState(
     val amountOriginal: String = "130000.00",
     val currency: String = "LKR",
     val exchangeRate: String = "1.0",
+    val isFetchingRate: Boolean = false,
+    val isRateLive: Boolean = false,
     val isCryptoLoss: Boolean = false,
     val dateReceived: Date = Date(),
     val expectedDate: Date = Date(),
@@ -122,7 +125,8 @@ data class IncomeUiState(
 class IncomeViewModel @Inject constructor(
     private val incomeRepository: IncomeRepository,
     private val auth: FirebaseAuth,
-    private val networkMonitor: NetworkMonitor
+    private val networkMonitor: NetworkMonitor,
+    private val exchangeRateRepository: ExchangeRateRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(IncomeUiState())
@@ -140,6 +144,7 @@ class IncomeViewModel @Inject constructor(
     init {
         loadIncomes()
         observeNetworkStatus()
+        fetchLiveExchangeRate("USD")
     }
 
     private fun observeNetworkStatus() {
@@ -584,6 +589,10 @@ class IncomeViewModel @Inject constructor(
             isCryptoLoss = false,
             error = null
         )
+
+        if (defaults.currency.equals("USD", ignoreCase = true)) {
+            fetchLiveExchangeRate("USD")
+        }
     }
 
     fun onStatusChanged(status: String) {
@@ -602,6 +611,33 @@ class IncomeViewModel @Inject constructor(
             exchangeRate = defaultRate,
             error = null
         )
+
+        if (uppercaseCurrency == "USD") {
+            fetchLiveExchangeRate("USD")
+        }
+    }
+
+    fun fetchLiveExchangeRate(currency: String = "USD") {
+        if (currency.equals("LKR", ignoreCase = true)) {
+            _formState.value = _formState.value.copy(
+                exchangeRate = "1.0",
+                isFetchingRate = false,
+                isRateLive = false
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            _formState.value = _formState.value.copy(isFetchingRate = true)
+            val result = exchangeRateRepository.getExchangeRate(baseCurrency = currency, targetCurrency = "LKR")
+            if (_formState.value.currency.equals(currency, ignoreCase = true)) {
+                _formState.value = _formState.value.copy(
+                    exchangeRate = String.format(Locale.US, "%.2f", result.rate),
+                    isFetchingRate = false,
+                    isRateLive = result.isLive
+                )
+            }
+        }
     }
 
     fun onExchangeRateChanged(rate: String) {
