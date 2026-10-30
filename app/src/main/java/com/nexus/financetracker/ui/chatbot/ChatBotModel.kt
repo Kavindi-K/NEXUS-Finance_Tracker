@@ -41,6 +41,7 @@ data class ChatActionCard(
     val summary: String,
     val payload: ActionPayload,
     val status: ActionStatus = ActionStatus.PENDING,
+    val isSinhala: Boolean = false,
     val timestamp: Date = Date()
 )
 
@@ -68,3 +69,4 @@ data class ChatBotUiState(
     val isOnline: Boolean = true,
     val errorMessage: String? = null
 )
+

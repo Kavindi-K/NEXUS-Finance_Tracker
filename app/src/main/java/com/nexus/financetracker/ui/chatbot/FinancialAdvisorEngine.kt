@@ -20,6 +20,7 @@ import kotlin.math.roundToInt
  * High-performance, lightweight financial reasoning engine.
  * Computes predictive trajectory, burn-rates, and personalized recommendations
  * entirely on-device from verified user data without third-party exposure.
+ * Supports bilingual responses: English (Default) and Sinhala (Adaptive).
  */
 @Singleton
 class FinancialAdvisorEngine @Inject constructor() {
@@ -28,7 +29,8 @@ class FinancialAdvisorEngine @Inject constructor() {
         incomes: List<Income>,
         expenses: List<Expense>,
         goals: List<Goal>,
-        categories: List<Category>
+        categories: List<Category>,
+        isSinhala: Boolean = false
     ): String {
         val now = Calendar.getInstance()
         val currentDay = now.get(Calendar.DAY_OF_MONTH)
@@ -74,38 +76,70 @@ class FinancialAdvisorEngine @Inject constructor() {
         }
 
         val sb = StringBuilder()
-        sb.append("🔮 **මාසික මූල්‍ය අනාවැකිය (Monthly Prediction):**\n\n")
 
-        sb.append("📅 **දින සාරාංශය:** අද මාසයේ %d වන දින. තව දින %dක් ඉතිරිව ඇත.\n".format(currentDay, daysRemainingInMonth))
-        sb.append("💸 **වත්මන් වියදම:** LKR %,.0f\n".format(totalSpentThisMonth))
-        sb.append("📊 **දෛනික සාමාන්‍ය වියදම (Daily Pace):** LKR %,.0f / දිනකට\n".format(dailyBurnRate))
-        sb.append("🎯 **මාසය අවසානයේ අපේක්ෂිත වියදම:** LKR %,.0f\n".format(projectedMonthEndExpense))
+        if (isSinhala) {
+            sb.append("🔮 **මාසික මූල්‍ය අනාවැකිය (Monthly Prediction):**\n\n")
+            sb.append("📅 **දින සාරාංශය:** අද මාසයේ %d වන දින. තව දින %dක් ඉතිරිව ඇත.\n".format(currentDay, daysRemainingInMonth))
+            sb.append("💸 **වත්මන් වියදම:** LKR %,.0f\n".format(totalSpentThisMonth))
+            sb.append("📊 **දෛනික සාමාන්‍ය වියදම (Daily Pace):** LKR %,.0f / දිනකට\n".format(dailyBurnRate))
+            sb.append("🎯 **මාසය අවසානයේ අපේක්ෂිත වියදම:** LKR %,.0f\n".format(projectedMonthEndExpense))
 
-        if (totalIncomeThisMonth > 0) {
-            sb.append("💵 **අපේක්ෂිත ශුද්ධ ඉතිරිය (Projected Savings):** LKR %,.0f\n".format(projectedNetSavings))
-            if (projectedNetSavings < 0) {
-                sb.append("⚠️ *අවධානය:* වත්මන් වේගයෙන් ගියහොත් ඔබේ වියදම ආදායමට වඩා වැඩි වේ!\n")
-            } else {
-                sb.append("✅ *සුබ ලකුණක්:* ඔබේ ආදායමෙන් %d%% ක් පමණ ඉතිරි කරගත හැකි වනු ඇත.\n".format(((projectedNetSavings / totalIncomeThisMonth) * 100).roundToInt()))
+            if (totalIncomeThisMonth > 0) {
+                sb.append("💵 **අපේක්ෂිත ශුද්ධ ඉතිරිය (Projected Savings):** LKR %,.0f\n".format(projectedNetSavings))
+                if (projectedNetSavings < 0) {
+                    sb.append("⚠️ *අවධානය:* වත්මන් වේගයෙන් ගියහොත් ඔබේ වියදම ආදායමට වඩා වැඩි වේ!\n")
+                } else {
+                    sb.append("✅ *සුබ ලකුණක්:* ඔබේ ආදායමෙන් %d%% ක් පමණ ඉතිරි කරගත හැකි වනු ඇත.\n".format(((projectedNetSavings / totalIncomeThisMonth) * 100).roundToInt()))
+                }
             }
-        }
 
-        sb.append("\n💡 **මූල්‍ය උපදෙස් සහ නිර්දේශ (Smart Advice):**\n")
+            sb.append("\n💡 **මූල්‍ය උපදෙස් සහ නිර්දේශ (Smart Advice):**\n")
+            if (discretionaryPercent > 40.0) {
+                sb.append("• ඔබේ වියදම්වලින් %.0f%% ක්ම අනවශ්‍ය/විකල්ප (Discretionary) වියදම් වේ. Dining සහ Shopping වියදම් 15-20%% කින් අඩු කළහොත් මාසය අවසානයේ LKR %,.0f ක අතිරේක මුදලක් ඉතිරි කරගත හැක.\n"
+                    .format(discretionaryPercent, (discretionarySum * 0.20)))
+            } else {
+                sb.append("• ඔබේ වියදම් පාලනය ඉතා යහපත් මට්ටමක පවතී. අත්‍යවශ්‍ය නොවන වියදම් අවම කර ඇත.\n")
+            }
 
-        if (discretionaryPercent > 40.0) {
-            sb.append("• ඔබේ වියදම්වලින් %.0f%% ක්ම අනවශ්‍ය/විකල්ප (Discretionary) වියදම් වේ. Dining සහ Shopping වියදම් 15-20%% කින් අඩු කළහොත් මාසය අවසානයේ LKR %,.0f ක අතිරේක මුදලක් ඉතිරි කරගත හැක.\n"
-                .format(discretionaryPercent, (discretionarySum * 0.20)))
+            if (overdueOrBehindGoals.isNotEmpty()) {
+                val (goal, calc) = overdueOrBehindGoals.first()
+                sb.append("• **Goal Alert:** '%s' ඉලක්කය සඳහා නියමිත වේලාවට ළඟා වීමට මේ මාසයේදී LKR %,.0f ක් ඉතිරි කිරීම අවශ්‍ය වේ.\n"
+                    .format(goal.title, max(0.0, calc.requiredMonthlySavingsLKR)))
+            }
+            sb.append("\n*දෛනිකව වියදම් සටහන් කිරීම මඟින් ඔබේ මූල්‍ය පාලනය 100% ක් නිවැරදිව තබාගන්න.*")
         } else {
-            sb.append("• ඔබේ වියදම් පාලනය ඉතා යහපත් මට්ටමක පවතී. අත්‍යවශ්‍ය නොවන වියදම් අවම කර ඇත.\n")
-        }
+            // Default English response
+            sb.append("🔮 **Monthly Financial Forecast & Insights:**\n\n")
+            sb.append("📅 **Timeline:** Day %d of the month · %d days remaining\n".format(currentDay, daysRemainingInMonth))
+            sb.append("💸 **Current Month-to-Date Spend:** LKR %,.0f\n".format(totalSpentThisMonth))
+            sb.append("📊 **Daily Burn Rate:** LKR %,.0f / day\n".format(dailyBurnRate))
+            sb.append("🎯 **Projected Total Month-End Spending:** LKR %,.0f\n".format(projectedMonthEndExpense))
 
-        if (overdueOrBehindGoals.isNotEmpty()) {
-            val (goal, calc) = overdueOrBehindGoals.first()
-            sb.append("• **Goal Alert:** '%s' ඉලක්කය සඳහා නියමිත වේලාවට ළඟා වීමට මේ මාසයේදී LKR %,.0f ක් ඉතිරි කිරීම අවශ්‍ය වේ.\n"
-                .format(goal.title, max(0.0, calc.requiredMonthlySavingsLKR)))
-        }
+            if (totalIncomeThisMonth > 0) {
+                sb.append("💵 **Projected Net Savings:** LKR %,.0f\n".format(projectedNetSavings))
+                if (projectedNetSavings < 0) {
+                    sb.append("⚠️ *Warning:* At this rate, your spending will exceed your confirmed income!\n")
+                } else {
+                    val savingsRate = ((projectedNetSavings / totalIncomeThisMonth) * 100).roundToInt()
+                    sb.append("✅ *Healthy Trajectory:* You are on track to save approximately %d%% of your monthly income.\n".format(savingsRate))
+                }
+            }
 
-        sb.append("\n*දෛනිකව වියදම් සටහන් කිරීම මඟින් ඔබේ මූල්‍ය පාලනය 100% ක් නිවැරදිව තබාගන්න.*")
+            sb.append("\n💡 **Actionable Recommendations:**\n")
+            if (discretionaryPercent > 40.0) {
+                sb.append("• Discretionary spending accounts for %.0f%% of your total expenses. Trimming dining out and shopping by 15-20%% can save an extra LKR %,.0f this month.\n"
+                    .format(discretionaryPercent, (discretionarySum * 0.20)))
+            } else {
+                sb.append("• Great financial discipline! Your discretionary expenses are well-balanced and within healthy limits.\n")
+            }
+
+            if (overdueOrBehindGoals.isNotEmpty()) {
+                val (goal, calc) = overdueOrBehindGoals.first()
+                sb.append("• **Goal Alert:** You need to save LKR %,.0f this month to stay on pace for '%s'.\n"
+                    .format(max(0.0, calc.requiredMonthlySavingsLKR), goal.title))
+            }
+            sb.append("\n*Tip: Logging expenses daily keeps your real-time burn rate accurate.*")
+        }
 
         return sb.toString()
     }
@@ -114,7 +148,8 @@ class FinancialAdvisorEngine @Inject constructor() {
         incomes: List<Income>,
         expenses: List<Expense>,
         goals: List<Goal>,
-        categories: List<Category>
+        categories: List<Category>,
+        isSinhala: Boolean = false
     ): String {
         val now = Calendar.getInstance()
         val startOfMonth = (now.clone() as Calendar).apply {
@@ -148,21 +183,41 @@ class FinancialAdvisorEngine @Inject constructor() {
         val activeGoals = goals.filter { it.isActive }
 
         val sb = StringBuilder()
-        sb.append("📊 **මේ මාසයේ මූල්‍ය සාරාංශය (Monthly Summary):**\n\n")
-        sb.append("💰 **ලැබුණු ආදායම:** LKR %,.0f\n".format(totalIncome))
-        sb.append("💸 **කරන ලද වියදම:** LKR %,.0f\n".format(totalSpent))
-        sb.append("⚖️ **ඉතිරි ශේෂය (Net):** %sLKR %,.0f\n".format(if (netBalance >= 0) "+" else "", netBalance))
+        if (isSinhala) {
+            sb.append("📊 **මේ මාසයේ මූල්‍ය සාරාංශය (Monthly Summary):**\n\n")
+            sb.append("💰 **ලැබුණු ආදායම:** LKR %,.0f\n".format(totalIncome))
+            sb.append("💸 **කරන ලද වියදම:** LKR %,.0f\n".format(totalSpent))
+            sb.append("⚖️ **ඉතිරි ශේෂය (Net):** %sLKR %,.0f\n".format(if (netBalance >= 0) "+" else "", netBalance))
 
-        if (topCategories.isNotEmpty()) {
-            sb.append("\n🏷️ **වැඩිපුරම වියදම් වූ අංශ (Top Categories):**\n")
-            topCategories.forEachIndexed { i, (name, amount) ->
-                val percent = if (totalSpent > 0) (amount / totalSpent) * 100.0 else 0.0
-                sb.append("${i + 1}. **$name**: LKR %,.0f (%.0f%%)\n".format(amount, percent))
+            if (topCategories.isNotEmpty()) {
+                sb.append("\n🏷️ **වැඩිපුරම වියදම් වූ අංශ (Top Categories):**\n")
+                topCategories.forEachIndexed { i, (name, amount) ->
+                    val percent = if (totalSpent > 0) (amount / totalSpent) * 100.0 else 0.0
+                    sb.append("${i + 1}. **$name**: LKR %,.0f (%.0f%%)\n".format(amount, percent))
+                }
             }
-        }
 
-        if (activeGoals.isNotEmpty()) {
-            sb.append("\n🎯 **ක්‍රියාකාරී ඉලක්ක (Active Goals):** ${activeGoals.size} ක් ක්‍රියාත්මකයි.")
+            if (activeGoals.isNotEmpty()) {
+                sb.append("\n🎯 **ක්‍රියාකාරී ඉලක්ක (Active Goals):** ${activeGoals.size} ක් ක්‍රියාත්මකයි.")
+            }
+        } else {
+            // Default English response
+            sb.append("📊 **Monthly Financial Summary:**\n\n")
+            sb.append("💰 **Confirmed Income:** LKR %,.0f\n".format(totalIncome))
+            sb.append("💸 **Total Expenses:** LKR %,.0f\n".format(totalSpent))
+            sb.append("⚖️ **Net Savings:** %sLKR %,.0f\n".format(if (netBalance >= 0) "+" else "", netBalance))
+
+            if (topCategories.isNotEmpty()) {
+                sb.append("\n🏷️ **Top Spending Categories:**\n")
+                topCategories.forEachIndexed { i, (name, amount) ->
+                    val percent = if (totalSpent > 0) (amount / totalSpent) * 100.0 else 0.0
+                    sb.append("${i + 1}. **$name**: LKR %,.0f (%.0f%%)\n".format(amount, percent))
+                }
+            }
+
+            if (activeGoals.isNotEmpty()) {
+                sb.append("\n🎯 **Active Savings Goals:** ${activeGoals.size} in progress.")
+            }
         }
 
         return sb.toString()
@@ -171,34 +226,61 @@ class FinancialAdvisorEngine @Inject constructor() {
     fun generateGoalPaceReport(
         goals: List<Goal>,
         incomes: List<Income>,
-        expenses: List<Expense>
+        expenses: List<Expense>,
+        isSinhala: Boolean = false
     ): String {
         val activeGoals = goals.filter { it.isActive }
         if (activeGoals.isEmpty()) {
-            return "🎯 ඔබට දැනට ක්‍රියාකාරී Savings Goals කිසිවක් නොමැත. අලුත් Goal එකක් එකතු කිරීමට *'Save 50000 for Laptop'* වැනි විධානයක් ලබා දෙන්න."
+            return if (isSinhala) {
+                "🎯 ඔබට දැනට ක්‍රියාකාරී Savings Goals කිසිවක් නොමැත. අලුත් Goal එකක් එකතු කිරීමට *'Save 50000 for Laptop'* වැනි විධානයක් ලබා දෙන්න."
+            } else {
+                "🎯 You have no active Savings Goals currently. You can create one anytime by saying *'Save 100000 for Emergency Fund'*."
+            }
         }
 
         val sb = StringBuilder()
-        sb.append("🎯 **ඔබේ Savings Goals වල ප්‍රගතිය (Goal Pace Report):**\n\n")
+        if (isSinhala) {
+            sb.append("🎯 **ඔබේ Savings Goals වල ප්‍රගතිය (Goal Pace Report):**\n\n")
+            for (goal in activeGoals) {
+                val calc = GoalCalculation.calculate(goal, incomes, expenses, Date())
+                val statusEmoji = when (calc.paceStatus) {
+                    PaceStatus.AHEAD_OF_PACE -> "🚀 Ahead"
+                    PaceStatus.ON_TRACK -> "✅ On Track"
+                    PaceStatus.BEHIND_PACE -> "⚠️ Behind Pace"
+                    PaceStatus.OVERDUE -> "❌ Overdue"
+                    PaceStatus.COMPLETED -> "🎉 Completed"
+                    PaceStatus.INSUFFICIENT_HISTORY -> "ℹ️ In Progress"
+                }
 
-        for (goal in activeGoals) {
-            val calc = GoalCalculation.calculate(goal, incomes, expenses, Date())
-            val statusEmoji = when (calc.paceStatus) {
-                PaceStatus.AHEAD_OF_PACE -> "🚀 Ahead"
-                PaceStatus.ON_TRACK -> "✅ On Track"
-                PaceStatus.BEHIND_PACE -> "⚠️ Behind Pace"
-                PaceStatus.OVERDUE -> "❌ Overdue"
-                PaceStatus.COMPLETED -> "🎉 Completed"
-                PaceStatus.INSUFFICIENT_HISTORY -> "ℹ️ In Progress"
+                sb.append("• **${goal.title}** ($statusEmoji)\n")
+                sb.append("   - ඉලක්කය: LKR %,.0f | ඉතිරිව ඇත්තේ: LKR %,.0f (%.1f%%)\n"
+                    .format(goal.targetAmountLKR, calc.remainingAmountLKR, calc.progressPercentage))
+                if (calc.requiredMonthlySavingsLKR > 0) {
+                    sb.append("   - අවශ්‍ය මාසික ඉතිරිය: LKR %,.0f\n".format(calc.requiredMonthlySavingsLKR))
+                }
+                sb.append("   - ඉතිරි කාලය: %s\n\n".format(calc.daysRemainingText))
             }
+        } else {
+            sb.append("🎯 **Savings Goals Progress & Pace Report:**\n\n")
+            for (goal in activeGoals) {
+                val calc = GoalCalculation.calculate(goal, incomes, expenses, Date())
+                val statusText = when (calc.paceStatus) {
+                    PaceStatus.AHEAD_OF_PACE -> "🚀 Ahead of Pace"
+                    PaceStatus.ON_TRACK -> "✅ On Track"
+                    PaceStatus.BEHIND_PACE -> "⚠️ Behind Pace"
+                    PaceStatus.OVERDUE -> "❌ Overdue"
+                    PaceStatus.COMPLETED -> "🎉 Completed"
+                    PaceStatus.INSUFFICIENT_HISTORY -> "ℹ️ In Progress"
+                }
 
-            sb.append("• **${goal.title}** ($statusEmoji)\n")
-            sb.append("   - ඉලක්කය: LKR %,.0f | ඉතිරිව ඇත්තේ: LKR %,.0f (%.1f%%)\n"
-                .format(goal.targetAmountLKR, calc.remainingAmountLKR, calc.progressPercentage))
-            if (calc.requiredMonthlySavingsLKR > 0) {
-                sb.append("   - අවශ්‍ය මාසික ඉතිරිය: LKR %,.0f\n".format(calc.requiredMonthlySavingsLKR))
+                sb.append("• **${goal.title}** ($statusText)\n")
+                sb.append("   - Target: LKR %,.0f | Remaining: LKR %,.0f (%.1f%% complete)\n"
+                    .format(goal.targetAmountLKR, calc.remainingAmountLKR, calc.progressPercentage))
+                if (calc.requiredMonthlySavingsLKR > 0) {
+                    sb.append("   - Required Monthly Savings: LKR %,.0f\n".format(calc.requiredMonthlySavingsLKR))
+                }
+                sb.append("   - Time Remaining: %s\n\n".format(calc.daysRemainingText))
             }
-            sb.append("   - ඉතිරි කාලය: %s\n\n".format(calc.daysRemainingText))
         }
 
         return sb.toString().trimEnd()

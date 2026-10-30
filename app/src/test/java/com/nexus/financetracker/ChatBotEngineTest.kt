@@ -120,7 +120,7 @@ class ChatBotEngineTest {
     }
 
     @Test
-    fun advisorEngine_generatesPredictionAndAdvice_withRealNumbers() {
+    fun advisorEngine_generatesPredictionAndAdvice_defaultEnglish_and_sinhalaAdaptive() {
         val now = Date()
         val incomes = listOf(
             Income(id = "inc1", userId = "u1", amountLKR = 150000.0, status = IncomeStatus.CONFIRMED, dateReceived = now)
@@ -134,16 +134,23 @@ class ChatBotEngineTest {
             Goal(id = "g1", userId = "u1", title = "Emergency Fund", targetAmountLKR = 100000.0, targetDate = targetCal.time)
         )
 
-        val report = advisorEngine.generatePredictionAndAdvice(incomes, expenses, goals, testCategories)
+        // Default English
+        val englishReport = advisorEngine.generatePredictionAndAdvice(incomes, expenses, goals, testCategories, isSinhala = false)
+        assertNotNull(englishReport)
+        assertTrue(englishReport.contains("Monthly Financial Forecast"))
+        assertTrue(englishReport.contains("LKR 35,000"))
+        assertTrue(englishReport.contains("Actionable Recommendations"))
 
-        assertNotNull(report)
-        assertTrue(report.contains("මාසික මූල්‍ය අනාවැකිය"))
-        assertTrue(report.contains("LKR 35,000")) // total current spent
-        assertTrue(report.contains("මූල්‍ය උපදෙස්"))
+        // Sinhala Adaptive
+        val sinhalaReport = advisorEngine.generatePredictionAndAdvice(incomes, expenses, goals, testCategories, isSinhala = true)
+        assertNotNull(sinhalaReport)
+        assertTrue(sinhalaReport.contains("මාසික මූල්‍ය අනාවැකිය"))
+        assertTrue(sinhalaReport.contains("LKR 35,000"))
+        assertTrue(sinhalaReport.contains("මූල්‍ය උපදෙස්"))
     }
 
     @Test
-    fun advisorEngine_generatesSummary_correctTotals() {
+    fun advisorEngine_generatesSummary_defaultEnglish_and_sinhalaAdaptive() {
         val now = Date()
         val incomes = listOf(
             Income(id = "inc1", userId = "u1", amountLKR = 100000.0, status = IncomeStatus.CONFIRMED, dateReceived = now)
@@ -152,11 +159,19 @@ class ChatBotEngineTest {
             Expense(id = "exp1", userId = "u1", amountLKR = 40000.0, categoryId = "cat_food", date = now)
         )
 
-        val summary = advisorEngine.generateSummary(incomes, expenses, emptyList(), testCategories)
+        // Default English
+        val englishSummary = advisorEngine.generateSummary(incomes, expenses, emptyList(), testCategories, isSinhala = false)
+        assertTrue(englishSummary.contains("Monthly Financial Summary"))
+        assertTrue(englishSummary.contains("LKR 100,000"))
+        assertTrue(englishSummary.contains("LKR 40,000"))
+        assertTrue(englishSummary.contains("+LKR 60,000"))
 
-        assertTrue(summary.contains("LKR 100,000"))
-        assertTrue(summary.contains("LKR 40,000"))
-        assertTrue(summary.contains("+LKR 60,000"))
+        // Sinhala Adaptive
+        val sinhalaSummary = advisorEngine.generateSummary(incomes, expenses, emptyList(), testCategories, isSinhala = true)
+        assertTrue(sinhalaSummary.contains("මේ මාසයේ මූල්‍ය සාරාංශය"))
+        assertTrue(sinhalaSummary.contains("LKR 100,000"))
+        assertTrue(sinhalaSummary.contains("LKR 40,000"))
+        assertTrue(sinhalaSummary.contains("+LKR 60,000"))
     }
 
     @Test

@@ -24,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -98,13 +99,14 @@ fun DashboardScreen(
 
 
 
-    // Root-level scrollable Column ensures touch and mouse-wheel scrolling works everywhere
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(NavyHeaderBg)
-            .verticalScroll(scrollState)
-    ) {
+    // Root Box enables the scrollable content and the floating AI Copilot button to overlay seamlessly
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(NavyHeaderBg)
+                .verticalScroll(scrollState)
+        ) {
         // --- 1. Top Navy Section (Greeting + Nexus Logo + Total Amount Card) ---
         Column(
             modifier = Modifier
@@ -780,6 +782,71 @@ fun DashboardScreen(
 
                 // Generous bottom clearance ensures all scrolled cards are completely visible above bottom navigation bar
                 Spacer(modifier = Modifier.height(100.dp))
+            }
+        }
+    }
+
+    // Modern Floating AI Copilot Action Icon
+    ModernAiCopilotFab(
+        onClick = onNavigateToChatBot,
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(end = 18.dp, bottom = 18.dp)
+    )
+}
+}
+
+/**
+ * Modern Floating Action Button for opening the NEXUS AI Copilot from the Dashboard.
+ */
+@Composable
+private fun ModernAiCopilotFab(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .shadow(
+                elevation = 10.dp,
+                shape = RoundedCornerShape(28.dp),
+                ambientColor = Color(0xFF0F172A),
+                spotColor = Color(0xFF38BDF8)
+            )
+            .clip(RoundedCornerShape(28.dp)),
+        color = Color(0xFF072044),
+        border = BorderStroke(1.5.dp, Color(0xFF38BDF8))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF1E3A8A)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SmartToy,
+                    contentDescription = "AI Copilot",
+                    tint = Color(0xFF60A5FA),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Text(
+                text = "AI Copilot",
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFF10B981)
+            ) {
+                Box(modifier = Modifier.size(6.dp))
             }
         }
     }
