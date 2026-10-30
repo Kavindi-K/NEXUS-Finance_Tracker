@@ -157,11 +157,11 @@ fun GoalListScreen(
                         Card(
                             onClick = { showPrioritySheet = true },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
+                            shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = NavyCardBg),
                             border = BorderStroke(1.dp, NavyCardBorder)
                         ) {
-                            Column(modifier = Modifier.padding(18.dp)) {
+                            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -174,7 +174,8 @@ fun GoalListScreen(
                                         Icon(
                                             imageVector = Icons.Default.Savings,
                                             contentDescription = null,
-                                            tint = GoalNavyTextSubtle
+                                            tint = GoalNavyTextSubtle,
+                                            modifier = Modifier.size(20.dp)
                                         )
                                         Text(
                                             text = "Savings Goals",
@@ -204,7 +205,7 @@ fun GoalListScreen(
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
 
                                 Text(
                                     text = "${uiState.goals.size} ${if (uiState.goals.size == 1) "Goal" else "Goals"}",
@@ -212,51 +213,6 @@ fun GoalListScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                // In small display: how many high, medium, and low priority ones (tap to filter)
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    val isHighSelected = uiState.selectedPriority.equals(GoalPriority.HIGH, ignoreCase = true)
-                                    PriorityPill(
-                                        count = uiState.highPriorityCount,
-                                        label = "High",
-                                        dotColor = Color(0xFFEF4444),
-                                        containerColor = if (isHighSelected) Color(0x66EF4444) else Color(0x26EF4444),
-                                        borderColor = if (isHighSelected) Color(0xFFEF4444) else Color(0x4DE57373),
-                                        onClick = {
-                                            viewModel.onPrioritySelected(if (isHighSelected) null else GoalPriority.HIGH)
-                                        }
-                                    )
-
-                                    val isMedSelected = uiState.selectedPriority.equals(GoalPriority.MEDIUM, ignoreCase = true)
-                                    PriorityPill(
-                                        count = uiState.mediumPriorityCount,
-                                        label = "Medium",
-                                        dotColor = Color(0xFFF59E0B),
-                                        containerColor = if (isMedSelected) Color(0x66F59E0B) else Color(0x26F59E0B),
-                                        borderColor = if (isMedSelected) Color(0xFFF59E0B) else Color(0x4DFB8C00),
-                                        onClick = {
-                                            viewModel.onPrioritySelected(if (isMedSelected) null else GoalPriority.MEDIUM)
-                                        }
-                                    )
-
-                                    val isLowSelected = uiState.selectedPriority.equals(GoalPriority.LOW, ignoreCase = true)
-                                    PriorityPill(
-                                        count = uiState.lowPriorityCount,
-                                        label = "Low",
-                                        dotColor = Color(0xFF94A3B8),
-                                        containerColor = if (isLowSelected) Color(0x6694A3B8) else Color(0x2694A3B8),
-                                        borderColor = if (isLowSelected) Color(0xFF94A3B8) else Color(0x4D94A3B8),
-                                        onClick = {
-                                            viewModel.onPrioritySelected(if (isLowSelected) null else GoalPriority.LOW)
-                                        }
-                                    )
-                                }
                             }
                         }
 
