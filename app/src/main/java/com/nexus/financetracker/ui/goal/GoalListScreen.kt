@@ -14,7 +14,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
@@ -333,6 +337,128 @@ fun GoalListScreen(
                                         selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
                                 )
+                            }
+                        }
+
+                        // Modern Sleek Sort Control Bar (Matching Expenses and Income Dashboard)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Sort,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Sort by",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val isDateActive = uiState.selectedSortOrder == GoalSortOrder.DATE_DESC || uiState.selectedSortOrder == GoalSortOrder.DATE_ASC
+                                val isDateDesc = uiState.selectedSortOrder == GoalSortOrder.DATE_DESC
+
+                                Surface(
+                                    onClick = {
+                                        if (isDateActive) {
+                                            viewModel.onSortOrderSelected(if (isDateDesc) GoalSortOrder.DATE_ASC else GoalSortOrder.DATE_DESC)
+                                        } else {
+                                            viewModel.onSortOrderSelected(GoalSortOrder.DATE_DESC)
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.outlineVariant)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CalendarToday,
+                                            contentDescription = null,
+                                            tint = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Text(
+                                            text = if (isDateActive) {
+                                                if (isDateDesc) "Date (Newest)" else "Date (Oldest)"
+                                            } else "Date",
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isDateActive) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        if (isDateActive) {
+                                            Icon(
+                                                imageVector = if (isDateDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                val isPriorityActive = uiState.selectedSortOrder == GoalSortOrder.PRIORITY_DESC || uiState.selectedSortOrder == GoalSortOrder.PRIORITY_ASC
+                                val isPriorityDesc = uiState.selectedSortOrder == GoalSortOrder.PRIORITY_DESC
+
+                                Surface(
+                                    onClick = {
+                                        if (isPriorityActive) {
+                                            viewModel.onSortOrderSelected(if (isPriorityDesc) GoalSortOrder.PRIORITY_ASC else GoalSortOrder.PRIORITY_DESC)
+                                        } else {
+                                            viewModel.onSortOrderSelected(GoalSortOrder.PRIORITY_DESC)
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = if (isPriorityActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, if (isPriorityActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.outlineVariant)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Flag,
+                                            contentDescription = null,
+                                            tint = if (isPriorityActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Text(
+                                            text = if (isPriorityActive) {
+                                                if (isPriorityDesc) "Priority (High)" else "Priority (Low)"
+                                            } else "Priority",
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isPriorityActive) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isPriorityActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        if (isPriorityActive) {
+                                            Icon(
+                                                imageVector = if (isPriorityDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
 

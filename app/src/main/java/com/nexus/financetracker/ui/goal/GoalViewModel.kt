@@ -23,6 +23,13 @@ import java.util.Calendar
 import java.util.Date
 import javax.inject.Inject
 
+enum class GoalSortOrder {
+    DATE_DESC,
+    DATE_ASC,
+    PRIORITY_DESC,
+    PRIORITY_ASC
+}
+
 enum class GoalStatusFilter {
     ALL,
     ONGOING,
@@ -72,6 +79,10 @@ class GoalViewModel @Inject constructor(
 
     fun onPrioritySelected(priority: String?) {
         _uiState.value = _uiState.value.copy(selectedPriority = priority)
+    }
+
+    fun onSortOrderSelected(order: GoalSortOrder) {
+        _uiState.value = _uiState.value.copy(selectedSortOrder = order)
     }
 
     fun allocateContributionToGoal(goal: Goal, contribution: Contribution, onSuccess: () -> Unit) {
@@ -378,6 +389,7 @@ data class GoalUiState(
     val calculations: Map<String, GoalCalculation> = emptyMap(),
     val selectedFilter: GoalStatusFilter = GoalStatusFilter.ALL,
     val selectedPriority: String? = null,
+    val selectedSortOrder: GoalSortOrder = GoalSortOrder.DATE_DESC,
     val errorMessage: String? = null
 ) {
     val activeGoal: Goal? get() = goals.firstOrNull { it.isActive }
@@ -417,12 +429,41 @@ data class GoalUiState(
         }
     }
 
+    private fun priorityWeight(priority: String): Int = when (priority.lowercase()) {
+        GoalPriority.HIGH -> 3
+        GoalPriority.MEDIUM -> 2
+        GoalPriority.LOW -> 1
+        else -> 2
+    }
+
+    private fun sortGoals(list: List<Goal>, order: GoalSortOrder): List<Goal> = when (order) {
+        GoalSortOrder.DATE_DESC -> list.sortedWith(
+            compareByDescending<Goal> { it.targetDate }.thenByDescending { it.createdAt }
+        )
+        GoalSortOrder.DATE_ASC -> list.sortedWith(
+            compareBy<Goal> { it.targetDate }.thenBy { it.createdAt }
+        )
+        GoalSortOrder.PRIORITY_DESC -> list.sortedWith(
+            compareByDescending<Goal> { priorityWeight(it.priority) }
+                .thenBy { it.targetDate }
+                .thenByDescending { it.createdAt }
+        )
+        GoalSortOrder.PRIORITY_ASC -> list.sortedWith(
+            compareBy<Goal> { priorityWeight(it.priority) }
+                .thenBy { it.targetDate }
+                .thenByDescending { it.createdAt }
+        )
+    }
+
     val filteredGoals: List<Goal>
-        get() = when (selectedFilter) {
-            GoalStatusFilter.ALL -> goals.filter { matchesPriority(it) }
-            GoalStatusFilter.ONGOING -> goals.filter { goal -> !isAchieved(goal) && !isOverdue(goal) && matchesPriority(goal) }
-            GoalStatusFilter.ACHIEVED -> goals.filter { goal -> isAchieved(goal) && matchesPriority(goal) }
-            GoalStatusFilter.COULD_NOT_ACHIEVE -> goals.filter { goal -> isOverdue(goal) && !isAchieved(goal) && matchesPriority(goal) }
+        get() {
+            val baseList = when (selectedFilter) {
+                GoalStatusFilter.ALL -> goals.filter { matchesPriority(it) }
+                GoalStatusFilter.ONGOING -> goals.filter { goal -> !isAchieved(goal) && !isOverdue(goal) && matchesPriority(goal) }
+                GoalStatusFilter.ACHIEVED -> goals.filter { goal -> isAchieved(goal) && matchesPriority(goal) }
+                GoalStatusFilter.COULD_NOT_ACHIEVE -> goals.filter { goal -> isOverdue(goal) && !isAchieved(goal) && matchesPriority(goal) }
+            }
+            return sortGoals(baseList, selectedSortOrder)
         }
 
     fun getCountForFilter(filter: GoalStatusFilter): Int = when (filter) {
