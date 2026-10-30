@@ -33,11 +33,6 @@ import com.nexus.financetracker.domain.model.GoalPriority
 import java.text.NumberFormat
 import java.util.Locale
 
-private val DarkNavyBg = Color(0xFF072044)
-private val LightCardBg = Color(0xFFF1F5F9)
-private val CardBorderColor = Color(0xFFCBD5E1)
-private val TextMutedSlate = Color(0xFF64748B)
-
 /**
  * Full-screen Contribution List Screen.
  * - Displays all monthly surplus contributions from category estimation reviews.
@@ -98,7 +93,7 @@ fun ContributionListScreen(
                     Text(
                         text = "Goal Contributions",
                         fontWeight = FontWeight.Bold,
-                        color = DarkNavyBg
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -106,16 +101,16 @@ fun ContributionListScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = DarkNavyBg
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
-        containerColor = Color.White
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -128,7 +123,7 @@ fun ContributionListScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(16.dp),
-                color = DarkNavyBg
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -146,23 +141,23 @@ fun ContributionListScreen(
                             Icon(
                                 imageVector = Icons.Default.Savings,
                                 contentDescription = null,
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(20.dp)
                             )
                             Text(
                                 text = "Monthly Surplus Pool",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
                         }
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = Color.White.copy(alpha = 0.15f)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f)
                         ) {
                             Text(
                                 text = "${contributions.size} Total",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -177,7 +172,7 @@ fun ContributionListScreen(
                         Column {
                             Text(
                                 text = "Available to Allocate",
-                                color = Color(0xFF94A3B8),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                                 fontSize = 12.sp
                             )
                             Text(
@@ -191,12 +186,12 @@ fun ContributionListScreen(
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
                                 text = "Allocated to Goals",
-                                color = Color(0xFF94A3B8),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                                 fontSize = 12.sp
                             )
                             Text(
                                 text = "LKR ${currencyFormat.format(totalAllocatedLKR)}",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp
                             )
@@ -219,14 +214,14 @@ fun ContributionListScreen(
                     ) {
                         Surface(
                             shape = CircleShape,
-                            color = LightCardBg,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                             modifier = Modifier.size(64.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.Savings,
                                     contentDescription = null,
-                                    tint = TextMutedSlate,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(32.dp)
                                 )
                             }
@@ -235,12 +230,12 @@ fun ContributionListScreen(
                             text = "No Contributions Yet",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = DarkNavyBg
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "At the end of each month, any unspent surplus from your estimated expense categories can be reviewed and added here to fund your goals.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextMutedSlate,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
@@ -287,13 +282,13 @@ fun ContributionListScreen(
                 Text(
                     text = "Delete Contribution?",
                     fontWeight = FontWeight.Bold,
-                    color = DarkNavyBg
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             },
             text = {
                 Text(
                     text = "Are you sure you want to delete this contribution of LKR ${currencyFormat.format(item.amountLKR)} from ${item.categoryName}? This action cannot be undone.",
-                    color = DarkNavyBg,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
             },
@@ -326,12 +321,12 @@ fun ContributionListScreen(
                     Text(
                         text = "Allocate to Goal",
                         fontWeight = FontWeight.Bold,
-                        color = DarkNavyBg,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 18.sp
                     )
                     Text(
                         text = "Choose an active goal for LKR ${currencyFormat.format(item.amountLKR)} (${item.categoryName})",
-                        color = TextMutedSlate,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                 }
@@ -348,7 +343,7 @@ fun ContributionListScreen(
                         Text(
                             text = "No ongoing savings goals found.",
                             fontWeight = FontWeight.SemiBold,
-                            color = DarkNavyBg
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "Achieved and expired goals cannot receive contributions. Create a new goal or check your goals on the Goals screen.",
@@ -388,7 +383,7 @@ fun ContributionListScreen(
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { contributionForAllocation = null }) {
-                    Text("Close", color = DarkNavyBg, fontWeight = FontWeight.Bold)
+                    Text("Close", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -405,8 +400,8 @@ private fun ContributionCardItem(
     Surface(
         onClick = onItemClick,
         shape = RoundedCornerShape(14.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, CardBorderColor),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -426,14 +421,14 @@ private fun ContributionCardItem(
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = LightCardBg,
+                        color = MaterialTheme.colorScheme.primaryContainer,
                         modifier = Modifier.size(36.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.Category,
                                 contentDescription = null,
-                                tint = DarkNavyBg,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -444,14 +439,14 @@ private fun ContributionCardItem(
                             text = contribution.categoryName,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = DarkNavyBg,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = contribution.monthLabel.ifBlank { "Monthly Surplus" },
                             fontSize = 11.sp,
-                            color = TextMutedSlate
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -463,13 +458,13 @@ private fun ContributionCardItem(
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Delete Contribution",
-                        tint = Color(0xFFEF4444),
+                        tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
-            HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 0.5.dp)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -480,13 +475,13 @@ private fun ContributionCardItem(
                     Text(
                         text = "Contribution Amount",
                         fontSize = 11.sp,
-                        color = TextMutedSlate
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "LKR ${currencyFormat.format(contribution.amountLKR)}",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = DarkNavyBg
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -520,8 +515,8 @@ private fun ContributionCardItem(
                 } else {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFDBEAFE),
-                        border = BorderStroke(1.dp, Color(0xFF93C5FD))
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -531,14 +526,14 @@ private fun ContributionCardItem(
                             Icon(
                                 imageVector = Icons.Default.Savings,
                                 contentDescription = null,
-                                tint = Color(0xFF1D4ED8),
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
                                 text = "Tap to Allocate ›",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1D4ED8)
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                         }
                     }
@@ -565,8 +560,8 @@ private fun GoalPriorityAllocationCard(
     Surface(
         onClick = onSelect,
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFFF8FAFC),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -584,7 +579,7 @@ private fun GoalPriorityAllocationCard(
                     text = goal.title,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = DarkNavyBg,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -624,18 +619,19 @@ private fun GoalPriorityAllocationCard(
                 Text(
                     text = "Saved: LKR ${currencyFormat.format(currentSaved)} / ${currencyFormat.format(goal.targetAmountLKR)}",
                     fontSize = 11.sp,
-                    color = TextMutedSlate
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = daysText,
                     fontSize = 11.sp,
-                    color = TextMutedSlate
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             Surface(
                 shape = RoundedCornerShape(6.dp),
-                color = Color(0xFFDCFCE7),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
@@ -649,4 +645,3 @@ private fun GoalPriorityAllocationCard(
         }
     }
 }
-

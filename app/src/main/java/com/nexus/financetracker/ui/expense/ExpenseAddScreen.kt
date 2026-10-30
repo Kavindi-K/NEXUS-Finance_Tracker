@@ -37,11 +37,6 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-private val NavyPrimary = Color(0xFF072044)
-private val CardBlue = Color(0xFF2563EB)
-private val LightCardBg = Color(0xFFF1F5F9)
-private val TextSubtle = Color(0xFF64748B)
-private val CardBorderColor = Color(0xFFCBD5E1)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -107,16 +102,16 @@ fun ExpenseAddScreen(
                         text = screenTitle,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = NavyPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NavyPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
@@ -124,7 +119,8 @@ fun ExpenseAddScreen(
             Surface(
                 tonalElevation = 3.dp,
                 shadowElevation = 8.dp,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Box(
@@ -142,15 +138,15 @@ fun ExpenseAddScreen(
                             .height(52.dp),
                         enabled = !formState.isSubmitting && !formState.isLoadingDefaults,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = NavyPrimary,
-                            contentColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         if (formState.isSubmitting) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 strokeWidth = 2.dp
                             )
                         } else {
@@ -164,7 +160,7 @@ fun ExpenseAddScreen(
                 }
             }
         },
-        containerColor = Color.White
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         if (formState.isLoadingDefaults) {
             Box(
@@ -173,7 +169,7 @@ fun ExpenseAddScreen(
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = NavyPrimary)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         } else {
             Column(
@@ -219,8 +215,8 @@ fun ExpenseAddScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCardBg),
-                    border = BorderStroke(1.dp, CardBorderColor)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Row(
                         modifier = Modifier
@@ -233,30 +229,27 @@ fun ExpenseAddScreen(
                             Text(
                                 text = "Category",
                                 fontSize = 12.sp,
-                                color = TextSubtle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
                                 text = formState.categoryName.ifBlank { "Expense Category" },
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = NavyPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
+                        val isCommitted = formState.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = if (formState.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)) {
-                                NavyPrimary.copy(alpha = 0.12f)
-                            } else {
-                                CardBlue.copy(alpha = 0.12f)
-                            }
+                            color = MaterialTheme.colorScheme.surface
                         ) {
                             Text(
-                                text = if (formState.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)) "Committed" else "Discretionary",
+                                text = if (isCommitted) "Committed" else "Discretionary",
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (formState.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)) NavyPrimary else CardBlue
+                                color = if (isCommitted) MaterialTheme.colorScheme.primary else Color(0xFF3B82F6)
                             )
                         }
                     }
@@ -267,20 +260,24 @@ fun ExpenseAddScreen(
                     value = formState.amountText,
                     onValueChange = viewModel::onAmountChanged,
                     label = { Text("Amount (LKR)") },
-                    prefix = { Text("LKR ", fontWeight = FontWeight.Bold, color = NavyPrimary) },
+                    prefix = { Text("LKR ", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
                     placeholder = { Text("0.00") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = NavyPrimary,
-                        focusedLabelColor = NavyPrimary,
-                        cursorColor = NavyPrimary
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        cursorColor = MaterialTheme.colorScheme.primary
                     ),
                     supportingText = {
                         formState.computedAmountLKR?.let { lkr ->
-                            Text("Formatted: LKR %,.2f".format(lkr), color = NavyPrimary, fontWeight = FontWeight.Medium)
-                        } ?: Text("Enter expense amount in LKR", color = TextSubtle)
+                            Text("Formatted: LKR %,.2f".format(lkr), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                        } ?: Text("Enter expense amount in LKR", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 )
 
@@ -295,10 +292,10 @@ fun ExpenseAddScreen(
                             label = { Text("+%,d".format(increment.toInt()), fontWeight = FontWeight.SemiBold) },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, CardBorderColor),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                             colors = SuggestionChipDefaults.suggestionChipColors(
-                                containerColor = LightCardBg,
-                                labelColor = NavyPrimary
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                labelColor = MaterialTheme.colorScheme.onSurface
                             )
                         )
                     }
@@ -309,7 +306,7 @@ fun ExpenseAddScreen(
                     text = "Payment Account",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = NavyPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -340,14 +337,14 @@ fun ExpenseAddScreen(
                             },
                             modifier = Modifier.weight(1f),
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = NavyPrimary,
-                                selectedLabelColor = Color.White,
-                                selectedLeadingIconColor = Color.White,
-                                containerColor = LightCardBg,
-                                labelColor = NavyPrimary,
-                                iconColor = NavyPrimary
+                                selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                selectedLeadingIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                labelColor = MaterialTheme.colorScheme.onSurface,
+                                iconColor = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
-                            border = if (isSelected) null else BorderStroke(1.dp, CardBorderColor)
+                            border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         )
                     }
                 }
@@ -357,7 +354,7 @@ fun ExpenseAddScreen(
                     text = "Transaction Date",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = NavyPrimary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Row(
@@ -379,9 +376,12 @@ fun ExpenseAddScreen(
                         label = { Text("Today", fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal) },
                         modifier = Modifier.weight(1f),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NavyPrimary,
-                            selectedLabelColor = Color.White
-                        )
+                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            labelColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        border = if (isToday) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     )
 
                     FilterChip(
@@ -390,9 +390,12 @@ fun ExpenseAddScreen(
                         label = { Text("Yesterday", fontWeight = if (isYesterday) FontWeight.Bold else FontWeight.Normal) },
                         modifier = Modifier.weight(1f),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NavyPrimary,
-                            selectedLabelColor = Color.White
-                        )
+                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            labelColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        border = if (isYesterday) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     )
 
                     FilterChip(
@@ -413,10 +416,14 @@ fun ExpenseAddScreen(
                         },
                         modifier = Modifier.weight(1.3f),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NavyPrimary,
-                            selectedLabelColor = Color.White,
-                            selectedLeadingIconColor = Color.White
-                        )
+                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            selectedLeadingIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            labelColor = MaterialTheme.colorScheme.onSurface,
+                            iconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        border = if (!isToday && !isYesterday) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     )
                 }
 
@@ -459,9 +466,13 @@ fun ExpenseAddScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = NavyPrimary,
-                        focusedLabelColor = NavyPrimary,
-                        cursorColor = NavyPrimary
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        cursorColor = MaterialTheme.colorScheme.primary
                     ),
                     maxLines = 3
                 )

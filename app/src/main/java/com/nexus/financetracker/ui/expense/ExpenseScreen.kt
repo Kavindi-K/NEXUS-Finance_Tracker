@@ -122,7 +122,7 @@ fun ExpenseScreen(
                             showMonthDialog = false
                         },
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isAllTimeSelected) NavyPrimary.copy(alpha = 0.12f) else Color.Transparent,
+                        color = if (isAllTimeSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 3.dp)
@@ -139,12 +139,12 @@ fun ExpenseScreen(
                                     text = "All Time",
                                     fontSize = 15.sp,
                                     fontWeight = if (isAllTimeSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isAllTimeSelected) NavyPrimary else Color(0xFF1E293B)
+                                    color = if (isAllTimeSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = "Expenses: LKR ${currencyFormat.format(uiState.overallExpenseLKR)}",
                                     fontSize = 12.sp,
-                                    color = TextSubtle,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Normal
                                 )
                             }
@@ -152,7 +152,7 @@ fun ExpenseScreen(
                                 Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = "Selected",
-                                    tint = NavyPrimary,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -170,7 +170,7 @@ fun ExpenseScreen(
                                 showMonthDialog = false
                             },
                             shape = RoundedCornerShape(10.dp),
-                            color = if (isSelected) NavyPrimary.copy(alpha = 0.12f) else Color.Transparent,
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 3.dp)
@@ -187,13 +187,13 @@ fun ExpenseScreen(
                                         text = month,
                                         fontSize = 15.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) NavyPrimary else Color(0xFF1E293B)
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                                     )
                                     if (monthExpense > 0) {
                                         Text(
                                             text = "Expenses: LKR ${currencyFormat.format(monthExpense)}",
                                             fontSize = 12.sp,
-                                            color = TextSubtle,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             fontWeight = FontWeight.Normal
                                         )
                                     }
@@ -203,7 +203,7 @@ fun ExpenseScreen(
                                     Icon(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = "Selected",
-                                        tint = NavyPrimary,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -214,10 +214,10 @@ fun ExpenseScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showMonthDialog = false }) {
-                    Text("Close", color = NavyPrimary, fontWeight = FontWeight.SemiBold)
+                    Text("Close", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                 }
             },
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(16.dp)
         )
     }
@@ -244,7 +244,7 @@ fun ExpenseScreen(
 
         ModalBottomSheet(
             onDismissRequest = { selectedExpenseForDetail = null },
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
         ) {
             Column(
@@ -267,13 +267,13 @@ fun ExpenseScreen(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFF1F5F9)),
+                                .background(MaterialTheme.colorScheme.primaryContainer),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = getCategoryIcon(catName),
                                 contentDescription = null,
-                                tint = NavyPrimary,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -282,12 +282,12 @@ fun ExpenseScreen(
                                 text = catName,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = NavyPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = ExpenseClassification.getDisplayName(expense.classification),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TextSubtle
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -296,11 +296,11 @@ fun ExpenseScreen(
                         text = "- LKR %,.2f".format(expense.amountLKR),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFFDC2626)
+                        color = MaterialTheme.colorScheme.error
                     )
                 }
 
-                HorizontalDivider(color = Color(0xFFE2E8F0))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 // Metadata Rows
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -924,13 +924,13 @@ fun ExpenseScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Expenses", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = NavyPrimary) },
+                title = { Text("Expenses", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back to Dashboard",
-                            tint = NavyPrimary
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -939,33 +939,33 @@ fun ExpenseScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
                             contentDescription = "Bulk Add Missed Expenses",
-                            tint = NavyPrimary
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     IconButton(onClick = { showCategoryManagementSheet = true }) {
                         Icon(
                             imageVector = Icons.Default.Category,
                             contentDescription = "Manage Categories",
-                            tint = NavyPrimary
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddExpense,
-                containerColor = NavyPrimary,
-                contentColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Expense")
             }
         },
-        containerColor = Color(0xFFF8FAFC)
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         if (uiState.isLoading) {
             Box(
@@ -974,7 +974,7 @@ fun ExpenseScreen(
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = NavyPrimary)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         } else {
             LazyColumn(
@@ -1039,8 +1039,8 @@ fun ExpenseScreen(
                     Card(
                         onClick = { showMonthDialog = true },
                         shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = LightCardBg),
-                        border = BorderStroke(1.dp, CardBorderColor),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -1057,19 +1057,19 @@ fun ExpenseScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(34.dp)
-                                        .background(NavyPrimary.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                                        .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.CalendarMonth,
                                         contentDescription = "Month Filter",
-                                        tint = NavyPrimary,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
                                 Text(
                                     text = if (uiState.isPeriodAllTime) "All Time" else uiState.selectedMonthLabel.ifBlank { "All Time" },
-                                    color = NavyPrimary,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -1077,7 +1077,7 @@ fun ExpenseScreen(
 
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
-                                color = NavyPrimary.copy(alpha = 0.1f)
+                                color = MaterialTheme.colorScheme.primaryContainer
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
@@ -1086,14 +1086,14 @@ fun ExpenseScreen(
                                 ) {
                                     Text(
                                         text = "Choose",
-                                        color = NavyPrimary,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Icon(
                                         imageVector = Icons.Default.ArrowDropDown,
                                         contentDescription = null,
-                                        tint = NavyPrimary,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -1248,14 +1248,14 @@ fun ExpenseScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.Sort,
                                     contentDescription = null,
-                                    tint = TextSubtle,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
                                     text = "Sort by",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = TextSubtle
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
 
@@ -1275,8 +1275,8 @@ fun ExpenseScreen(
                                         }
                                     },
                                     shape = RoundedCornerShape(20.dp),
-                                    color = if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else Color.White,
-                                    border = BorderStroke(1.dp, if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else Color(0xFFCBD5E1))
+                                    color = if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.outlineVariant)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -1286,7 +1286,7 @@ fun ExpenseScreen(
                                         Icon(
                                             imageVector = Icons.Default.CalendarToday,
                                             contentDescription = null,
-                                            tint = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary,
+                                            tint = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.size(13.dp)
                                         )
                                         Text(
@@ -1295,7 +1295,7 @@ fun ExpenseScreen(
                                             } else "Date",
                                             fontSize = 12.sp,
                                             fontWeight = if (isDateActive) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
+                                            color = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
                                         )
                                         if (isDateActive) {
                                             Icon(
@@ -1320,8 +1320,8 @@ fun ExpenseScreen(
                                         }
                                     },
                                     shape = RoundedCornerShape(20.dp),
-                                    color = if (isAmountActive) MaterialTheme.colorScheme.secondaryContainer else Color.White,
-                                    border = BorderStroke(1.dp, if (isAmountActive) MaterialTheme.colorScheme.secondaryContainer else Color(0xFFCBD5E1))
+                                    color = if (isAmountActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, if (isAmountActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.outlineVariant)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -1334,7 +1334,7 @@ fun ExpenseScreen(
                                             } else "Amount",
                                             fontSize = 12.sp,
                                             fontWeight = if (isAmountActive) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isAmountActive) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
+                                            color = if (isAmountActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
                                         )
                                         if (isAmountActive) {
                                             Icon(
@@ -1356,8 +1356,8 @@ fun ExpenseScreen(
                                 ?: uiState.selectedCategoryFilter ?: ""
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFFE0E7FF),
-                                border = BorderStroke(1.dp, Color(0xFF818CF8)),
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
@@ -1374,14 +1374,14 @@ fun ExpenseScreen(
                                         Icon(
                                             imageVector = getCategoryIcon(activeCatName),
                                             contentDescription = null,
-                                            tint = NavyPrimary,
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Text(
                                             text = "Category: $activeCatName",
                                             style = MaterialTheme.typography.bodySmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = NavyPrimary
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
                                         )
                                     }
                                     IconButton(
@@ -1391,7 +1391,7 @@ fun ExpenseScreen(
                                         Icon(
                                             imageVector = Icons.Default.Close,
                                             contentDescription = "Clear Category Filter",
-                                            tint = NavyPrimary,
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                             modifier = Modifier.size(16.dp)
                                         )
                                     }
@@ -1409,7 +1409,7 @@ fun ExpenseScreen(
                                 .fillMaxWidth()
                                 .padding(vertical = 16.dp),
                             shape = RoundedCornerShape(16.dp),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.surface,
                             tonalElevation = 1.dp
                         ) {
                             Box(
@@ -1425,14 +1425,14 @@ fun ExpenseScreen(
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
                                         contentDescription = null,
-                                        tint = Color(0xFF94A3B8),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(52.dp)
                                     )
                                     Text(
                                         text = "No expenses recorded",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = NavyPrimary
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                     val activeCatName = uiState.selectedCategoryFilter?.let { catId ->
                                         uiState.categoriesMap[catId] ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == catId }?.name ?: catId
@@ -1450,7 +1450,7 @@ fun ExpenseScreen(
                                     Text(
                                         text = emptyMessage,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = TextSubtle
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     if (uiState.selectedCategoryFilter != null || uiState.selectedAccountFilter != null) {
                                         OutlinedButton(
@@ -1460,14 +1460,14 @@ fun ExpenseScreen(
                                             },
                                             shape = RoundedCornerShape(10.dp)
                                         ) {
-                                            Text("Clear Filters", color = NavyPrimary)
+                                            Text("Clear Filters", color = MaterialTheme.colorScheme.primary)
                                         }
                                     }
                                     Spacer(Modifier.height(4.dp))
                                     Button(
                                         onClick = onAddExpense,
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = NavyPrimary
+                                            containerColor = MaterialTheme.colorScheme.primary
                                         ),
                                         shape = RoundedCornerShape(12.dp)
                                     ) {
@@ -1484,8 +1484,8 @@ fun ExpenseScreen(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            border = BorderStroke(1.dp, CardBorderColor)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                         ) {
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 uiState.filteredExpenses.forEachIndexed { index, expense ->
@@ -1500,7 +1500,7 @@ fun ExpenseScreen(
                                     )
                                     if (index < uiState.filteredExpenses.lastIndex) {
                                         HorizontalDivider(
-                                            color = CardBorderColor,
+                                            color = MaterialTheme.colorScheme.outlineVariant,
                                             thickness = 1.dp
                                         )
                                     }
@@ -1595,15 +1595,15 @@ private fun ExpenseItemRow(
         // Category Icon Badge
         Box(
             modifier = Modifier
-                .size(42.dp)
+                .size(36.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFF1F5F9)),
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = getCategoryIcon(categoryName),
                 contentDescription = null,
-                tint = NavyPrimary,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -1622,7 +1622,7 @@ private fun ExpenseItemRow(
                     text = categoryName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = NavyPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
@@ -1631,13 +1631,13 @@ private fun ExpenseItemRow(
                 if (isBackdated) {
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFFF1F5F9),
-                        border = BorderStroke(0.5.dp, Color(0xFFCBD5E1))
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Text(
                             text = "Backdated",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF475569),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
@@ -1652,7 +1652,7 @@ private fun ExpenseItemRow(
                 Text(
                     text = expense.note,
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextSubtle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

@@ -50,9 +50,7 @@ private val TextMutedSlate = Color(0xFF64748B)
 
 /**
  * Category Dashboard Screen:
- * - UI Background: White (matching app's light content surfaces)
- * - Card color: Dashboard graphs card color (Color(0xFFE2E8F0))
- * - Card height: Sleek and compact (reduced vertical height)
+ * - Dynamic theme support (light and dark mode adaptive)
  * - Single-column long cards (1 category per row)
  * - Real-time search bar & "+ New category" button at bottom
  */
@@ -126,7 +124,7 @@ fun CategoryDashboardScreen(
                         text = "Expenses Categories",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = DarkNavyBg
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -134,23 +132,23 @@ fun CategoryDashboardScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = DarkNavyBg
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
                 shadowElevation = 10.dp,
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Box(
                     modifier = Modifier
@@ -164,8 +162,8 @@ fun CategoryDashboardScreen(
                             .fillMaxWidth()
                             .height(50.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = DarkNavyBg,
-                            contentColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         shape = RoundedCornerShape(14.dp)
                     ) {
@@ -198,13 +196,13 @@ fun CategoryDashboardScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 placeholder = {
-                    Text("Search categories...", color = TextMutedSlate, fontSize = 14.sp)
+                    Text("Search categories...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = DarkNavyBg
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 trailingIcon = {
@@ -213,7 +211,7 @@ fun CategoryDashboardScreen(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Clear search",
-                                tint = DarkNavyBg
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -221,13 +219,13 @@ fun CategoryDashboardScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFFF1F5F9),
-                    unfocusedContainerColor = Color(0xFFF1F5F9),
-                    focusedBorderColor = DarkNavyBg,
-                    unfocusedBorderColor = Color(0xFFCBD5E1),
-                    focusedTextColor = DarkNavyBg,
-                    unfocusedTextColor = DarkNavyBg,
-                    cursorColor = DarkNavyBg
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    cursorColor = MaterialTheme.colorScheme.primary
                 )
             )
 
@@ -363,7 +361,7 @@ fun CategoryDashboardScreen(
             // Category Count / Header indicator
             Text(
                 text = "${filteredCategories.size} ${if (filteredCategories.size == 1) "Category" else "Categories"}",
-                color = TextMutedSlate,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)
@@ -383,18 +381,18 @@ fun CategoryDashboardScreen(
                         Icon(
                             imageVector = Icons.Default.SearchOff,
                             contentDescription = null,
-                            tint = Color(0xFF94A3B8),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             modifier = Modifier.size(48.dp)
                         )
                         Text(
                             text = "No categories found",
-                            color = DarkNavyBg,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 16.sp
                         )
                         Text(
                             text = "Try searching with a different term",
-                            color = TextMutedSlate,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp
                         )
                     }
@@ -629,9 +627,6 @@ fun CategoryDashboardScreen(
 
 /**
  * Compact horizontal category card (one category per line)
- * Background: Dashboard graph card color (Color(0xFFE2E8F0))
- * Text color: Navy Blue (DarkNavyBg)
- * Height: Compact height
  */
 @Composable
 private fun CategoryRowCard(
@@ -649,8 +644,8 @@ private fun CategoryRowCard(
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(14.dp),
-        color = DashboardGraphCardBg,
-        border = BorderStroke(1.dp, CardBorderColor),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -676,7 +671,7 @@ private fun CategoryRowCard(
                     ) {
                         Text(
                             text = category.name,
-                            color = DarkNavyBg,
+                            color = MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
@@ -688,14 +683,15 @@ private fun CategoryRowCard(
                         // Type Badge (Discretionary vs Committed)
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Text(
                                 text = if (isCommitted) "Committed" else "Discretionary",
                                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = if (isCommitted) DarkNavyBg else Color(0xFF2563EB)
+                                color = if (isCommitted) MaterialTheme.colorScheme.primary else Color(0xFF2563EB)
                             )
                         }
                     }
@@ -705,7 +701,7 @@ private fun CategoryRowCard(
                         val frequency = category.recurringFrequency?.replaceFirstChar { it.uppercase() } ?: "Monthly"
                         Text(
                             text = frequency,
-                            color = TextMutedSlate,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -714,14 +710,14 @@ private fun CategoryRowCard(
                         if (est != null && est > 0.0) {
                             Text(
                                 text = "Est: LKR %,.0f • Spent: LKR %,.0f".format(est, spentAmount),
-                                color = TextMutedSlate,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         } else {
                             Text(
                                 text = "Est: LKR 0 • Spent: LKR %,.0f".format(spentAmount),
-                                color = TextMutedSlate,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -740,7 +736,7 @@ private fun CategoryRowCard(
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit Category",
-                            tint = DarkNavyBg,
+                            tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(17.dp)
                         )
                     }
@@ -752,7 +748,7 @@ private fun CategoryRowCard(
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete Category",
-                            tint = Color(0xFFEF4444),
+                            tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(17.dp)
                         )
                     }
@@ -760,7 +756,7 @@ private fun CategoryRowCard(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = null,
-                        tint = Color(0xFF64748B),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -771,7 +767,7 @@ private fun CategoryRowCard(
                 Surface(
                     onClick = onReviewSurplus,
                     shape = RoundedCornerShape(8.dp),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.surface,
                     border = BorderStroke(1.dp, Color(0xFF15803D)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -801,7 +797,7 @@ private fun CategoryRowCard(
                         }
                         Text(
                             text = "Review ›",
-                            color = DarkNavyBg,
+                            color = MaterialTheme.colorScheme.primary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
