@@ -369,22 +369,27 @@ fun DashboardScreen(
                     }
                 }
 
-                // Card 2: Financial Goal (Priority Goals only)
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onNavigateToGoals() },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                ) {
-                    Column(
+                // Card 2: Financial Goal (Priority Goals only — displayed only if ongoing priority goals exist)
+                val priorityGoals = uiState.priorityGoals.filter { item ->
+                    val isAchieved = item.calculation.isCompleted ||
+                        item.calculation.remainingAmountLKR <= 0.0 ||
+                        item.goal.openingSavingsLKR >= item.goal.targetAmountLKR
+                    val isOverdue = item.calculation.isOverdue && item.calculation.daysRemaining < 0L
+                    !isAchieved && !isOverdue
+                }
+                if (priorityGoals.isNotEmpty()) {
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .clickable { onNavigateToGoals() },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = LightCardBg)
                     ) {
-                        val priorityGoals = uiState.priorityGoals
-                        if (priorityGoals.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -466,7 +471,7 @@ fun DashboardScreen(
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                val progressPercentStr = "%.0f%%".format(calc.progressPercentage)
+                                val progressPercentStr = if (calc.progressPercentage >= 100.0 || calc.isCompleted) "100%" else "%.0f%%".format(calc.progressPercentage.coerceIn(0.0, 100.0))
                                 val needAmountStr = "Need LKR ${currencyFormat.format(calc.remainingAmountLKR)}"
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -527,31 +532,6 @@ fun DashboardScreen(
                                     }
                                 }
                             }
-                        } else {
-                            Text(
-                                text = "Priority Financial Goal",
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                text = "No high-priority goal set",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Text(
-                                text = "+ Tap here to set a high-priority goal",
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
-                            )
                         }
                     }
                 }

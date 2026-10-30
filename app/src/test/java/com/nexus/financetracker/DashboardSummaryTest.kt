@@ -9,6 +9,7 @@ import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
 import com.nexus.financetracker.domain.model.GoalPriority
 import com.nexus.financetracker.ui.dashboard.DashboardViewModel
+import com.nexus.financetracker.ui.dashboard.PriorityGoalItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -273,5 +274,85 @@ class DashboardSummaryTest {
 
         assertEquals(2, priorityGoals.size)
         assertEquals(listOf("Emergency Fund", "MacBook Pro M4"), priorityGoals.map { it.title })
+    }
+
+    @Test
+    fun dashboardPriorityGoalFiltering_achievedAndOverdueGoalsExcludedOnlyOngoingHighPriorityIncluded() {
+        val now = Date()
+        val future = Date(now.time + 86400000L * 60)
+        val past = Date(now.time - 86400000L * 30)
+
+        // 1. Ongoing High Priority Goal
+        val ongoingHigh = Goal(
+            id = "g-ongoing-high",
+            title = "Emergency Fund",
+            targetAmountLKR = 300000.0,
+            openingSavingsLKR = 50000.0,
+            priority = GoalPriority.HIGH,
+            startDate = now,
+            targetDate = future,
+            isActive = true
+        )
+
+        // 2. Achieved High Priority Goal (MUST BE EXCLUDED)
+        val achievedHigh = Goal(
+            id = "g-achieved-high",
+            title = "MacBook Pro M4",
+            targetAmountLKR = 490000.0,
+            openingSavingsLKR = 490000.0,
+            priority = GoalPriority.HIGH,
+            startDate = now,
+            targetDate = future,
+            isActive = true
+        )
+
+        // 3. Overdue High Priority Goal (Couldn't Achieved, MUST BE EXCLUDED)
+        val overdueHigh = Goal(
+            id = "g-overdue-high",
+            title = "Old Goal",
+            targetAmountLKR = 100000.0,
+            openingSavingsLKR = 20000.0,
+            priority = GoalPriority.HIGH,
+            startDate = Date(past.time - 86400000L * 60),
+            targetDate = past,
+            isActive = true
+        )
+
+        // 4. Ongoing Medium Priority Goal (MUST BE EXCLUDED)
+        val ongoingMedium = Goal(
+            id = "g-ongoing-med",
+            title = "Vacation Fund",
+            targetAmountLKR = 150000.0,
+            openingSavingsLKR = 10000.0,
+            priority = GoalPriority.MEDIUM,
+            startDate = now,
+            targetDate = future,
+            isActive = true
+        )
+
+        val allGoals = listOf(ongoingHigh, achievedHigh, overdueHigh, ongoingMedium)
+
+        val priorityGoalItems = allGoals
+            .filter { it.isActive && it.priority.equals(GoalPriority.HIGH, ignoreCase = true) }
+            .map { goal ->
+                PriorityGoalItem(
+                    goal = goal,
+                    calculation = GoalCalculation.calculate(
+                        goal = goal,
+                        incomes = emptyList(),
+                        expenses = emptyList(),
+                        currentDate = now
+                    )
+                )
+            }.filter { item ->
+                val isAchieved = item.calculation.isCompleted ||
+                    item.calculation.remainingAmountLKR <= 0.0 ||
+                    item.goal.openingSavingsLKR >= item.goal.targetAmountLKR
+                val isOverdue = item.calculation.isOverdue && item.calculation.daysRemaining < 0L
+                !isAchieved && !isOverdue
+            }
+
+        assertEquals(1, priorityGoalItems.size)
+        assertEquals("Emergency Fund", priorityGoalItems.first().goal.title)
     }
 }

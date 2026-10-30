@@ -253,7 +253,7 @@ fun GoalListScreen(
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
 
                                 Text(
                                     text = "${uiState.goals.size} ${if (uiState.goals.size == 1) "Goal" else "Goals"}",
@@ -261,51 +261,6 @@ fun GoalListScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                // In small display: how many high, medium, and low priority ones (tap to filter)
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    val isHighSelected = uiState.selectedPriority.equals(GoalPriority.HIGH, ignoreCase = true)
-                                    PriorityPill(
-                                        count = uiState.highPriorityCount,
-                                        label = "High",
-                                        dotColor = Color(0xFFEF4444),
-                                        containerColor = if (isHighSelected) Color(0x66EF4444) else Color(0x26EF4444),
-                                        borderColor = if (isHighSelected) Color(0xFFEF4444) else Color(0x4DE57373),
-                                        onClick = {
-                                            viewModel.onPrioritySelected(if (isHighSelected) null else GoalPriority.HIGH)
-                                        }
-                                    )
-
-                                    val isMedSelected = uiState.selectedPriority.equals(GoalPriority.MEDIUM, ignoreCase = true)
-                                    PriorityPill(
-                                        count = uiState.mediumPriorityCount,
-                                        label = "Medium",
-                                        dotColor = Color(0xFFF59E0B),
-                                        containerColor = if (isMedSelected) Color(0x66F59E0B) else Color(0x26F59E0B),
-                                        borderColor = if (isMedSelected) Color(0xFFF59E0B) else Color(0x4DFB8C00),
-                                        onClick = {
-                                            viewModel.onPrioritySelected(if (isMedSelected) null else GoalPriority.MEDIUM)
-                                        }
-                                    )
-
-                                    val isLowSelected = uiState.selectedPriority.equals(GoalPriority.LOW, ignoreCase = true)
-                                    PriorityPill(
-                                        count = uiState.lowPriorityCount,
-                                        label = "Low",
-                                        dotColor = Color(0xFF94A3B8),
-                                        containerColor = if (isLowSelected) Color(0x6694A3B8) else Color(0x2694A3B8),
-                                        borderColor = if (isLowSelected) Color(0xFF94A3B8) else Color(0x4D94A3B8),
-                                        onClick = {
-                                            viewModel.onPrioritySelected(if (isLowSelected) null else GoalPriority.LOW)
-                                        }
-                                    )
-                                }
                             }
                         }
 
@@ -844,15 +799,20 @@ private fun GoalCard(
                 }
             }
 
-            // 2. Financial Summary: Target Amount & Estimated Current Savings (FR15)
+            // 2. Financial Summary: Target Amount & Achieved Amount (FR15)
             val currentSavings = calculation?.estimatedCurrentSavingsLKR ?: goal.openingSavingsLKR
+            val achievedAmount = if (calculation?.isCompleted == true || currentSavings >= goal.targetAmountLKR) {
+                goal.targetAmountLKR
+            } else {
+                maxOf(0.0, currentSavings)
+            }
             val remaining = calculation?.remainingAmountLKR ?: maxOf(0.0, goal.targetAmountLKR - goal.openingSavingsLKR)
             val progressFraction = calculation?.progressFraction ?: if (goal.targetAmountLKR > 0) {
                 (goal.openingSavingsLKR / goal.targetAmountLKR).toFloat().coerceIn(0f, 1f)
             } else 0f
-            val progressPercent = calculation?.progressPercentage ?: if (goal.targetAmountLKR > 0) {
-                ((goal.openingSavingsLKR / goal.targetAmountLKR) * 100.0).coerceAtLeast(0.0)
-            } else 0.0
+            val progressPercent = (calculation?.progressPercentage ?: if (goal.targetAmountLKR > 0) {
+                ((goal.openingSavingsLKR / goal.targetAmountLKR) * 100.0)
+            } else 0.0).coerceIn(0.0, 100.0)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -876,14 +836,14 @@ private fun GoalCard(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "Estimated Savings",
+                        text = "Achieved Amount",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "LKR ${currencyFormat.format(currentSavings)}",
+                        text = "LKR ${currencyFormat.format(achievedAmount)}",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -916,8 +876,15 @@ private fun GoalCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val progressPercentText = if (progressPercent >= 100.0 || calculation?.isCompleted == true) {
+                        "100% Complete"
+                    } else if (progressPercent % 1.0 == 0.0) {
+                        "${progressPercent.toInt()}% Complete"
+                    } else {
+                        "%.1f%% Complete".format(progressPercent)
+                    }
                     Text(
-                        text = "%.1f%% Complete".format(progressPercent),
+                        text = progressPercentText,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface

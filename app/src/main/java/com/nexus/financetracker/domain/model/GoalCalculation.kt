@@ -92,7 +92,7 @@ data class GoalCalculation(
             }
 
             val progressPercentage = if (goal.targetAmountLKR > 0) {
-                ((estimatedCurrentSavings / goal.targetAmountLKR) * 100.0).coerceAtLeast(0.0)
+                ((estimatedCurrentSavings / goal.targetAmountLKR) * 100.0).coerceIn(0.0, 100.0)
             } else {
                 0.0
             }
