@@ -59,4 +59,10 @@ abstract class RepositoryModule {
     abstract fun bindRecurringItemRepository(
         impl: com.nexus.financetracker.data.repository.RecurringItemRepositoryImpl
     ): com.nexus.financetracker.data.repository.RecurringItemRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindExchangeRateRepository(
+        impl: com.nexus.financetracker.data.repository.ExchangeRateRepositoryImpl
+    ): com.nexus.financetracker.data.repository.ExchangeRateRepository
 }
