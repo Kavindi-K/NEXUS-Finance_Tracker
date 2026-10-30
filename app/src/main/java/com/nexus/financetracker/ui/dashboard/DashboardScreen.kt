@@ -383,7 +383,8 @@ fun DashboardScreen(
                             .fillMaxWidth()
                             .clickable { onNavigateToGoals() },
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = LightCardBg)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Column(
                             modifier = Modifier
