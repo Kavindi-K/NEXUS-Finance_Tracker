@@ -6,7 +6,6 @@ import com.nexus.financetracker.domain.model.ExpenseClassification
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.ui.navigation.Screen
 import java.util.Calendar
-import java.util.Date
 import java.util.regex.Pattern
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,6 +15,11 @@ sealed class ParsedIntent {
     data class AddIncome(val payload: ActionPayload) : ParsedIntent()
     data class AddGoal(val payload: ActionPayload) : ParsedIntent()
     data class Navigate(val destinationRoute: String, val screenName: String) : ParsedIntent()
+    data class AffordabilityQuery(val amount: Double) : ParsedIntent()
+    object FinancialHealthQuery : ParsedIntent()
+    object ExpenseAnalysisQuery : ParsedIntent()
+    object EmergencyRunwayQuery : ParsedIntent()
+    object GeneralFinancialAdvice : ParsedIntent()
     object PredictionAndAdvice : ParsedIntent()
     object FinancialSummary : ParsedIntent()
     object GoalPaceReport : ParsedIntent()
@@ -39,30 +43,56 @@ class ChatBotNlpParser @Inject constructor() {
             return ParsedIntent.GreetingOrHelp
         }
 
-        // 3. Predictions and Smart Advice
+        // 3. Purchase Affordability Query (e.g. "Can I afford 50000?", "Can I buy a phone for 85k?")
+        val affordAmount = checkAffordabilityQuery(lower)
+        if (affordAmount != null) {
+            return ParsedIntent.AffordabilityQuery(affordAmount)
+        }
+
+        // 4. Financial Health & Score Query
+        if (isFinancialHealthQuery(lower)) {
+            return ParsedIntent.FinancialHealthQuery
+        }
+
+        // 5. Emergency Runway Query
+        if (isRunwayQuery(lower)) {
+            return ParsedIntent.EmergencyRunwayQuery
+        }
+
+        // 6. Expense Breakdown & Leak Analysis
+        if (isExpenseAnalysisQuery(lower)) {
+            return ParsedIntent.ExpenseAnalysisQuery
+        }
+
+        // 7. General Financial Advice / Budgeting rules (e.g. 50/30/20 rule)
+        if (isGeneralAdviceQuery(lower)) {
+            return ParsedIntent.GeneralFinancialAdvice
+        }
+
+        // 8. Predictions and Pace Forecast
         if (isPredictionQuery(lower)) {
             return ParsedIntent.PredictionAndAdvice
         }
 
-        // 4. Goal Progress and Pace Report
+        // 9. Goal Progress and Pace Report
         if (isGoalPaceQuery(lower)) {
             return ParsedIntent.GoalPaceReport
         }
 
-        // 5. Financial Summary / Overview
+        // 10. Financial Summary / Overview
         if (isSummaryQuery(lower)) {
             return ParsedIntent.FinancialSummary
         }
 
-        // 6. Add Goal Intent
+        // 11. Add Goal Intent
         val goalMatch = tryParseGoal(lower, clean)
         if (goalMatch != null) return goalMatch
 
-        // 7. Add Income Intent
+        // 12. Add Income Intent
         val incomeMatch = tryParseIncome(lower, clean)
         if (incomeMatch != null) return incomeMatch
 
-        // 8. Add Expense Intent
+        // 13. Add Expense Intent
         val expenseMatch = tryParseExpense(lower, clean, categories)
         if (expenseMatch != null) return expenseMatch
 
@@ -96,14 +126,57 @@ class ChatBotNlpParser @Inject constructor() {
     }
 
     private fun isGreetingOrHelp(lower: String): Boolean {
-        val greetings = listOf("hi", "hello", "hey", "ayubowan", "හායි", "හෙලෝ", "ආයුබෝවන්", "help", "who are you", "මොනවද කරන්න පුළුවන්")
+        val greetings = listOf("hi", "hello", "hey", "ayubowan", "හායි", "හෙලෝ", "ආයුබෝවන්", "help", "who are you", "what can you do", "මොනවද කරන්න පුළුවන්")
         return greetings.any { lower == it || lower.startsWith("$it ") || lower.endsWith(" $it") }
+    }
+
+    private fun checkAffordabilityQuery(lower: String): Double? {
+        val isAfford = lower.contains("afford") || lower.contains("can i buy") ||
+            lower.contains("should i buy") || lower.contains("ගන්න පුළුවන්ද") ||
+            lower.contains("වියදම් කරන්න පුළුවන්ද") || lower.contains("මිලදී ගන්න පුළුවන්ද")
+
+        if (!isAfford) return null
+        return extractAmount(lower)
+    }
+
+    private fun isFinancialHealthQuery(lower: String): Boolean {
+        val keywords = listOf(
+            "financial health", "how am i doing", "rate my", "am i saving enough",
+            "how are my finances", "health score", "wealth status",
+            "මගේ තත්වය", "තත්වය හොඳද", "මම හොඳට ඉතුරු කරනවද", "මූල්‍ය තත්වය"
+        )
+        return keywords.any { lower.contains(it) }
+    }
+
+    private fun isRunwayQuery(lower: String): Boolean {
+        val keywords = listOf(
+            "runway", "survive", "emergency fund", "how long can i live",
+            "හදිසි අරමුදල", "කොච්චර කල් ඉන්න පුළුවන්ද", "ආරක්ෂාව"
+        )
+        return keywords.any { lower.contains(it) }
+    }
+
+    private fun isExpenseAnalysisQuery(lower: String): Boolean {
+        val keywords = listOf(
+            "where is my money", "what did i spend the most", "highest expense",
+            "analyze my expense", "analyze expense", "spending breakdown",
+            "වියදම් වැඩි මොනවාටද", "සල්ලි යන්නේ කොහෙටද", "වියදම් විස්තර"
+        )
+        return keywords.any { lower.contains(it) }
+    }
+
+    private fun isGeneralAdviceQuery(lower: String): Boolean {
+        val keywords = listOf(
+            "50/30/20", "50 30 20", "how to save", "savings tips", "budget rule",
+            "මූල්‍ය උපදෙස්", "ඉතිරි කරන්නේ කොහොමද", "අයවැය රීතිය"
+        )
+        return keywords.any { lower.contains(it) }
     }
 
     private fun isPredictionQuery(lower: String): Boolean {
         val keywords = listOf(
             "predict", "prediction", "forecast", "pace", "how to save", "advice", "advise",
-            "අනාවැකි", "ඉස්සරහට", "කොහොම වෙයිද", "උපදෙස්", "වියදම් වැඩි", "ඉතිරි කරන්නේ කොහොමද"
+            "අනාවැකි", "ඉස්සරහට", "කොහොම වෙයිද", "උපදෙස්", "වියදම් වැඩි"
         )
         return keywords.any { lower.contains(it) }
     }
@@ -111,7 +184,7 @@ class ChatBotNlpParser @Inject constructor() {
     private fun isSummaryQuery(lower: String): Boolean {
         val keywords = listOf(
             "summary", "balance", "total spent", "total income", "status", "overview",
-            "සාරාංශය", "කීයද", "ඉතුරු කීයද", "වියදම කීයද", "ආදායම කීයද", "තත්වය"
+            "සාරාංශය", "කීයද", "ඉතුරු කීයද", "වියදම කීයද", "ආදායම කීයද"
         )
         return keywords.any { lower.contains(it) }
     }
@@ -133,7 +206,7 @@ class ChatBotNlpParser @Inject constructor() {
 
         val amount = extractAmount(lower) ?: return null
 
-        // Extract title
+        // Extract clean goal title
         var title = original
             .replace("(?i)\\b(?:add|create|goal|save|for|target|lkr|rs|රු|රුපියල්|ඉතිරි|කරන්න|ඉලක්කය)\\b".toRegex(), "")
             .replace("[0-9,.]".toRegex(), "")
@@ -278,7 +351,6 @@ class ChatBotNlpParser @Inject constructor() {
     }
 
     private fun extractAmount(text: String): Double? {
-        // 1. Check for 'k' / 'K' suffix (e.g. "2.5k", "10k")
         val regexK = Pattern.compile("\\b(\\d+(?:\\.\\d+)?)\\s*[kK]\\b")
         val matcherK = regexK.matcher(text)
         if (matcherK.find()) {
@@ -286,7 +358,6 @@ class ChatBotNlpParser @Inject constructor() {
             if (num != null) return num * 1000.0
         }
 
-        // 2. Standard number extraction with optional currency prefixes
         val regexNumber = Pattern.compile("(?:lkr|rs|රු|රුපියල්)?\\s*([0-9]+(?:,[0-9]{3})*(?:\\.[0-9]+)?)", Pattern.CASE_INSENSITIVE)
         val matcher = regexNumber.matcher(text)
 
@@ -295,7 +366,6 @@ class ChatBotNlpParser @Inject constructor() {
             val raw = matcher.group(1)?.replace(",", "")
             val parsed = raw?.toDoubleOrNull()
             if (parsed != null && parsed > 0) {
-                // If text contains words like "2026" (year) filter it out if another amount exists
                 if (parsed in 2020.0..2030.0 && (text.contains("year") || text.contains("2026"))) {
                     foundAmount = parsed
                 } else {

@@ -58,12 +58,13 @@ data class ChatBotUiState(
     val messages: List<ChatMessage> = emptyList(),
     val isTyping: Boolean = false,
     val quickPrompts: List<String> = listOf(
-        "💡 Monthly Summary",
-        "🔮 Spending Prediction",
-        "🎯 Goals Pace",
-        "💸 Spent 1500 for Food",
-        "⛽ Petrol 2500 Cash",
-        "💰 Salary 150000"
+        "🏆 Financial Health",
+        "🔮 Spending Forecast",
+        "🛡️ Emergency Runway",
+        "📊 Monthly Summary",
+        "🔍 Where is my money going?",
+        "📐 50/30/20 Budget",
+        "🎯 Goals Pace"
     ),
     val userFirstName: String = "User",
     val isOnline: Boolean = true,

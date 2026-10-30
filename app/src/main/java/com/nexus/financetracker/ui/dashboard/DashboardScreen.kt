@@ -294,76 +294,6 @@ fun DashboardScreen(
                     fontWeight = FontWeight.Bold
                 )
 
-                // AI Copilot Smart Assistant Card
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onNavigateToChatBot),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF1E3A8A)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.SmartToy,
-                                contentDescription = "AI Copilot",
-                                tint = Color(0xFF60A5FA),
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "NEXUS AI Copilot",
-                                    color = Color.White,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFF10B981).copy(alpha = 0.2f)
-                                ) {
-                                    Text(
-                                        text = "Smart",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF34D399),
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Ask anything, log expenses, get predictions & advice",
-                                color = Color(0xFF94A3B8),
-                                fontSize = 11.sp
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "Open",
-                            tint = Color(0xFF60A5FA),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-
                 // 4 Action Buttons in a Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -786,18 +716,19 @@ fun DashboardScreen(
         }
     }
 
-    // Modern Floating AI Copilot Action Icon
+    // Modern Circular Floating AI Copilot Action Icon featuring NEXUS brand mark
     ModernAiCopilotFab(
         onClick = onNavigateToChatBot,
         modifier = Modifier
             .align(Alignment.BottomEnd)
-            .padding(end = 18.dp, bottom = 18.dp)
+            .padding(end = 20.dp, bottom = 24.dp)
     )
 }
 }
 
 /**
- * Modern Floating Action Button for opening the NEXUS AI Copilot from the Dashboard.
+ * Modern Circular Floating Action Button featuring the NEXUS icon mark
+ * for opening the NEXUS AI Copilot from the Dashboard.
  */
 @Composable
 private fun ModernAiCopilotFab(
@@ -807,47 +738,27 @@ private fun ModernAiCopilotFab(
     Surface(
         onClick = onClick,
         modifier = modifier
+            .size(56.dp)
             .shadow(
-                elevation = 10.dp,
-                shape = RoundedCornerShape(28.dp),
+                elevation = 8.dp,
+                shape = CircleShape,
                 ambientColor = Color(0xFF0F172A),
                 spotColor = Color(0xFF38BDF8)
             )
-            .clip(RoundedCornerShape(28.dp)),
+            .clip(CircleShape),
         color = Color(0xFF072044),
-        border = BorderStroke(1.5.dp, Color(0xFF38BDF8))
+        border = BorderStroke(2.dp, Color(0xFF38BDF8))
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF1E3A8A)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.SmartToy,
-                    contentDescription = "AI Copilot",
-                    tint = Color(0xFF60A5FA),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Text(
-                text = "AI Copilot",
-                color = Color.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
+            Image(
+                painter = painterResource(id = R.drawable.nexus_icon_mark),
+                contentDescription = "NEXUS AI Copilot",
+                modifier = Modifier.size(32.dp),
+                contentScale = ContentScale.Fit
             )
-            Surface(
-                shape = CircleShape,
-                color = Color(0xFF10B981)
-            ) {
-                Box(modifier = Modifier.size(6.dp))
-            }
         }
     }
 }

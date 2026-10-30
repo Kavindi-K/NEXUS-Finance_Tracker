@@ -207,4 +207,43 @@ class ChatBotEngineTest {
         assertTrue(incNav is ParsedIntent.Navigate)
         assertEquals(Screen.Income.route, (incNav as ParsedIntent.Navigate).destinationRoute)
     }
+
+    @Test
+    fun parse_affordabilityQuery_extractsAmount() {
+        val intent1 = nlpParser.parse("Can I afford 50000?", testCategories)
+        assertTrue(intent1 is ParsedIntent.AffordabilityQuery)
+        assertEquals(50000.0, (intent1 as ParsedIntent.AffordabilityQuery).amount, 0.01)
+
+        val intent2 = nlpParser.parse("මට 35000ක් වියදම් කරන්න පුළුවන්ද?", testCategories)
+        assertTrue(intent2 is ParsedIntent.AffordabilityQuery)
+        assertEquals(35000.0, (intent2 as ParsedIntent.AffordabilityQuery).amount, 0.01)
+    }
+
+    @Test
+    fun parse_financialHealthAndRunwayQueries() {
+        val health = nlpParser.parse("How is my financial health?", testCategories)
+        assertTrue(health is ParsedIntent.FinancialHealthQuery)
+
+        val runway = nlpParser.parse("How long can I survive on my emergency runway?", testCategories)
+        assertTrue(runway is ParsedIntent.EmergencyRunwayQuery)
+    }
+
+    @Test
+    fun advisorEngine_financialHealth_evaluatesEliteSaver_likeUserKavidu() {
+        val now = Date()
+        val incomes = listOf(
+            Income(id = "inc1", userId = "u1", amountLKR = 666859.60, status = IncomeStatus.CONFIRMED, dateReceived = now)
+        )
+        val expenses = listOf(
+            Expense(id = "exp1", userId = "u1", amountLKR = 21300.00, categoryId = "cat_groceries", date = now)
+        )
+
+        val healthReport = advisorEngine.analyzeFinancialHealth(incomes, expenses, emptyList(), "Kavidu", isSinhala = false)
+        assertTrue(healthReport.contains("Kavidu"))
+        assertTrue(healthReport.contains("Elite Wealth Builder") || healthReport.contains("Strong Saver"))
+        assertTrue(healthReport.contains("Emergency Runway"))
+
+        val affordability = advisorEngine.checkAffordability(50000.0, incomes, expenses, isSinhala = false)
+        assertTrue(affordability.contains("Safely Affordable"))
+    }
 }

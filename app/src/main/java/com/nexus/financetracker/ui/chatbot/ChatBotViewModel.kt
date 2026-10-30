@@ -214,6 +214,54 @@ class ChatBotViewModel @Inject constructor(
                 )
             }
 
+            is ParsedIntent.AffordabilityQuery -> {
+                val report = advisorEngine.checkAffordability(
+                    intent.amount,
+                    currentIncomes,
+                    currentExpenses,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(sender = MessageSender.BOT, text = report)
+            }
+
+            is ParsedIntent.FinancialHealthQuery -> {
+                val report = advisorEngine.analyzeFinancialHealth(
+                    currentIncomes,
+                    currentExpenses,
+                    currentGoals,
+                    _uiState.value.userFirstName,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(sender = MessageSender.BOT, text = report)
+            }
+
+            is ParsedIntent.ExpenseAnalysisQuery -> {
+                val report = advisorEngine.analyzeExpenseBreakdown(
+                    currentExpenses,
+                    currentCategories,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(sender = MessageSender.BOT, text = report)
+            }
+
+            is ParsedIntent.EmergencyRunwayQuery -> {
+                val report = advisorEngine.analyzeEmergencyRunway(
+                    currentIncomes,
+                    currentExpenses,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(sender = MessageSender.BOT, text = report)
+            }
+
+            is ParsedIntent.GeneralFinancialAdvice -> {
+                val report = advisorEngine.provide50_30_20Budget(
+                    currentIncomes,
+                    currentExpenses,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(sender = MessageSender.BOT, text = report)
+            }
+
             is ParsedIntent.PredictionAndAdvice -> {
                 val report = advisorEngine.generatePredictionAndAdvice(
                     currentIncomes,
