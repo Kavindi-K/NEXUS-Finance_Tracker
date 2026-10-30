@@ -5,10 +5,14 @@ import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -20,6 +24,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -58,6 +67,12 @@ import com.nexus.financetracker.ui.profile.ProfileViewModel
 import com.nexus.financetracker.data.local.SecurityManager
 import com.nexus.financetracker.ui.security.AppLockScreen
 
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 /**
  * Root Navigation Graph with single-activity Material 3 Scaffold and Bottom Navigation.
  *
@@ -75,6 +90,7 @@ fun AppNavGraph(
     authViewModel: AuthViewModel = hiltViewModel(),
     alertsViewModel: AlertsViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -626,23 +642,33 @@ fun AppNavGraph(
                     )
                 },
                 confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showIdleReminder = false
-                            lastInteractionTime = System.currentTimeMillis()
-                        }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Continue", fontWeight = FontWeight.Bold)
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = {
-                            showIdleReminder = false
-                            lastInteractionTime = System.currentTimeMillis()
+                        TextButton(
+                            onClick = {
+                                showIdleReminder = false
+                                context.findActivity()?.finishAffinity()
+                            },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Text(
+                                text = "Cancel",
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
-                    ) {
-                        Text("OK")
+
+                        TextButton(
+                            onClick = {
+                                showIdleReminder = false
+                                lastInteractionTime = System.currentTimeMillis()
+                            }
+                        ) {
+                            Text("Continue", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             )
