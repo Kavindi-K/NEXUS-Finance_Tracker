@@ -78,7 +78,7 @@ class GoalRepositoryImpl @Inject constructor(
     override suspend fun updateGoal(userId: String, goal: Goal) {
         // 1. Update Room local cache first
         try {
-            goalDao.updateGoal(GoalEntity.fromDomain(goal))
+            goalDao.insertGoal(GoalEntity.fromDomain(goal))
         } catch (_: Exception) {}
 
         // 2. Queue in Firestore

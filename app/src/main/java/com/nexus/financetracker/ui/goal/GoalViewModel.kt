@@ -41,7 +41,7 @@ class GoalViewModel @Inject constructor(
     private val incomeRepository: IncomeRepository,
     private val expenseRepository: ExpenseRepository,
     private val auth: FirebaseAuth,
-    private val contributionManager: ContributionManager
+    private val contributionManager: ContributionManager,
     private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 

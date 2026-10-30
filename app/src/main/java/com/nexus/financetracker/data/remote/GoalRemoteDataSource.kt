@@ -1,6 +1,7 @@
 package com.nexus.financetracker.data.remote
 
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.nexus.financetracker.domain.model.Goal
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -73,10 +74,11 @@ class GoalRemoteDataSource @Inject constructor(
             "startDate" to withUser.startDate,
             "targetDate" to withUser.targetDate,
             "isActive" to withUser.isActive,
+            "createdAt" to withUser.createdAt,
             "priority" to withUser.priority
         )
         try {
-            goalsCollection.document(goal.id).set(updates).await()
+            goalsCollection.document(goal.id).set(updates, SetOptions.merge()).await()
         } catch (_: Exception) {}
     }
 
