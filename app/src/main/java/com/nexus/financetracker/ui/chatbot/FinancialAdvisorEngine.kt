@@ -205,7 +205,8 @@ class FinancialAdvisorEngine @Inject constructor() {
             sb.append("🏷️ **අංශ අනුව වර්ගීකරණය:**\n")
             categoryTotals.forEachIndexed { i, (name, sum, _) ->
                 val pct = (sum / totalSpent) * 100.0
-                sb.append("${i + 1}. **$name:** LKR %,.0f (%.1f%%)\n".format(sum, pct))
+                val formattedSum = "LKR %,.0f (%.1f%%)".format(sum, pct)
+                sb.append("${i + 1}. **$name:** $formattedSum\n")
             }
 
             val highest = categoryTotals.firstOrNull()
@@ -221,7 +222,8 @@ class FinancialAdvisorEngine @Inject constructor() {
             sb.append("🏷️ **Top Categories Breakdown:**\n")
             categoryTotals.forEachIndexed { i, (name, sum, _) ->
                 val pct = (sum / totalSpent) * 100.0
-                sb.append("${i + 1}. **$name:** LKR %,.0f (%.1f%%)\n".format(sum, pct))
+                val formattedSum = "LKR %,.0f (%.1f%%)".format(sum, pct)
+                sb.append("${i + 1}. **$name:** $formattedSum\n")
             }
 
             val highest = categoryTotals.firstOrNull()
@@ -470,7 +472,8 @@ class FinancialAdvisorEngine @Inject constructor() {
                 sb.append("\n🏷️ **වැඩිපුරම වියදම් වූ අංශ (Top Categories):**\n")
                 topCategories.forEachIndexed { i, (name, amount) ->
                     val percent = if (totalSpent > 0) (amount / totalSpent) * 100.0 else 0.0
-                    sb.append("${i + 1}. **$name**: LKR %,.0f (%.0f%%)\n".format(amount, percent))
+                    val formattedAmount = "LKR %,.0f (%.0f%%)".format(amount, percent)
+                    sb.append("${i + 1}. **$name**: $formattedAmount\n")
                 }
             }
 
@@ -487,7 +490,8 @@ class FinancialAdvisorEngine @Inject constructor() {
                 sb.append("\n🏷️ **Top Spending Categories:**\n")
                 topCategories.forEachIndexed { i, (name, amount) ->
                     val percent = if (totalSpent > 0) (amount / totalSpent) * 100.0 else 0.0
-                    sb.append("${i + 1}. **$name**: LKR %,.0f (%.0f%%)\n".format(amount, percent))
+                    val formattedAmount = "LKR %,.0f (%.0f%%)".format(amount, percent)
+                    sb.append("${i + 1}. **$name**: $formattedAmount\n")
                 }
             }
 
