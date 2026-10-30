@@ -21,17 +21,13 @@ import androidx.compose.ui.unit.sp
 import com.nexus.financetracker.domain.model.ExpenseClassification
 import com.nexus.financetracker.ui.expense.ExpenseViewModel
 
-private val NavyPrimary = Color(0xFF072044)
-private val LightCardBg = Color(0xFFF1F5F9)
-private val TextSubtle = Color(0xFF64748B)
-private val CardBorderColor = Color(0xFFE2E8F0)
-
 /**
- * Add / New Category Screen matching Screen 2 in the wireframe:
+ * Add / New Category Screen matching wireframe:
  * - Category Name input
  * - Default type toggle (Discretionary vs Committed)
  * - Dynamic field: Estimation value (if Discretionary) OR Recurring frequency (if Committed)
  * - Save button
+ * - Dynamic Light/Dark theme support
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +53,7 @@ fun CategoryAddScreen(
                         text = "New category",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = NavyPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -65,16 +61,16 @@ fun CategoryAddScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = NavyPrimary
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
-        containerColor = Color(0xFFF8FAFC)
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -87,8 +83,8 @@ fun CategoryAddScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, CardBorderColor),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
@@ -103,7 +99,7 @@ fun CategoryAddScreen(
                             text = "Name",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            color = NavyPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         OutlinedTextField(
                             value = categoryName,
@@ -111,16 +107,18 @@ fun CategoryAddScreen(
                                 categoryName = it
                                 errorMessage = null
                             },
-                            placeholder = { Text("e.g. Coffee", color = TextSubtle) },
+                            placeholder = { Text("e.g. Coffee", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = LightCardBg,
-                                unfocusedContainerColor = LightCardBg,
-                                focusedBorderColor = NavyPrimary,
-                                unfocusedBorderColor = Color.Transparent,
-                                cursorColor = NavyPrimary
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                cursorColor = MaterialTheme.colorScheme.primary
                             )
                         )
                     }
@@ -131,7 +129,7 @@ fun CategoryAddScreen(
                             text = "Default type",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            color = NavyPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -146,13 +144,14 @@ fun CategoryAddScreen(
                                     errorMessage = null
                                 },
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isDiscretionary) NavyPrimary else LightCardBg,
+                                color = if (isDiscretionary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                border = if (isDiscretionary) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                 modifier = Modifier.weight(1f).height(44.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Text(
                                         text = "Discretionary",
-                                        color = if (isDiscretionary) Color.White else NavyPrimary,
+                                        color = if (isDiscretionary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = if (isDiscretionary) FontWeight.Bold else FontWeight.Medium,
                                         fontSize = 14.sp
                                     )
@@ -165,13 +164,14 @@ fun CategoryAddScreen(
                                     errorMessage = null
                                 },
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isCommitted) NavyPrimary else LightCardBg,
+                                color = if (isCommitted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                border = if (isCommitted) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                 modifier = Modifier.weight(1f).height(44.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Text(
                                         text = "Committed",
-                                        color = if (isCommitted) Color.White else NavyPrimary,
+                                        color = if (isCommitted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = if (isCommitted) FontWeight.Bold else FontWeight.Medium,
                                         fontSize = 14.sp
                                     )
@@ -188,7 +188,7 @@ fun CategoryAddScreen(
                                 text = "Estimation value (LKR)",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = NavyPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             OutlinedTextField(
                                 value = estimationValueText,
@@ -197,23 +197,25 @@ fun CategoryAddScreen(
                                     estimationValueText = filtered
                                     errorMessage = null
                                 },
-                                placeholder = { Text("0.00", color = TextSubtle) },
-                                prefix = { Text("LKR ", fontWeight = FontWeight.Bold, color = NavyPrimary) },
+                                placeholder = { Text("0.00", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
+                                prefix = { Text("LKR ", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = LightCardBg,
-                                    unfocusedContainerColor = LightCardBg,
-                                    focusedBorderColor = NavyPrimary,
-                                    unfocusedBorderColor = Color.Transparent,
-                                    cursorColor = NavyPrimary
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    cursorColor = MaterialTheme.colorScheme.primary
                                 ),
                                 supportingText = {
                                     Text(
                                         text = "Monthly estimated spending for this category",
-                                        color = TextSubtle,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 12.sp
                                     )
                                 }
@@ -226,7 +228,7 @@ fun CategoryAddScreen(
                                 text = "Recurring frequency",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = NavyPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -245,18 +247,18 @@ fun CategoryAddScreen(
                                         },
                                         modifier = Modifier.weight(1f),
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = NavyPrimary,
-                                            selectedLabelColor = Color.White,
-                                            containerColor = LightCardBg,
-                                            labelColor = NavyPrimary
+                                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            containerColor = MaterialTheme.colorScheme.surface,
+                                            labelColor = MaterialTheme.colorScheme.onSurface
                                         ),
-                                        border = if (isSelected) null else BorderStroke(1.dp, CardBorderColor)
+                                        border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                                     )
                                 }
                             }
                             Text(
                                 text = "Fixed recurring commitment interval",
-                                color = TextSubtle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp
                             )
                         }
@@ -302,15 +304,15 @@ fun CategoryAddScreen(
                             .fillMaxWidth()
                             .height(52.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = NavyPrimary,
-                            contentColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         if (isSubmitting) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 strokeWidth = 2.dp
                             )
                         } else {

@@ -83,11 +83,11 @@ fun ReportsScreen(
                     Icon(
                         imageVector = Icons.Default.CalendarMonth,
                         contentDescription = null,
-                        tint = NavyPrimary
+                        tint = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = "Select Month",
-                        color = NavyPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
                     )
@@ -109,7 +109,7 @@ fun ReportsScreen(
                             showMonthDialog = false
                         },
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isAllTimeSelected) NavyPrimary.copy(alpha = 0.12f) else Color.Transparent,
+                        color = if (isAllTimeSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 3.dp)
@@ -126,13 +126,13 @@ fun ReportsScreen(
                                     text = "All Time",
                                     fontSize = 15.sp,
                                     fontWeight = if (isAllTimeSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isAllTimeSelected) NavyPrimary else Color(0xFF1E293B)
+                                    color = if (isAllTimeSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                                 )
                                 if (allTimeReport != null && (allTimeReport.totalIncomeLKR > 0 || allTimeReport.totalExpensesLKR > 0)) {
                                     Text(
                                         text = "Income: LKR ${currencyFormat.format(allTimeReport.totalIncomeLKR)}",
                                         fontSize = 12.sp,
-                                        color = TextSubtle,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = FontWeight.Normal
                                     )
                                 }
@@ -141,7 +141,7 @@ fun ReportsScreen(
                                 Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = "Selected",
-                                    tint = NavyPrimary,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -160,7 +160,7 @@ fun ReportsScreen(
                                 showMonthDialog = false
                             },
                             shape = RoundedCornerShape(10.dp),
-                            color = if (isSelected) NavyPrimary.copy(alpha = 0.12f) else Color.Transparent,
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 3.dp)
@@ -177,13 +177,13 @@ fun ReportsScreen(
                                         text = month,
                                         fontSize = 15.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) NavyPrimary else Color(0xFF1E293B)
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                                     )
                                     if (hasData) {
                                         Text(
                                             text = "Income: LKR ${currencyFormat.format(reportForMonth!!.totalIncomeLKR)}",
                                             fontSize = 12.sp,
-                                            color = TextSubtle,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             fontWeight = FontWeight.Normal
                                         )
                                     }
@@ -193,7 +193,7 @@ fun ReportsScreen(
                                     Icon(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = "Selected",
-                                        tint = NavyPrimary,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -204,10 +204,10 @@ fun ReportsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showMonthDialog = false }) {
-                    Text("Close", color = NavyPrimary, fontWeight = FontWeight.SemiBold)
+                    Text("Close", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                 }
             },
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(16.dp)
         )
     }
@@ -215,18 +215,18 @@ fun ReportsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Financial Reports", fontWeight = FontWeight.Bold, color = NavyPrimary) },
+                title = { Text("Financial Reports", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back to Dashboard",
-                            tint = NavyPrimary
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         }
@@ -234,7 +234,7 @@ fun ReportsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.background)
                 .padding(padding)
                 .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp, vertical = 12.dp),
@@ -244,8 +244,8 @@ fun ReportsScreen(
             Card(
                 onClick = { showMonthDialog = true },
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = LightCardBg),
-                border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -262,19 +262,19 @@ fun ReportsScreen(
                         Box(
                             modifier = Modifier
                                 .size(34.dp)
-                                .background(NavyPrimary.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                                .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.CalendarMonth,
                                 contentDescription = "Month Filter",
-                                tint = NavyPrimary,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         Text(
                             text = uiState.selectedMonthLabel.ifBlank { "All Time" },
-                            color = NavyPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -282,7 +282,7 @@ fun ReportsScreen(
 
                     Surface(
                         shape = RoundedCornerShape(20.dp),
-                        color = NavyPrimary.copy(alpha = 0.1f)
+                        color = MaterialTheme.colorScheme.secondaryContainer
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
@@ -291,14 +291,14 @@ fun ReportsScreen(
                         ) {
                             Text(
                                 text = "Choose",
-                                color = NavyPrimary,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
                                 contentDescription = null,
-                                tint = NavyPrimary,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -313,7 +313,8 @@ fun ReportsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = LightCardBg)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(
                     modifier = Modifier
@@ -328,13 +329,13 @@ fun ReportsScreen(
                         Column {
                             Text(
                                 text = "Income vs Expenses",
-                                color = NavyPrimary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
                                 text = selectedLabel,
-                                color = TextSubtle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -369,13 +370,13 @@ fun ReportsScreen(
                             Icon(
                                 imageVector = Icons.Default.PieChart,
                                 contentDescription = null,
-                                tint = TextSubtle.copy(alpha = 0.4f),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                 modifier = Modifier.size(44.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "No income or expense transactions for $selectedLabel",
-                                color = TextSubtle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
                                 textAlign = TextAlign.Center
@@ -403,15 +404,15 @@ fun ReportsScreen(
                                     Box(
                                         modifier = Modifier
                                             .size(10.dp)
-                                            .background(NavyPrimary, RoundedCornerShape(2.dp))
+                                            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp))
                                     )
-                                    Text("Total Income", fontSize = 12.sp, color = TextSubtle)
+                                    Text("Total Income", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Text(
                                     text = "LKR ${currencyFormat.format(incomeAmount)}",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = NavyPrimary
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
 
@@ -423,15 +424,15 @@ fun ReportsScreen(
                                     Box(
                                         modifier = Modifier
                                             .size(10.dp)
-                                            .background(Color(0xFFBAC7D5), RoundedCornerShape(2.dp))
+                                            .background(MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp))
                                     )
-                                    Text("Total Expenses", fontSize = 12.sp, color = TextSubtle)
+                                    Text("Total Expenses", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Text(
                                     text = "LKR ${currencyFormat.format(expenseAmount)}",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = NavyPrimary
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         }
@@ -448,7 +449,8 @@ fun ReportsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = LightCardBg)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(
                     modifier = Modifier
@@ -463,7 +465,7 @@ fun ReportsScreen(
                         Column {
                             Text(
                                 text = "Goal Assignment",
-                                color = NavyPrimary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -474,7 +476,7 @@ fun ReportsScreen(
                                 } else {
                                     selectedLabel
                                 },
-                                color = TextSubtle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -493,13 +495,13 @@ fun ReportsScreen(
                             Icon(
                                 imageVector = Icons.Default.Flag,
                                 contentDescription = null,
-                                tint = TextSubtle.copy(alpha = 0.4f),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                 modifier = Modifier.size(44.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "No savings goals set",
-                                color = TextSubtle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -524,10 +526,10 @@ fun ReportsScreen(
                                             expandedGoalId = if (isExpanded) null else report.goalId
                                         },
                                     shape = RoundedCornerShape(12.dp),
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.surface,
                                     border = BorderStroke(
                                         width = if (isExpanded) 1.5.dp else 1.dp,
-                                        color = if (isExpanded) NavyPrimary.copy(alpha = 0.35f) else Color(0xFFE2E8F0)
+                                        color = if (isExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                                     )
                                 ) {
                                     Column(
@@ -548,7 +550,7 @@ fun ReportsScreen(
                                                 ) {
                                                     Text(
                                                         text = report.goalTitle,
-                                                        color = NavyPrimary,
+                                                        color = MaterialTheme.colorScheme.onSurface,
                                                         fontSize = 15.sp,
                                                         fontWeight = FontWeight.Bold
                                                     )
@@ -560,7 +562,7 @@ fun ReportsScreen(
                                                     }
                                                     val priorityBg = when (report.priority.lowercase()) {
                                                         GoalPriority.HIGH -> Color(0xFFFEE2E2)
-                                                        GoalPriority.LOW -> Color(0xFFF1F5F9)
+                                                        GoalPriority.LOW -> MaterialTheme.colorScheme.surfaceVariant
                                                         else -> Color(0xFFFEF3C7)
                                                     }
                                                     Surface(
@@ -579,11 +581,11 @@ fun ReportsScreen(
                                                     if (!report.isActive) {
                                                         Surface(
                                                             shape = RoundedCornerShape(6.dp),
-                                                            color = Color(0xFFF1F5F9)
+                                                            color = MaterialTheme.colorScheme.surfaceVariant
                                                         ) {
                                                             Text(
                                                                 text = "Inactive",
-                                                                color = TextSubtle,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                 fontSize = 10.sp,
                                                                 fontWeight = FontWeight.Medium,
                                                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -595,7 +597,7 @@ fun ReportsScreen(
                                                 Spacer(modifier = Modifier.height(3.dp))
                                                 Text(
                                                     text = "Target: LKR ${currencyFormat.format(report.targetAmountLKR)}",
-                                                    color = TextSubtle,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.Medium
                                                 )
@@ -607,11 +609,11 @@ fun ReportsScreen(
                                             ) {
                                                 Surface(
                                                     shape = RoundedCornerShape(8.dp),
-                                                    color = NavyPrimary.copy(alpha = 0.08f)
+                                                    color = MaterialTheme.colorScheme.secondaryContainer
                                                 ) {
                                                     Text(
                                                         text = "${report.overallProgressPercentage.roundToInt()}%",
-                                                        color = NavyPrimary,
+                                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                                                         fontSize = 12.sp,
                                                         fontWeight = FontWeight.Bold,
                                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -621,7 +623,7 @@ fun ReportsScreen(
                                                 Icon(
                                                     imageVector = Icons.Default.ArrowDropDown,
                                                     contentDescription = if (isExpanded) "Collapse details" else "Expand details",
-                                                    tint = NavyPrimary,
+                                                    tint = MaterialTheme.colorScheme.onSurface,
                                                     modifier = Modifier
                                                         .size(24.dp)
                                                         .rotate(arrowRotation)
@@ -636,7 +638,7 @@ fun ReportsScreen(
                                                     .fillMaxWidth()
                                                     .padding(top = 14.dp)
                                             ) {
-                                                HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 0.8.dp)
+                                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.8.dp)
                                                 Spacer(modifier = Modifier.height(14.dp))
 
                                                 // Visual Comparison Graph: How Much Assigned this month vs Monthly Target
@@ -652,7 +654,7 @@ fun ReportsScreen(
                                                 val achieved = report.assignedThisMonthLKR >= report.targetMonthlyLKR && report.targetMonthlyLKR > 0
                                                 Surface(
                                                     shape = RoundedCornerShape(8.dp),
-                                                    color = if (achieved) Color(0xFFDCFCE7) else Color(0xFFF1F5F9),
+                                                    color = if (achieved) Color(0xFFDCFCE7) else MaterialTheme.colorScheme.surfaceVariant,
                                                     modifier = Modifier.fillMaxWidth()
                                                 ) {
                                                     Text(
@@ -663,7 +665,7 @@ fun ReportsScreen(
                                                         } else {
                                                             "No monthly target required"
                                                         },
-                                                        color = if (achieved) Color(0xFF166534) else NavyPrimary,
+                                                        color = if (achieved) Color(0xFF166534) else MaterialTheme.colorScheme.onSurface,
                                                         fontSize = 12.sp,
                                                         fontWeight = FontWeight.SemiBold,
                                                         textAlign = TextAlign.Center,
@@ -672,13 +674,13 @@ fun ReportsScreen(
                                                 }
 
                                                 Spacer(modifier = Modifier.height(14.dp))
-                                                HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 0.8.dp)
+                                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.8.dp)
                                                 Spacer(modifier = Modifier.height(10.dp))
 
                                                 // Overall Goal Progress Bar
                                                 Text(
                                                     text = "Overall Goal Progress",
-                                                    color = NavyPrimary,
+                                                    color = MaterialTheme.colorScheme.onSurface,
                                                     fontSize = 13.sp,
                                                     fontWeight = FontWeight.Bold
                                                 )
@@ -688,14 +690,14 @@ fun ReportsScreen(
                                                         .fillMaxWidth()
                                                         .height(8.dp)
                                                         .clip(RoundedCornerShape(4.dp))
-                                                        .background(Color(0xFFE2E8F0))
+                                                        .background(MaterialTheme.colorScheme.surfaceVariant)
                                                 ) {
                                                     if (report.overallProgressFraction > 0f) {
                                                         Box(
                                                             modifier = Modifier
                                                                 .fillMaxWidth(fraction = report.overallProgressFraction)
                                                                 .fillMaxHeight()
-                                                                .background(NavyPrimary)
+                                                                .background(MaterialTheme.colorScheme.primary)
                                                         )
                                                     }
                                                 }
@@ -707,7 +709,7 @@ fun ReportsScreen(
                                                 ) {
                                                     Text(
                                                         text = "${"%.0f".format(report.overallProgressPercentage)}% complete · Need LKR ${currencyFormat.format(report.remainingAmountLKR)}",
-                                                        color = TextSubtle,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         fontSize = 11.sp,
                                                         fontWeight = FontWeight.Medium
                                                     )
@@ -727,13 +729,13 @@ fun ReportsScreen(
                                                             Icon(
                                                                 imageVector = Icons.Default.CalendarMonth,
                                                                 contentDescription = null,
-                                                                tint = TextSubtle,
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                 modifier = Modifier.size(15.dp)
                                                             )
                                                             Text(
                                                                 text = "Deadline: ${dateFormat.format(report.targetDate)}",
                                                                 fontSize = 12.sp,
-                                                                color = TextSubtle,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                 fontWeight = FontWeight.Medium
                                                             )
                                                         }
@@ -741,11 +743,11 @@ fun ReportsScreen(
                                                         if (report.daysRemainingText.isNotBlank()) {
                                                             Surface(
                                                                 shape = RoundedCornerShape(6.dp),
-                                                                color = if (report.daysRemaining < 0) Color(0xFFFEE2E2) else NavyPrimary
+                                                                color = if (report.daysRemaining < 0) Color(0xFFFEE2E2) else MaterialTheme.colorScheme.primary
                                                             ) {
                                                                 Text(
                                                                     text = report.daysRemainingText,
-                                                                    color = if (report.daysRemaining < 0) Color(0xFFDC2626) else Color.White,
+                                                                    color = if (report.daysRemaining < 0) Color(0xFFDC2626) else MaterialTheme.colorScheme.onPrimary,
                                                                     fontSize = 11.sp,
                                                                     fontWeight = FontWeight.Bold,
                                                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -768,7 +770,8 @@ fun ReportsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = LightCardBg)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(
                     modifier = Modifier
@@ -783,13 +786,13 @@ fun ReportsScreen(
                         Column {
                             Text(
                                 text = "Income by Source",
-                                color = NavyPrimary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
                                 text = selectedLabel,
-                                color = TextSubtle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -798,7 +801,7 @@ fun ReportsScreen(
                         if (currentReport != null && currentReport.totalIncomeLKR > 0) {
                             Text(
                                 text = "LKR ${currencyFormat.format(currentReport.totalIncomeLKR)}",
-                                color = NavyPrimary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -819,13 +822,13 @@ fun ReportsScreen(
                             Icon(
                                 imageVector = Icons.Default.BarChart,
                                 contentDescription = null,
-                                tint = TextSubtle.copy(alpha = 0.5f),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "No confirmed income recorded for $selectedLabel",
-                                color = TextSubtle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
                                 textAlign = TextAlign.Center
@@ -841,13 +844,13 @@ fun ReportsScreen(
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        HorizontalDivider(color = Color(0xFFCBD5E1), thickness = 0.8.dp)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.8.dp)
                         Spacer(modifier = Modifier.height(12.dp))
 
                         // Source details table
                         Text(
                             text = "Breakdown Details",
-                            color = NavyPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -863,13 +866,13 @@ fun ReportsScreen(
                             ) {
                                 Text(
                                     text = sourceItem.source,
-                                    color = Color(0xFF334155),
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                                 Text(
                                     text = "LKR ${currencyFormat.format(sourceItem.amountLKR)}",
-                                    color = NavyPrimary,
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -883,7 +886,8 @@ fun ReportsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = LightCardBg)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(
                     modifier = Modifier
@@ -898,13 +902,13 @@ fun ReportsScreen(
                         Column {
                             Text(
                                 text = "Expenses by Category",
-                                color = NavyPrimary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
                                 text = selectedLabel,
-                                color = TextSubtle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -913,7 +917,7 @@ fun ReportsScreen(
                         if (currentReport != null && currentReport.totalExpensesLKR > 0) {
                             Text(
                                 text = "LKR ${currencyFormat.format(currentReport.totalExpensesLKR)}",
-                                color = NavyPrimary,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -934,13 +938,13 @@ fun ReportsScreen(
                             Icon(
                                 imageVector = Icons.Default.BarChart,
                                 contentDescription = null,
-                                tint = TextSubtle.copy(alpha = 0.5f),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "No expenses recorded for $selectedLabel",
-                                color = TextSubtle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
                                 textAlign = TextAlign.Center
@@ -956,13 +960,13 @@ fun ReportsScreen(
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        HorizontalDivider(color = Color(0xFFCBD5E1), thickness = 0.8.dp)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.8.dp)
                         Spacer(modifier = Modifier.height(12.dp))
 
                         // Category details table
                         Text(
                             text = "Breakdown Details",
-                            color = NavyPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -978,13 +982,13 @@ fun ReportsScreen(
                             ) {
                                 Text(
                                     text = catItem.name,
-                                    color = Color(0xFF334155),
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                                 Text(
                                     text = "LKR ${currencyFormat.format(catItem.amountLKR)}",
-                                    color = NavyPrimary,
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -1012,6 +1016,9 @@ private fun ReportsCircularSpendingProgressBar(
     val incomePercent = if (total > 0) ((totalIncome / total) * 100).roundToInt() else 0
     val expensePercent = if (total > 0) (100 - incomePercent) else 0
     val hasData = total > 0
+    val trackColor = MaterialTheme.colorScheme.surface
+    val incomeColor = MaterialTheme.colorScheme.primary
+    val expenseColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -1028,7 +1035,7 @@ private fun ReportsCircularSpendingProgressBar(
 
                 // Track
                 drawCircle(
-                    color = Color.White,
+                    color = trackColor,
                     radius = radius,
                     center = center,
                     style = Stroke(width = strokeWidth)
@@ -1040,7 +1047,7 @@ private fun ReportsCircularSpendingProgressBar(
 
                     if (expenseSweep > 0f) {
                         drawArc(
-                            color = Color(0xFFBAC7D5),
+                            color = expenseColor,
                             startAngle = -90f,
                             sweepAngle = expenseSweep,
                             useCenter = false,
@@ -1050,7 +1057,7 @@ private fun ReportsCircularSpendingProgressBar(
 
                     if (incomeSweep > 0f) {
                         drawArc(
-                            color = NavyPrimary,
+                            color = incomeColor,
                             startAngle = -90f + expenseSweep,
                             sweepAngle = incomeSweep,
                             useCenter = false,
@@ -1063,13 +1070,13 @@ private fun ReportsCircularSpendingProgressBar(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = if (hasData) "$incomePercent%" else "0%",
-                    color = NavyPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = "Income",
-                    color = TextSubtle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -1105,13 +1112,13 @@ private fun GoalAssignedComparisonBar(
                 Text(
                     text = "Assigned this month",
                     fontSize = 12.sp,
-                    color = NavyPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
                     text = "LKR ${currencyFormat.format(assignedLKR)}",
                     fontSize = 12.sp,
-                    color = NavyPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -1121,13 +1128,13 @@ private fun GoalAssignedComparisonBar(
                     .fillMaxWidth()
                     .height(10.dp)
                     .clip(RoundedCornerShape(5.dp))
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(fraction = assignedFraction)
                         .fillMaxHeight()
-                        .background(NavyPrimary)
+                        .background(MaterialTheme.colorScheme.primary)
                 )
             }
         }
@@ -1141,13 +1148,13 @@ private fun GoalAssignedComparisonBar(
                 Text(
                     text = "Monthly Target",
                     fontSize = 12.sp,
-                    color = TextSubtle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
                     text = "LKR ${currencyFormat.format(targetLKR)}",
                     fontSize = 12.sp,
-                    color = TextSubtle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -1157,13 +1164,13 @@ private fun GoalAssignedComparisonBar(
                     .fillMaxWidth()
                     .height(10.dp)
                     .clip(RoundedCornerShape(5.dp))
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(fraction = targetFraction)
                         .fillMaxHeight()
-                        .background(Color(0xFFBAC7D5))
+                        .background(MaterialTheme.colorScheme.outline)
                 )
             }
         }

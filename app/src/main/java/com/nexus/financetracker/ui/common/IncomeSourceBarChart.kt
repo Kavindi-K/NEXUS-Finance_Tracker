@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,9 +25,6 @@ import androidx.compose.ui.unit.sp
 import com.nexus.financetracker.ui.dashboard.IncomeSourceSpending
 import java.util.Locale
 
-private val ChartNavy = Color(0xFF072044)
-private val ChartMuted = Color(0xFF64748B)
-private val ChartGrid = Color(0xFFBAC7D5)
 private val LabelHeadroom = 20.dp
 private val PlotAreaHeight = 135.dp
 private val ChartAreaHeight = LabelHeadroom + PlotAreaHeight // 155.dp
@@ -76,6 +74,11 @@ fun IncomeSourceBarChart(
 ) {
     if (items.isEmpty()) return
 
+    val barColor = MaterialTheme.colorScheme.primary
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val mutedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val gridLineColor = MaterialTheme.colorScheme.outlineVariant
+
     val sortedItems = remember(items) {
         items.sortedWith(
             compareBy<IncomeSourceSpending> { IncomeSource.getSourceOrder(it.source) }
@@ -105,7 +108,7 @@ fun IncomeSourceBarChart(
         // Y-Axis title
         Text(
             text = "Income (LKR)",
-            color = ChartMuted,
+            color = mutedTextColor,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold
         )
@@ -127,21 +130,21 @@ fun IncomeSourceBarChart(
             ) {
                 Text(
                     text = formatCompactLkr(yTop),
-                    color = ChartMuted,
+                    color = mutedTextColor,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.offset(y = LabelHeadroom - 7.dp)
                 )
                 Text(
                     text = formatCompactLkr(yMid),
-                    color = ChartMuted,
+                    color = mutedTextColor,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.offset(y = LabelHeadroom + (PlotAreaHeight / 2) - 7.dp)
                 )
                 Text(
                     text = "0K",
-                    color = ChartMuted,
+                    color = mutedTextColor,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.offset(y = ChartAreaHeight - 14.dp)
@@ -159,15 +162,14 @@ fun IncomeSourceBarChart(
                     val topY = LabelHeadroom.toPx()
                     val bottomY = size.height - 1.dp.toPx()
                     val midY = topY + (bottomY - topY) / 2f
-                    val lineColor = ChartGrid.copy(alpha = 0.45f)
                     val strokeW = 1.dp.toPx()
 
                     // Top line (yTop)
-                    drawLine(lineColor, Offset(0f, topY), Offset(size.width, topY), strokeWidth = strokeW)
+                    drawLine(gridLineColor, Offset(0f, topY), Offset(size.width, topY), strokeWidth = strokeW)
                     // Mid line (yMid)
-                    drawLine(lineColor, Offset(0f, midY), Offset(size.width, midY), strokeWidth = strokeW)
+                    drawLine(gridLineColor, Offset(0f, midY), Offset(size.width, midY), strokeWidth = strokeW)
                     // Baseline (0)
-                    drawLine(ChartNavy, Offset(0f, bottomY), Offset(size.width, bottomY), strokeWidth = strokeW * 2f)
+                    drawLine(barColor, Offset(0f, bottomY), Offset(size.width, bottomY), strokeWidth = strokeW * 2f)
                 }
 
                 // Vertical bars horizontally scrollable
@@ -192,7 +194,7 @@ fun IncomeSourceBarChart(
                             // Amount label above bar
                             Text(
                                 text = formatCompactLkr(item.amountLKR),
-                                color = ChartNavy,
+                                color = textColor,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1
@@ -206,7 +208,7 @@ fun IncomeSourceBarChart(
                                     .width(36.dp)
                                     .height(barHeight)
                                     .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
-                                    .background(ChartNavy)
+                                    .background(barColor)
                             )
                         }
                     }
@@ -236,7 +238,7 @@ fun IncomeSourceBarChart(
                     ) {
                         Text(
                             text = item.source,
-                            color = ChartNavy,
+                            color = textColor,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             maxLines = 2,
@@ -254,7 +256,7 @@ fun IncomeSourceBarChart(
         // X-Axis Title
         Text(
             text = "Income Source",
-            color = ChartMuted,
+            color = mutedTextColor,
             fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.align(Alignment.End)
