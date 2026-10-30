@@ -41,13 +41,8 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-// Design System Colors matching exact Figma Wireframe Theme
-private val GoalNavyDark = Color(0xFF072044)         // Deep navy for title & primary emphasis
-private val GoalNavyPrimary = Color(0xFF0B3B6F)      // Sapphire navy
-private val GoalLightCardBg = Color(0xFFE2E8F0)      // Light blue-grey container matching Dashboard cards
-private val GoalSubtleNavy = Color(0xFF64748B)       // Muted slate label text
-private val GoalWhite = Color(0xFFFFFFFF)            // Pure white for progress track
-private val GoalNavyTextSubtle = Color(0xFFBAC7D5)   // Muted silver/slate on navy containers
+// Brand Hero Card Colors matching Dashboard and Income Screen
+private val GoalNavyTextSubtle = Color(0xFFBAC7D5)   // Muted silver/slate on navy hero container
 private val NavyCardBg = Color(0xFF132D52)           // Hero summary card matching Dashboard/Income
 private val NavyCardBorder = Color(0x33FFFFFF)       // Subtle border for navy card
 
@@ -71,13 +66,13 @@ fun GoalListScreen(
     var showPrioritySheet by remember { mutableStateOf(false) }
 
     Scaffold(
-        containerColor = GoalWhite,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Savings Goals", fontWeight = FontWeight.Bold, color = GoalNavyDark) },
+                title = { Text("Savings Goals", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = GoalNavyDark)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
                 actions = {
@@ -98,21 +93,21 @@ fun GoalListScreen(
                             Icon(
                                 imageVector = Icons.Default.Savings,
                                 contentDescription = "Contributions",
-                                tint = GoalNavyDark
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = GoalWhite
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddGoal,
-                containerColor = GoalNavyDark,
-                contentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = "Add Goal")
             }
@@ -125,7 +120,7 @@ fun GoalListScreen(
         ) {
             when {
                 uiState.isLoading && uiState.goals.isEmpty() -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = GoalNavyPrimary)
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary)
                 }
 
                 uiState.errorMessage != null && uiState.goals.isEmpty() -> {
@@ -141,7 +136,13 @@ fun GoalListScreen(
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyLarge
                         )
-                        Button(onClick = viewModel::loadGoals) {
+                        Button(
+                            onClick = viewModel::loadGoals,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
                             Text("Retry")
                         }
                     }
@@ -318,8 +319,8 @@ fun GoalListScreen(
                                 Surface(
                                     onClick = { viewModel.onPrioritySelected(null) },
                                     shape = RoundedCornerShape(12.dp),
-                                    color = GoalLightCardBg,
-                                    border = BorderStroke(1.dp, GoalNavyPrimary.copy(alpha = 0.3f))
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -330,12 +331,12 @@ fun GoalListScreen(
                                             text = "Priority: ${GoalPriority.getDisplayName(uiState.selectedPriority!!)}",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = GoalNavyDark
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Icon(
                                             imageVector = Icons.Default.Close,
                                             contentDescription = "Clear filter",
-                                            tint = GoalNavyDark,
+                                            tint = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.size(14.dp)
                                         )
                                     }
@@ -345,12 +346,12 @@ fun GoalListScreen(
                                     onClick = { viewModel.onPrioritySelected(null) },
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                                 ) {
-                                    Text("Show All Priorities", style = MaterialTheme.typography.labelSmall, color = GoalNavyPrimary)
+                                    Text("Show All Priorities", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
 
-                        // 2. Filter Chips: All, Ongoing, Achieved, Couldn't Achieved (matching Income Screen)
+                        // 2. Filter Chips: All, Ongoing, Achieved, Couldn't Achieved (matching Income/Expense Screen)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -372,8 +373,8 @@ fun GoalListScreen(
                                     label = { Text(label, style = MaterialTheme.typography.labelMedium) },
                                     shape = RoundedCornerShape(20.dp),
                                     colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = GoalNavyDark,
-                                        selectedLabelColor = Color.White
+                                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
                                 )
                             }
@@ -398,24 +399,27 @@ fun GoalListScreen(
                                         Icon(
                                             imageVector = Icons.Default.Savings,
                                             contentDescription = null,
-                                            tint = GoalNavyPrimary.copy(alpha = 0.6f),
+                                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                                             modifier = Modifier.size(64.dp)
                                         )
                                         Text(
                                             text = "No Savings Goals Yet",
                                             style = MaterialTheme.typography.titleLarge,
                                             fontWeight = FontWeight.Bold,
-                                            color = GoalNavyDark
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
                                             text = "Define a quantified target like Kavindu's MacBook Pro M4 (LKR 490,000) with a target deadline to take control of your financial trajectory.",
                                             style = MaterialTheme.typography.bodyMedium,
-                                            color = GoalSubtleNavy,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             textAlign = TextAlign.Center
                                         )
                                         Button(
                                             onClick = onAddGoal,
-                                            colors = ButtonDefaults.buttonColors(containerColor = GoalNavyDark),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.primary,
+                                                contentColor = MaterialTheme.colorScheme.onPrimary
+                                            ),
                                             modifier = Modifier.padding(top = 8.dp)
                                         ) {
                                             Icon(imageVector = Icons.Default.Add, contentDescription = null)
@@ -443,19 +447,19 @@ fun GoalListScreen(
                                         Icon(
                                             imageVector = Icons.Default.Savings,
                                             contentDescription = null,
-                                            tint = GoalSubtleNavy.copy(alpha = 0.4f),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                             modifier = Modifier.size(48.dp)
                                         )
                                         Text(
                                             text = emptyMessage,
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = GoalNavyDark
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
                                             text = "Switch filters above or select another priority category.",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = GoalSubtleNavy
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 }
@@ -600,8 +604,8 @@ private fun GoalPriorityBottomSheet(
                     count = uiState.goals.size,
                     totalAmount = totalTargetAll,
                     icon = Icons.Default.Savings,
-                    iconBg = GoalNavyPrimary.copy(alpha = 0.12f),
-                    iconTint = GoalNavyPrimary,
+                    iconBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    iconTint = MaterialTheme.colorScheme.primary,
                     isSelected = uiState.selectedPriority == null,
                     currencyFormat = currencyFormat,
                     onClick = {
@@ -686,8 +690,8 @@ private fun PriorityCategoryItem(
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
-        color = if (isSelected) GoalLightCardBg else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-        border = if (isSelected) BorderStroke(1.5.dp, GoalNavyPrimary) else null,
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+        border = if (isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -721,13 +725,13 @@ private fun PriorityCategoryItem(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = GoalNavyDark
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = "$count ${if (count == 1) "Goal" else "Goals"} • LKR ${currencyFormat.format(totalAmount)}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = GoalSubtleNavy
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -736,14 +740,14 @@ private fun PriorityCategoryItem(
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Selected",
-                    tint = GoalNavyPrimary,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp)
                 )
             } else {
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = GoalSubtleNavy.copy(alpha = 0.6f),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -764,7 +768,8 @@ private fun GoalCard(
             .fillMaxWidth()
             .clickable { onEdit() },
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = GoalLightCardBg),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -784,7 +789,7 @@ private fun GoalCard(
                         text = goal.title,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
-                        color = GoalNavyDark
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(
@@ -794,12 +799,12 @@ private fun GoalCard(
                         if (goal.isActive) {
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
-                                color = GoalWhite.copy(alpha = 0.9f)
+                                color = MaterialTheme.colorScheme.surface
                             ) {
                                 Text(
                                     text = "Active",
                                     fontSize = 11.sp,
-                                    color = GoalNavyPrimary,
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
                                 )
@@ -808,7 +813,7 @@ private fun GoalCard(
 
                         val (badgeBg, badgeFg) = when (goal.priority.lowercase()) {
                             GoalPriority.HIGH -> Color(0xFFFEE2E2) to Color(0xFFDC2626)
-                            GoalPriority.LOW -> GoalWhite.copy(alpha = 0.9f) to Color(0xFF475569)
+                            GoalPriority.LOW -> MaterialTheme.colorScheme.surface to MaterialTheme.colorScheme.onSurfaceVariant
                             else -> Color(0xFFFEF3C7) to Color(0xFFD97706)
                         }
                         Surface(
@@ -833,7 +838,7 @@ private fun GoalCard(
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Edit Goal",
-                        tint = GoalNavyDark,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -858,7 +863,7 @@ private fun GoalCard(
                     Text(
                         text = "Target Amount",
                         fontSize = 12.sp,
-                        color = GoalSubtleNavy,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(2.dp))
@@ -866,14 +871,14 @@ private fun GoalCard(
                         text = "LKR ${currencyFormat.format(goal.targetAmountLKR)}",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = GoalNavyDark
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "Estimated Savings",
                         fontSize = 12.sp,
-                        color = GoalSubtleNavy,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(2.dp))
@@ -881,7 +886,7 @@ private fun GoalCard(
                         text = "LKR ${currencyFormat.format(currentSavings)}",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = GoalNavyDark
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -893,7 +898,7 @@ private fun GoalCard(
                         .fillMaxWidth()
                         .height(10.dp)
                         .clip(RoundedCornerShape(5.dp))
-                        .background(GoalWhite)
+                        .background(MaterialTheme.colorScheme.surface)
                 ) {
                     if (progressFraction > 0f) {
                         Box(
@@ -901,7 +906,7 @@ private fun GoalCard(
                                 .fillMaxWidth(fraction = progressFraction)
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(5.dp))
-                                .background(GoalNavyDark)
+                                .background(MaterialTheme.colorScheme.primary)
                         )
                     }
                 }
@@ -915,13 +920,13 @@ private fun GoalCard(
                         text = "%.1f%% Complete".format(progressPercent),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = GoalNavyDark
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Need LKR ${currencyFormat.format(remaining)}",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = GoalSubtleNavy
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -933,14 +938,14 @@ private fun GoalCard(
             ) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = GoalNavyDark,
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     modifier = Modifier.weight(1f)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                         Text(
                             text = "Required / Month",
                             fontSize = 11.sp,
-                            color = GoalNavyTextSubtle,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
                             fontWeight = FontWeight.Medium
                         )
                         Spacer(modifier = Modifier.height(3.dp))
@@ -949,21 +954,21 @@ private fun GoalCard(
                                 ?: "Calculating...",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 }
 
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = GoalNavyDark,
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     modifier = Modifier.weight(1f)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                         Text(
                             text = "Your Average / Month",
                             fontSize = 11.sp,
-                            color = GoalNavyTextSubtle,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
                             fontWeight = FontWeight.Medium
                         )
                         Spacer(modifier = Modifier.height(3.dp))
@@ -972,7 +977,7 @@ private fun GoalCard(
                             text = "LKR ${currencyFormat.format(avgRate)}",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 }
@@ -991,7 +996,7 @@ private fun GoalCard(
                     com.nexus.financetracker.domain.model.PaceStatus.OVERDUE ->
                         Color(0xFFFEE2E2) to Color(0xFFDC2626) // Red for Slightly Behind & Overdue
                     com.nexus.financetracker.domain.model.PaceStatus.INSUFFICIENT_HISTORY ->
-                        GoalWhite to Color(0xFF475569)
+                        MaterialTheme.colorScheme.surface to MaterialTheme.colorScheme.onSurfaceVariant
                 }
 
                 Surface(
@@ -1021,7 +1026,7 @@ private fun GoalCard(
                         Text(
                             text = projection.statusMessage,
                             fontSize = 11.sp,
-                            color = Color(0xFF1E293B),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                             lineHeight = 15.sp
                         )
                     }
@@ -1041,13 +1046,13 @@ private fun GoalCard(
                     Icon(
                         imageVector = Icons.Default.CalendarMonth,
                         contentDescription = null,
-                        tint = GoalSubtleNavy,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
                         text = "Deadline: ${dateFormat.format(goal.targetDate)}",
                         fontSize = 12.sp,
-                        color = GoalSubtleNavy,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -1056,13 +1061,13 @@ private fun GoalCard(
                 val isOverdue = (calculation?.daysRemaining ?: goal.daysRemaining) < 0
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = if (isOverdue) Color(0xFFFEE2E2) else GoalNavyDark
+                    color = if (isOverdue) Color(0xFFFEE2E2) else MaterialTheme.colorScheme.primary
                 ) {
                     Text(
                         text = daysText,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isOverdue) Color(0xFFDC2626) else Color.White,
+                        color = if (isOverdue) Color(0xFFDC2626) else MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
