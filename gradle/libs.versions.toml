@@ -60,6 +60,13 @@ work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "w
 hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "hiltWork" }
 hilt-work-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "hiltWork" }
 
+# Google Play Services Auth
+play-services-auth = { module = "com.google.android.gms:play-services-auth", version = "21.3.0" }
+
+# Biometrics & Encrypted Security
+androidx-biometric = { module = "androidx.biometric:biometric-ktx", version = "1.2.0-alpha05" }
+androidx-security-crypto = { module = "androidx.security:security-crypto", version = "1.1.0-alpha06" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

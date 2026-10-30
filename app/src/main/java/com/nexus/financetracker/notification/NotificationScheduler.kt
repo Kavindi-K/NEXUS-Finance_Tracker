@@ -92,6 +92,25 @@ object NotificationScheduler {
     }
 
     /**
+     * Schedules all active background notifications (bill, income, and evening logs).
+     */
+    fun scheduleAllReminders(context: Context) {
+        scheduleDailyBillReminder(context)
+        scheduleDailyIncomeReminder(context)
+        scheduleDailyEveningReminder(context)
+    }
+
+    /**
+     * Cancels all scheduled reminder background workers (used when user disables push notifications in Settings).
+     */
+    fun cancelAllReminders(context: Context) {
+        val wm = WorkManager.getInstance(context)
+        wm.cancelUniqueWork(BILL_WORK_TAG)
+        wm.cancelUniqueWork(INCOME_WORK_TAG)
+        wm.cancelUniqueWork(EVENING_WORK_TAG)
+    }
+
+    /**
      * Calculates milliseconds from now until the next occurrence of [targetHour]:[targetMinute].
      * If the time has already passed today, schedules for tomorrow.
      */

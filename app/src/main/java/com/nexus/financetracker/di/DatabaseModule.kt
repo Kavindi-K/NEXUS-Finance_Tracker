@@ -2,8 +2,10 @@ package com.nexus.financetracker.di
 
 import android.content.Context
 import androidx.room.Room
+import com.nexus.financetracker.data.local.dao.CategoryDao
 import com.nexus.financetracker.data.local.dao.ExpenseDao
 import com.nexus.financetracker.data.local.dao.GoalDao
+import com.nexus.financetracker.data.local.dao.IncomeDao
 import com.nexus.financetracker.data.local.dao.TransactionDao
 import com.nexus.financetracker.data.local.database.AppDatabase
 import dagger.Module
@@ -14,7 +16,7 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * Hilt module that provides Room database and DAO instances.
+ * Hilt module that provides Room database and DAO instances across all modules for full offline support.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -28,9 +30,8 @@ object DatabaseModule {
             AppDatabase::class.java,
             "nexus_finance_db"
         )
-        // TODO: Replace with proper migrations before production
+        // Destructive migration for schema upgrades during development
         .fallbackToDestructiveMigration(true)
-        // Allow main thread access during dev — prevents ANR on Hilt singleton init
         .allowMainThreadQueries()
         .build()
 
@@ -42,5 +43,10 @@ object DatabaseModule {
 
     @Provides
     fun provideExpenseDao(db: AppDatabase): ExpenseDao = db.expenseDao()
-}
 
+    @Provides
+    fun provideIncomeDao(db: AppDatabase): IncomeDao = db.incomeDao()
+
+    @Provides
+    fun provideCategoryDao(db: AppDatabase): CategoryDao = db.categoryDao()
+}

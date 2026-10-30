@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.nexus.financetracker.data.repository.IncomeRepository
+import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
@@ -19,6 +20,13 @@ import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.roundToLong
+
+enum class IncomeSortOrder {
+    DATE_DESC,
+    DATE_ASC,
+    AMOUNT_DESC,
+    AMOUNT_ASC
+}
 
 enum class IncomeFilter {
     ALL,
@@ -97,6 +105,7 @@ data class IncomeUiState(
     val streamConfirmedLKR: Double = 0.0,
     val streamPendingLKR: Double = 0.0,
     val lastSalaryAmount: Double? = null,
+    val selectedSortOrder: IncomeSortOrder = IncomeSortOrder.DATE_DESC,
     val selectedFilter: IncomeFilter = IncomeFilter.ALL,
     val selectedSource: String? = null,
     val selectedMonthLabel: String = "",
@@ -104,6 +113,7 @@ data class IncomeUiState(
     val monthlyIncomeTotals: Map<String, Double> = emptyMap(),
     val isPeriodAllTime: Boolean = false,
     val reconciliation: MonthlyReconciliation? = null,
+    val isOffline: Boolean = false,
     val isLoading: Boolean = true,
     val errorMessage: String? = null
 )
@@ -111,7 +121,8 @@ data class IncomeUiState(
 @HiltViewModel
 class IncomeViewModel @Inject constructor(
     private val incomeRepository: IncomeRepository,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(IncomeUiState())
@@ -128,6 +139,15 @@ class IncomeViewModel @Inject constructor(
 
     init {
         loadIncomes()
+        observeNetworkStatus()
+    }
+
+    private fun observeNetworkStatus() {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.value = _uiState.value.copy(isOffline = !online)
+            }
+        }
     }
 
     fun loadIncomes() {
@@ -370,10 +390,11 @@ class IncomeViewModel @Inject constructor(
         val streamConfirmedLKR = streamIncomes.filter { it.status == IncomeStatus.CONFIRMED }.sumOf { it.amountLKR }
         val streamPendingLKR = streamIncomes.filter { it.status == IncomeStatus.PENDING }.sumOf { it.amountLKR }
 
-        val filtered = applyFilter(streamIncomes, _uiState.value.selectedFilter)
+        val sortedStreamIncomes = sortIncomes(streamIncomes, _uiState.value.selectedSortOrder)
+        val filtered = applyFilter(sortedStreamIncomes, _uiState.value.selectedFilter)
 
         _uiState.value = _uiState.value.copy(
-            incomes = streamIncomes,
+            incomes = sortedStreamIncomes,
             filteredIncomes = filtered,
             totalConfirmedLKR = overallConfirmedTotal,
             totalPendingLKR = overallPendingTotal,
@@ -421,6 +442,32 @@ class IncomeViewModel @Inject constructor(
         val endOfMonth = cal.time
 
         return Pair(startOfMonth, endOfMonth)
+    }
+
+    fun onSortOrderSelected(order: IncomeSortOrder) {
+        _uiState.value = _uiState.value.copy(selectedSortOrder = order)
+        recomputeState()
+    }
+
+    private fun sortIncomes(list: List<Income>, order: IncomeSortOrder): List<Income> {
+        return when (order) {
+            IncomeSortOrder.DATE_DESC -> list.sortedWith(
+                compareByDescending<Income> { it.dateReceived ?: it.expectedDate ?: it.createdAt }
+                    .thenByDescending { it.createdAt }
+            )
+            IncomeSortOrder.DATE_ASC -> list.sortedWith(
+                compareBy<Income> { it.dateReceived ?: it.expectedDate ?: it.createdAt }
+                    .thenBy { it.createdAt }
+            )
+            IncomeSortOrder.AMOUNT_DESC -> list.sortedWith(
+                compareByDescending<Income> { it.amountLKR }
+                    .thenByDescending { it.dateReceived ?: it.expectedDate ?: it.createdAt }
+            )
+            IncomeSortOrder.AMOUNT_ASC -> list.sortedWith(
+                compareBy<Income> { it.amountLKR }
+                    .thenByDescending { it.dateReceived ?: it.expectedDate ?: it.createdAt }
+            )
+        }
     }
 
     fun onSourceFilterSelected(source: String?) {

@@ -8,6 +8,7 @@ import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.repository.GoalRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
+import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.domain.model.Category
 import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseClassification
@@ -50,7 +51,8 @@ class DashboardViewModel @Inject constructor(
     private val goalRepository: GoalRepository,
     private val categoryRepository: CategoryRepository,
     private val authRepository: AuthRepository,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -58,6 +60,15 @@ class DashboardViewModel @Inject constructor(
 
     init {
         loadDashboardSummary()
+        observeNetworkStatus()
+    }
+
+    private fun observeNetworkStatus() {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.value = _uiState.value.copy(isOffline = !online)
+            }
+        }
     }
 
     fun loadDashboardSummary() {
@@ -106,8 +117,33 @@ class DashboardViewModel @Inject constructor(
                 }
                 val totalExpense = monthExpenses.sumOf { it.amountLKR }
 
-                // 3. Net result for the month
-                val netResult = totalIncome - totalExpense
+                // 3. Category Estimation Budget Deduction logic:
+                // Estimated values are reduced from income at beginning of the month.
+                // For categories where actual expenses exceed estimation, the excess is also reduced from total income.
+                val estimatedCategories = categories.filter { it.estimatedAmount != null && (it.estimatedAmount ?: 0.0) > 0.0 }
+                val estimatedCategoryIds = estimatedCategories.map { it.id }.toSet()
+
+                var totalEstimatedBudgetDeduction = 0.0
+                for (cat in estimatedCategories) {
+                    val est = cat.estimatedAmount ?: 0.0
+                    val actualForCat = monthExpenses.filter { it.categoryId == cat.id }.sumOf { it.amountLKR }
+                    val deduction = if (actualForCat > est) {
+                        est + (actualForCat - est)
+                    } else {
+                        est
+                    }
+                    totalEstimatedBudgetDeduction += deduction
+                }
+
+                val nonEstimatedExpenses = monthExpenses.filter { it.categoryId !in estimatedCategoryIds }.sumOf { it.amountLKR }
+                val effectiveDeductions = if (estimatedCategories.isNotEmpty()) {
+                    totalEstimatedBudgetDeduction + nonEstimatedExpenses
+                } else {
+                    totalExpense
+                }
+
+                // Net result for the month: Total Income minus effective category deductions
+                val netResult = totalIncome - effectiveDeductions
 
                 // 4. Committed vs Discretionary split (FR18)
                 val (committedPercent, discretionaryPercent) = calculateCommittedDiscretionarySplit(
@@ -381,6 +417,7 @@ data class PriorityGoalItem(
  */
 data class DashboardUiState(
     val isLoading: Boolean = true,
+    val isOffline: Boolean = false,
     val greeting: String = DashboardViewModel.getGreeting(),
     val userName: String = "User",
     val userPhotoUrl: String? = null,

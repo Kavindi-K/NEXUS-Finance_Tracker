@@ -15,7 +15,9 @@ interface ExpenseRepository {
     suspend fun getExpenseById(expenseId: String): Expense?
     suspend fun getLatestExpense(userId: String): Expense?
     suspend fun addExpense(expense: Expense): String
+    suspend fun addExpenses(expenses: List<Expense>): List<String>
     suspend fun updateExpense(expense: Expense)
     suspend fun deleteExpense(expenseId: String)
+    suspend fun clearLocalCache(userId: String)
 }
 

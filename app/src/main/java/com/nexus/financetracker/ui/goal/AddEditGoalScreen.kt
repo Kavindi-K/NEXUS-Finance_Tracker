@@ -32,16 +32,8 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToLong
 
-// Color Palette precisely matching user design
-private val GoalNavyDark = Color(0xFF0D274D)         // Deep navy for title, labels, button
-private val GoalBackground = Color(0xFFF1F5F9)       // Soft background canvas
-private val GoalCardSurface = Color(0xFFFFFFFF)      // Pure white card
-private val GoalFieldBackground = Color(0xFFE2E7ED)  // Light grey input field fill
-private val GoalCalculationBox = Color(0xFFD4DDE8)   // Muted blue-grey calculation container
-private val GoalCalculationSubtext = Color(0xFF5A6E85)
-
 /**
- * Screen for creating or editing a savings goal, styled to match the team design mockup.
+ * Screen for creating or editing a savings goal, styled with dynamic theme tokens.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,7 +78,7 @@ fun AddEditGoalScreen(
     }
 
     Scaffold(
-        containerColor = GoalBackground,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Row(
                 modifier = Modifier
@@ -103,7 +95,7 @@ fun AddEditGoalScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = GoalNavyDark,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -111,7 +103,7 @@ fun AddEditGoalScreen(
                         text = if (formState.isEditing) "Edit Goal" else "New Goal",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
-                            color = GoalNavyDark,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 22.sp
                         )
                     )
@@ -137,10 +129,11 @@ fun AddEditGoalScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Main Elevated White Card Container
+            // Main Elevated Card Container
             Card(
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = GoalCardSurface),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -219,7 +212,7 @@ fun AddEditGoalScreen(
                             text = "Priority Level",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = GoalNavyDark
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -236,8 +229,8 @@ fun AddEditGoalScreen(
                                 Surface(
                                     onClick = { viewModel.onPriorityChanged(pKey) },
                                     shape = RoundedCornerShape(12.dp),
-                                    color = if (isSelected) pColor.copy(alpha = 0.12f) else GoalFieldBackground,
-                                    border = if (isSelected) BorderStroke(1.5.dp, pColor) else null,
+                                    color = if (isSelected) pColor.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface,
+                                    border = if (isSelected) BorderStroke(1.5.dp, pColor) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(44.dp)
@@ -247,7 +240,7 @@ fun AddEditGoalScreen(
                                             text = pLabel,
                                             fontSize = 14.sp,
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) pColor else GoalNavyDark.copy(alpha = 0.7f)
+                                            color = if (isSelected) pColor else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 }
@@ -260,7 +253,7 @@ fun AddEditGoalScreen(
                                 "Only High priority goals are displayed on the Dashboard."
                             },
                             fontSize = 11.sp,
-                            color = GoalCalculationSubtext
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -269,7 +262,7 @@ fun AddEditGoalScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
-                                color = GoalCalculationBox,
+                                color = MaterialTheme.colorScheme.primaryContainer,
                                 shape = RoundedCornerShape(14.dp)
                             )
                             .padding(horizontal = 16.dp, vertical = 14.dp)
@@ -278,7 +271,7 @@ fun AddEditGoalScreen(
                             Text(
                                 text = "You need to save",
                                 fontSize = 12.sp,
-                                color = GoalCalculationSubtext,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
                                 fontWeight = FontWeight.Normal
                             )
                             Spacer(modifier = Modifier.height(2.dp))
@@ -286,14 +279,14 @@ fun AddEditGoalScreen(
                                 text = monthlyRequiredText,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = GoalNavyDark
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    // 7. Save Goal Button
+                    // 8. Save Goal Button
                     Button(
                         onClick = {
                             viewModel.saveGoal(onSuccess = onNavigateBack)
@@ -301,8 +294,8 @@ fun AddEditGoalScreen(
                         enabled = !formState.isSaving && !formState.isDeleting,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = GoalNavyDark,
-                            contentColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -311,7 +304,7 @@ fun AddEditGoalScreen(
                         if (formState.isSaving) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 strokeWidth = 2.dp
                             )
                         } else {
@@ -343,12 +336,12 @@ fun AddEditGoalScreen(
                         showStartDatePicker = false
                     }
                 ) {
-                    Text("OK", color = GoalNavyDark, fontWeight = FontWeight.Bold)
+                    Text("OK", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showStartDatePicker = false }) {
-                    Text("Cancel", color = GoalCalculationSubtext)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         ) {
@@ -372,12 +365,12 @@ fun AddEditGoalScreen(
                         showTargetDatePicker = false
                     }
                 ) {
-                    Text("OK", color = GoalNavyDark, fontWeight = FontWeight.Bold)
+                    Text("OK", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showTargetDatePicker = false }) {
-                    Text("Cancel", color = GoalCalculationSubtext)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         ) {
@@ -389,7 +382,7 @@ fun AddEditGoalScreen(
     if (showDeleteConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text("Delete Goal", fontWeight = FontWeight.Bold, color = GoalNavyDark) },
+            title = { Text("Delete Goal", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
             text = { Text("Are you sure you want to delete this goal? This cannot be undone.") },
             confirmButton = {
                 TextButton(
@@ -406,7 +399,7 @@ fun AddEditGoalScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                    Text("Cancel", color = GoalCalculationSubtext)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -414,7 +407,7 @@ fun AddEditGoalScreen(
 }
 
 /**
- * Form field with centered bold label and rounded light grey input container matching the mockup.
+ * Form field with centered bold label and rounded light input container.
  */
 @Composable
 private fun GoalFormField(
@@ -433,7 +426,7 @@ private fun GoalFormField(
             text = label,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = GoalNavyDark,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
@@ -444,7 +437,7 @@ private fun GoalFormField(
             placeholder = {
                 Text(
                     text = placeholder,
-                    color = Color.Gray.copy(alpha = 0.6f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                     fontSize = 15.sp
@@ -453,19 +446,21 @@ private fun GoalFormField(
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = GoalFieldBackground,
-                unfocusedContainerColor = GoalFieldBackground,
-                disabledContainerColor = GoalFieldBackground,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                disabledContainerColor = MaterialTheme.colorScheme.surface,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant,
                 disabledIndicatorColor = Color.Transparent,
-                errorIndicatorColor = Color.Transparent
+                errorIndicatorColor = MaterialTheme.colorScheme.error
             ),
             textStyle = TextStyle(
                 textAlign = TextAlign.Center,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = GoalNavyDark
+                color = MaterialTheme.colorScheme.onSurface
             ),
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             modifier = Modifier
@@ -486,7 +481,7 @@ private fun GoalFormField(
 }
 
 /**
- * Clickable date field with centered bold label and rounded light grey container matching the mockup.
+ * Clickable date field with centered bold label and rounded container.
  */
 @Composable
 private fun GoalClickableDateField(
@@ -503,14 +498,15 @@ private fun GoalClickableDateField(
             text = label,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = GoalNavyDark,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(6.dp))
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = GoalFieldBackground,
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)
@@ -524,7 +520,7 @@ private fun GoalClickableDateField(
                     text = displayDate,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = GoalNavyDark,
+                    color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center
                 )
             }
