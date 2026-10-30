@@ -206,11 +206,11 @@ fun GoalListScreen(
                         Card(
                             onClick = { showPrioritySheet = true },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
+                            shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = NavyCardBg),
                             border = BorderStroke(1.dp, NavyCardBorder)
                         ) {
-                            Column(modifier = Modifier.padding(18.dp)) {
+                            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -223,7 +223,8 @@ fun GoalListScreen(
                                         Icon(
                                             imageVector = Icons.Default.Savings,
                                             contentDescription = null,
-                                            tint = GoalNavyTextSubtle
+                                            tint = GoalNavyTextSubtle,
+                                            modifier = Modifier.size(20.dp)
                                         )
                                         Text(
                                             text = "Savings Goals",
@@ -253,7 +254,7 @@ fun GoalListScreen(
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
 
                                 Text(
                                     text = "${uiState.goals.size} ${if (uiState.goals.size == 1) "Goal" else "Goals"}",

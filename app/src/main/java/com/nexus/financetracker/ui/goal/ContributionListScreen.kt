@@ -65,15 +65,24 @@ fun ContributionListScreen(
     val totalAvailableLKR = availableContributions.sumOf { it.amountLKR }
     val totalAllocatedLKR = contributions.filter { it.isAllocated }.sumOf { it.amountLKR }
 
-    // Active goals sorted by Priority Level: High -> Medium -> Low
-    val activeGoals = remember(uiState.goals) {
+    // Ongoing goals only (active, not achieved, not overdue) sorted by Priority Level: High -> Medium -> Low
+    val ongoingGoals = remember(uiState.goals, uiState.calculations) {
         val priorityRank = mapOf(
             GoalPriority.HIGH to 1,
             GoalPriority.MEDIUM to 2,
             GoalPriority.LOW to 3
         )
         uiState.goals
-            .filter { it.isActive }
+            .filter { goal ->
+                val calc = uiState.calculations[goal.id]
+                val currentSavings = calc?.estimatedCurrentSavingsLKR ?: goal.openingSavingsLKR
+                val isAchieved = (calc?.isCompleted == true) ||
+                    ((calc?.remainingAmountLKR ?: (goal.targetAmountLKR - goal.openingSavingsLKR)) <= 0.0) ||
+                    (currentSavings >= goal.targetAmountLKR)
+                val isOverdue = (calc?.isOverdue == true && (calc.daysRemaining < 0L)) ||
+                    (java.util.Date().after(goal.targetDate) && !isAchieved)
+                goal.isActive && !isAchieved && !isOverdue
+            }
             .sortedWith(compareBy({ priorityRank[it.priority.lowercase()] ?: 4 }, { it.title.lowercase() }))
     }
 
@@ -323,7 +332,7 @@ fun ContributionListScreen(
                 }
             },
             text = {
-                if (activeGoals.isEmpty()) {
+                if (ongoingGoals.isEmpty()) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -332,14 +341,15 @@ fun ContributionListScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "No active savings goals found.",
+                            text = "No ongoing savings goals found.",
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Please create an active goal first from the Goals screen.",
+                            text = "Achieved and expired goals cannot receive contributions. Create a new goal or check your goals on the Goals screen.",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = TextMutedSlate,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
                 } else {
@@ -349,9 +359,10 @@ fun ContributionListScreen(
                             .heightIn(max = 400.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(activeGoals, key = { it.id }) { goal ->
+                        items(ongoingGoals, key = { it.id }) { goal ->
                             GoalPriorityAllocationCard(
                                 goal = goal,
+                                calculation = uiState.calculations[goal.id],
                                 contributionAmount = item.amountLKR,
                                 currencyFormat = currencyFormat,
                                 onSelect = {
@@ -535,6 +546,7 @@ private fun ContributionCardItem(
 @Composable
 private fun GoalPriorityAllocationCard(
     goal: Goal,
+    calculation: com.nexus.financetracker.domain.model.GoalCalculation? = null,
     contributionAmount: Double,
     currencyFormat: NumberFormat,
     onSelect: () -> Unit
@@ -602,13 +614,15 @@ private fun GoalPriorityAllocationCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                val currentSaved = calculation?.let { minOf(goal.targetAmountLKR, maxOf(0.0, it.estimatedCurrentSavingsLKR)) } ?: goal.openingSavingsLKR
+                val daysText = calculation?.daysRemainingText ?: goal.daysRemainingText
                 Text(
-                    text = "Saved: LKR ${currencyFormat.format(goal.openingSavingsLKR)} / ${currencyFormat.format(goal.targetAmountLKR)}",
+                    text = "Saved: LKR ${currencyFormat.format(currentSaved)} / ${currencyFormat.format(goal.targetAmountLKR)}",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = goal.daysRemainingText,
+                    text = daysText,
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
