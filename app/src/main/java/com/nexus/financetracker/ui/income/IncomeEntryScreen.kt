@@ -329,7 +329,7 @@ fun IncomeEntryScreen(
                             )
                         }
                         Text(
-                            text = "AdSense is paid in USD and converted to LKR at transfer. The original USD amount and rate are stored so history never shifts.",
+                            text = "Earnings are received in USD and converted to LKR. The exchange rate is locked to your transfer date for accurate financial records.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -363,7 +363,7 @@ fun IncomeEntryScreen(
                                 if (formState.isFetchingRate) {
                                     Text("Fetching rate for ${dateFormatter.format(formState.dateReceived)}...", color = MaterialTheme.colorScheme.primary)
                                 } else if (formState.isRateLive) {
-                                    Text("Rate (${dateFormatter.format(formState.dateReceived)}): 1 USD = ${formState.exchangeRate} LKR (tap refresh to update, or edit manually)", color = Color(0xFF15803D))
+                                    Text("Auto-fetched for ${dateFormatter.format(formState.dateReceived)} (1 USD = ${formState.exchangeRate} LKR)", color = Color(0xFF15803D))
                                 } else {
                                     Text("1 USD = ${formState.exchangeRate} LKR (editable)")
                                 }
