@@ -10,6 +10,8 @@ import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.domain.model.Goal
 import com.nexus.financetracker.domain.model.GoalCalculation
 import com.nexus.financetracker.domain.model.GoalPriority
+import com.nexus.financetracker.data.repository.ContributionManager
+import com.nexus.financetracker.domain.model.Contribution
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +41,7 @@ class GoalViewModel @Inject constructor(
     private val incomeRepository: IncomeRepository,
     private val expenseRepository: ExpenseRepository,
     private val auth: FirebaseAuth,
+    private val contributionManager: ContributionManager,
     private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
@@ -47,6 +50,8 @@ class GoalViewModel @Inject constructor(
 
     private val _formState = MutableStateFlow(AddEditGoalState())
     val formState: StateFlow<AddEditGoalState> = _formState.asStateFlow()
+
+    val contributions: StateFlow<List<Contribution>> = contributionManager.contributions
 
     init {
         loadGoals()
@@ -67,6 +72,30 @@ class GoalViewModel @Inject constructor(
 
     fun onPrioritySelected(priority: String?) {
         _uiState.value = _uiState.value.copy(selectedPriority = priority)
+    }
+
+    fun allocateContributionToGoal(goal: Goal, contribution: Contribution, onSuccess: () -> Unit) {
+        val userId = auth.currentUser?.uid ?: return
+        viewModelScope.launch {
+            try {
+                val updatedSavings = goal.openingSavingsLKR + contribution.amountLKR
+                val updatedGoal = goal.copy(openingSavingsLKR = updatedSavings)
+                goalRepository.updateGoal(userId, updatedGoal)
+                contributionManager.allocateContribution(
+                    contributionId = contribution.id,
+                    goalId = goal.id,
+                    goalTitle = goal.title
+                )
+                loadGoals()
+                onSuccess()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(errorMessage = e.localizedMessage ?: "Failed to allocate contribution")
+            }
+        }
+    }
+
+    fun deleteContribution(contributionId: String) {
+        contributionManager.deleteContribution(contributionId)
     }
 
     fun loadGoals() {

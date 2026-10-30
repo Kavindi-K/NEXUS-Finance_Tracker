@@ -23,7 +23,9 @@ sealed class Screen(val route: String) {
 
     // Category Screens
     object CategoryDashboard : Screen("category_dashboard")
-    object AddCategory : Screen("add_category")
+    object AddCategory : Screen("add_category?categoryId={categoryId}") {
+        fun createRoute(categoryId: String? = null) = if (categoryId != null) "add_category?categoryId=$categoryId" else "add_category"
+    }
 
     // Transaction & Detail Screens
     object AddIncome : Screen("add_income?incomeId={incomeId}") {
@@ -51,6 +53,7 @@ sealed class Screen(val route: String) {
     object GoalDetail : Screen("goal/{id}") {
         fun createRoute(id: String) = "goal/$id"
     }
+    object ContributionList : Screen("contribution_list")
 
     // Profile Screen
     object Profile : Screen("profile")
