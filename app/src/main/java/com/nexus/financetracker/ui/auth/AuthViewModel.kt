@@ -10,6 +10,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.nexus.financetracker.data.local.database.AppDatabase
 import com.nexus.financetracker.data.repository.AuthRepository
 import com.nexus.financetracker.domain.model.UserProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,7 +24,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val auth: FirebaseAuth,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val appDatabase: AppDatabase
 ) : ViewModel() {
 
     var uiState by mutableStateOf(AuthUiState())
@@ -121,6 +123,18 @@ class AuthViewModel @Inject constructor(
     }
 
     fun signOut() {
+        val uid = auth.currentUser?.uid
+        if (!uid.isNullOrBlank()) {
+            viewModelScope.launch {
+                try {
+                    appDatabase.expenseDao().deleteAllForUser(uid)
+                    appDatabase.incomeDao().deleteAllForUser(uid)
+                    appDatabase.goalDao().deleteAllForUser(uid)
+                    appDatabase.categoryDao().deleteAllForUser(uid)
+                    appDatabase.transactionDao().deleteAllForUser(uid)
+                } catch (_: Exception) {}
+            }
+        }
         authRepository.signOut()
         uiState = AuthUiState()
     }

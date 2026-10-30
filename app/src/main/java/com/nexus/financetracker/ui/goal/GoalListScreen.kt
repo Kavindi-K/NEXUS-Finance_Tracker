@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
 
@@ -153,6 +154,53 @@ fun GoalListScreen(
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
+                        // Offline Indicator Banner
+                        if (uiState.isOffline) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFFFEF3C7),
+                                border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFFDE68A)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudOff,
+                                            contentDescription = "Offline Mode",
+                                            tint = Color(0xFFB45309),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Offline Mode Active",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF92400E)
+                                        )
+                                        Text(
+                                            text = "Goals saved to local Room cache and will sync automatically once reconnected.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontSize = 11.sp,
+                                            color = Color(0xFFB45309)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
                         // 1. Hero Goal Card (Clickable to show High/Med/Low priority breakdown sheet)
                         Card(
                             onClick = { showPrioritySheet = true },
@@ -322,6 +370,7 @@ fun GoalListScreen(
                                     selected = isSelected,
                                     onClick = { viewModel.onFilterSelected(filter) },
                                     label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+                                    shape = RoundedCornerShape(20.dp),
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = GoalNavyDark,
                                         selectedLabelColor = Color.White

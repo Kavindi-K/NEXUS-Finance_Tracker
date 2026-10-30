@@ -25,8 +25,14 @@ interface GoalDao {
     @Update
     suspend fun updateGoal(goal: GoalEntity)
 
+    @Query("SELECT COUNT(*) FROM goals WHERE userId = :userId")
+    suspend fun getGoalCountByUser(userId: String): Int
+
     @Delete
     suspend fun deleteGoal(goal: GoalEntity)
+
+    @Query("DELETE FROM goals WHERE id = :id")
+    suspend fun deleteGoalById(id: String)
 
     @Query("DELETE FROM goals WHERE userId = :userId")
     suspend fun deleteAllForUser(userId: String)

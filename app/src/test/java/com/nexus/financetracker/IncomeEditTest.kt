@@ -71,6 +71,11 @@ class IncomeEditTest {
             documents.remove(incomeId)
             updateFlow()
         }
+
+        override suspend fun clearLocalCache(userId: String) {
+            documents.clear()
+            updateFlow()
+        }
     }
 
     @Test

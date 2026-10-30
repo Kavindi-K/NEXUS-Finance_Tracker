@@ -6,6 +6,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.repository.GoalRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
+import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.domain.model.Goal
 import com.nexus.financetracker.domain.model.GoalCalculation
 import com.nexus.financetracker.domain.model.GoalPriority
@@ -41,6 +42,7 @@ class GoalViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val auth: FirebaseAuth,
     private val contributionManager: ContributionManager
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GoalUiState())
@@ -53,6 +55,15 @@ class GoalViewModel @Inject constructor(
 
     init {
         loadGoals()
+        observeNetworkStatus()
+    }
+
+    private fun observeNetworkStatus() {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.value = _uiState.value.copy(isOffline = !online)
+            }
+        }
     }
 
     fun onFilterSelected(filter: GoalStatusFilter) {
@@ -362,6 +373,7 @@ class GoalViewModel @Inject constructor(
  */
 data class GoalUiState(
     val isLoading: Boolean = true,
+    val isOffline: Boolean = false,
     val goals: List<Goal> = emptyList(),
     val calculations: Map<String, GoalCalculation> = emptyMap(),
     val selectedFilter: GoalStatusFilter = GoalStatusFilter.ALL,

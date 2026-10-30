@@ -45,6 +45,7 @@ class GoalRemoteDataSource @Inject constructor(
 
     suspend fun addGoal(userId: String, goal: Goal): String {
         val withUser = if (goal.userId.isEmpty()) goal.copy(userId = userId) else goal
+        val docRef = if (withUser.id.isNotBlank()) goalsCollection.document(withUser.id) else goalsCollection.document()
         val data = hashMapOf(
             "userId" to withUser.userId,
             "title" to withUser.title,
@@ -56,8 +57,10 @@ class GoalRemoteDataSource @Inject constructor(
             "createdAt" to withUser.createdAt,
             "priority" to withUser.priority
         )
-        val ref = goalsCollection.add(data).await()
-        return ref.id
+        try {
+            docRef.set(data).await()
+        } catch (_: Exception) {}
+        return docRef.id
     }
 
     suspend fun updateGoal(userId: String, goal: Goal) {
@@ -72,10 +75,14 @@ class GoalRemoteDataSource @Inject constructor(
             "isActive" to withUser.isActive,
             "priority" to withUser.priority
         )
-        goalsCollection.document(goal.id).update(updates).await()
+        try {
+            goalsCollection.document(goal.id).set(updates).await()
+        } catch (_: Exception) {}
     }
 
     suspend fun deleteGoal(userId: String, goalId: String) {
-        goalsCollection.document(goalId).delete().await()
+        try {
+            goalsCollection.document(goalId).delete().await()
+        } catch (_: Exception) {}
     }
 }

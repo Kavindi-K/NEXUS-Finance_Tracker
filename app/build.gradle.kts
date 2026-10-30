@@ -54,6 +54,10 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.play.services.auth)
 
+    // Biometrics & Encrypted Storage
+    implementation(libs.androidx.biometric)
+    implementation(libs.androidx.security.crypto)
+
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
