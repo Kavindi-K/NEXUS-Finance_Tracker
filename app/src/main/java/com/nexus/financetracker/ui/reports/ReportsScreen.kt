@@ -618,7 +618,7 @@ fun ReportsScreen(
                                                     color = NavyPrimary.copy(alpha = 0.08f)
                                                 ) {
                                                     Text(
-                                                        text = "${report.overallProgressPercentage.roundToInt()}%",
+                                                        text = "${minOf(100, report.overallProgressPercentage.coerceIn(0.0, 100.0).roundToInt())}%",
                                                         color = NavyPrimary,
                                                         fontSize = 12.sp,
                                                         fontWeight = FontWeight.Bold,
@@ -713,8 +713,9 @@ fun ReportsScreen(
                                                     horizontalArrangement = Arrangement.SpaceBetween,
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
+                                                    val progressDisplayStr = if (report.overallProgressPercentage >= 100.0 || report.isCompleted) "100%" else "${"%.0f".format(report.overallProgressPercentage.coerceIn(0.0, 100.0))}%"
                                                     Text(
-                                                        text = "${"%.0f".format(report.overallProgressPercentage)}% complete · Need LKR ${currencyFormat.format(report.remainingAmountLKR)}",
+                                                        text = "$progressDisplayStr complete · Need LKR ${currencyFormat.format(report.remainingAmountLKR)}",
                                                         color = TextSubtle,
                                                         fontSize = 11.sp,
                                                         fontWeight = FontWeight.Medium

@@ -768,15 +768,20 @@ private fun GoalCard(
                 }
             }
 
-            // 2. Financial Summary: Target Amount & Estimated Current Savings (FR15)
+            // 2. Financial Summary: Target Amount & Achieved Amount (FR15)
             val currentSavings = calculation?.estimatedCurrentSavingsLKR ?: goal.openingSavingsLKR
+            val achievedAmount = if (calculation?.isCompleted == true || currentSavings >= goal.targetAmountLKR) {
+                goal.targetAmountLKR
+            } else {
+                maxOf(0.0, currentSavings)
+            }
             val remaining = calculation?.remainingAmountLKR ?: maxOf(0.0, goal.targetAmountLKR - goal.openingSavingsLKR)
             val progressFraction = calculation?.progressFraction ?: if (goal.targetAmountLKR > 0) {
                 (goal.openingSavingsLKR / goal.targetAmountLKR).toFloat().coerceIn(0f, 1f)
             } else 0f
-            val progressPercent = calculation?.progressPercentage ?: if (goal.targetAmountLKR > 0) {
-                ((goal.openingSavingsLKR / goal.targetAmountLKR) * 100.0).coerceAtLeast(0.0)
-            } else 0.0
+            val progressPercent = (calculation?.progressPercentage ?: if (goal.targetAmountLKR > 0) {
+                ((goal.openingSavingsLKR / goal.targetAmountLKR) * 100.0)
+            } else 0.0).coerceIn(0.0, 100.0)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -800,14 +805,14 @@ private fun GoalCard(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "Estimated Savings",
+                        text = "Achieved Amount",
                         fontSize = 12.sp,
                         color = GoalSubtleNavy,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "LKR ${currencyFormat.format(currentSavings)}",
+                        text = "LKR ${currencyFormat.format(achievedAmount)}",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = GoalNavyDark
@@ -840,8 +845,15 @@ private fun GoalCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val progressPercentText = if (progressPercent >= 100.0 || calculation?.isCompleted == true) {
+                        "100% Complete"
+                    } else if (progressPercent % 1.0 == 0.0) {
+                        "${progressPercent.toInt()}% Complete"
+                    } else {
+                        "%.1f%% Complete".format(progressPercent)
+                    }
                     Text(
-                        text = "%.1f%% Complete".format(progressPercent),
+                        text = progressPercentText,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = GoalNavyDark

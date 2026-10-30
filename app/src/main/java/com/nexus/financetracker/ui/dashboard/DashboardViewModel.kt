@@ -123,7 +123,7 @@ class DashboardViewModel @Inject constructor(
                     .sumOf { it.amountLKR }
 
                 // 5. Active priority goal summary (FR15, FR17)
-                // Only priority (HIGH) active goals are displayed on the dashboard
+                // Only high-priority ONGOING goals are displayed on the dashboard (achieved and overdue goals excluded)
                 val priorityGoals = goals.filter { it.isActive && it.priority.equals(GoalPriority.HIGH, ignoreCase = true) }
                 val priorityGoalItems = priorityGoals.map { goal ->
                     PriorityGoalItem(
@@ -134,6 +134,12 @@ class DashboardViewModel @Inject constructor(
                             expenses = expenses
                         )
                     )
+                }.filter { item ->
+                    val isAchieved = item.calculation.isCompleted ||
+                        item.calculation.remainingAmountLKR <= 0.0 ||
+                        item.goal.openingSavingsLKR >= item.goal.targetAmountLKR
+                    val isOverdue = item.calculation.isOverdue && item.calculation.daysRemaining < 0L
+                    !isAchieved && !isOverdue
                 }
                 val activeGoal = priorityGoalItems.firstOrNull()?.goal
                 val goalCalculation = priorityGoalItems.firstOrNull()?.calculation
