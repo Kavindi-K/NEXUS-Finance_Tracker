@@ -5,15 +5,35 @@ import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
+import kotlinx.coroutines.delay
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -47,6 +67,12 @@ import com.nexus.financetracker.ui.profile.ProfileViewModel
 import com.nexus.financetracker.data.local.SecurityManager
 import com.nexus.financetracker.ui.security.AppLockScreen
 
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 /**
  * Root Navigation Graph with single-activity Material 3 Scaffold and Bottom Navigation.
  *
@@ -64,6 +90,7 @@ fun AppNavGraph(
     authViewModel: AuthViewModel = hiltViewModel(),
     alertsViewModel: AlertsViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -95,6 +122,37 @@ fun AppNavGraph(
     )
     val shouldShowBottomBar = currentRoute in topLevelRoutes
 
+    val isAuthScreen = currentRoute in listOf(
+        Screen.Splash.route,
+        Screen.Login.route,
+        Screen.Register.route,
+        Screen.ForgotPassword.route,
+        Screen.AppLock.route
+    )
+    val isEligibleForIdleReminder = authViewModel.isUserLoggedIn && !isAuthScreen
+
+    var showIdleReminder by remember { mutableStateOf(false) }
+    var lastInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
+
+    // Reset inactivity timer when navigating to a new destination
+    LaunchedEffect(currentRoute) {
+        lastInteractionTime = System.currentTimeMillis()
+    }
+
+    // 30-second idle reminder timer
+    LaunchedEffect(isEligibleForIdleReminder, showIdleReminder) {
+        if (!isEligibleForIdleReminder || showIdleReminder) return@LaunchedEffect
+        lastInteractionTime = System.currentTimeMillis()
+        while (true) {
+            delay(1000L)
+            val idleDuration = System.currentTimeMillis() - lastInteractionTime
+            if (idleDuration >= 30_000L) {
+                showIdleReminder = true
+                break
+            }
+        }
+    }
+
     val onBackToDashboard: () -> Unit = {
         val popped = navController.popBackStack(Screen.Dashboard.route, inclusive = false)
         if (!popped) {
@@ -106,6 +164,16 @@ fun AppNavGraph(
     }
 
     Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent(PointerEventPass.Initial)
+                        lastInteractionTime = System.currentTimeMillis()
+                    }
+                }
+            },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (shouldShowBottomBar) {
@@ -552,6 +620,58 @@ fun AppNavGraph(
             composable(Screen.Reports.route) {
                 ReportsScreen(onBack = onBackToDashboard)
             }
+        }
+
+        if (showIdleReminder) {
+            AlertDialog(
+                onDismissRequest = {
+                    showIdleReminder = false
+                    lastInteractionTime = System.currentTimeMillis()
+                },
+                title = {
+                    Text(
+                        text = "Session Idle Reminder",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        text = "You've been inactive for 30 seconds. Would you like to record today's transactions, or secure your app?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = {
+                                showIdleReminder = false
+                                context.findActivity()?.finishAffinity()
+                            },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Text(
+                                text = "Cancel",
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        TextButton(
+                            onClick = {
+                                showIdleReminder = false
+                                lastInteractionTime = System.currentTimeMillis()
+                            }
+                        ) {
+                            Text("Continue", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            )
         }
     }
 }
