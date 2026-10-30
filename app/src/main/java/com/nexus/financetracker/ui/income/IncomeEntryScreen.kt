@@ -1,9 +1,11 @@
 package com.nexus.financetracker.ui.income
 
 import android.app.DatePickerDialog
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -13,9 +15,11 @@ import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CurrencyBitcoin
 import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,6 +46,7 @@ fun IncomeEntryScreen(
     onNavigateBack: () -> Unit
 ) {
     val formState by viewModel.formState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
@@ -52,6 +57,14 @@ fun IncomeEntryScreen(
             viewModel.loadIncomeForEdit(incomeId)
         } else {
             viewModel.resetForm()
+        }
+    }
+
+    // Auto-fetch live market exchange rate whenever AdSense (USD) is chosen
+    val isAdSense = formState.source == IncomeSource.ADSENSE
+    LaunchedEffect(isAdSense) {
+        if (isAdSense && !formState.isEditMode) {
+            viewModel.fetchLiveExchangeRate("USD", formState.dateReceived)
         }
     }
 
@@ -72,7 +85,6 @@ fun IncomeEntryScreen(
         ).show()
     }
 
-    val isAdSense = formState.source == IncomeSource.ADSENSE
     val isSalary = formState.source == IncomeSource.SALARY
     val isFreelance = formState.source == IncomeSource.FREELANCE
     val isCrypto = formState.source == IncomeSource.CRYPTO
@@ -148,6 +160,38 @@ fun IncomeEntryScreen(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
+
+            // Offline Mode Indicator Banner
+            if (uiState.isOffline) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFFEF3C7),
+                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CloudOff,
+                            contentDescription = "Offline Mode",
+                            tint = Color(0xFFB45309),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "Offline Mode — Changes saved locally and will sync once reconnected",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF92400E)
+                        )
+                    }
+                }
+            }
+
             // Source Selection (FlowRow)
             Text(
                 text = "Income Source",
@@ -285,7 +329,7 @@ fun IncomeEntryScreen(
                             )
                         }
                         Text(
-                            text = "AdSense is paid in USD and converted to LKR at transfer. The original USD amount and rate are stored so history never shifts.",
+                            text = "Earnings are received in USD and converted to LKR. The exchange rate is locked to your transfer date for accurate financial records.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -295,9 +339,35 @@ fun IncomeEntryScreen(
                             onValueChange = viewModel::onExchangeRateChanged,
                             label = { Text("Exchange Rate to LKR") },
                             leadingIcon = { Icon(Icons.Default.CurrencyExchange, contentDescription = null) },
+                            trailingIcon = {
+                                if (formState.isFetchingRate) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    IconButton(onClick = { viewModel.fetchLiveExchangeRate(formState.currency, formState.dateReceived) }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = "Refresh rate for selected date",
+                                            tint = if (formState.isRateLive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.fillMaxWidth(),
-                            supportingText = { Text("1 USD = ${formState.exchangeRate} LKR") }
+                            supportingText = {
+                                if (formState.isFetchingRate) {
+                                    Text("Fetching rate for ${dateFormatter.format(formState.dateReceived)}...", color = MaterialTheme.colorScheme.primary)
+                                } else if (formState.isRateLive) {
+                                    Text("Auto-fetched for ${dateFormatter.format(formState.dateReceived)} (1 USD = ${formState.exchangeRate} LKR)", color = Color(0xFF15803D))
+                                } else {
+                                    Text("1 USD = ${formState.exchangeRate} LKR (editable)")
+                                }
+                            }
                         )
                     }
                 }

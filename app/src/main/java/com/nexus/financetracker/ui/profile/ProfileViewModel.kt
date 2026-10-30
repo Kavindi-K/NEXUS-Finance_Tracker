@@ -80,11 +80,12 @@ class ProfileViewModel @Inject constructor(
                         } catch (e: Exception) {
                             ""
                         }
+                        val cleanedProfile = if (profile.phoneNumber == "+94770000000") profile.copy(phoneNumber = "") else profile
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            profile = profile,
-                            nameInput = if (!_uiState.value.isEditing) profile.capitalizedDisplayName.ifBlank { profile.displayName } else _uiState.value.nameInput,
-                            phoneInput = if (!_uiState.value.isEditing) profile.phoneNumber else _uiState.value.phoneInput,
+                            profile = cleanedProfile,
+                            nameInput = if (!_uiState.value.isEditing) cleanedProfile.capitalizedDisplayName.ifBlank { cleanedProfile.displayName } else _uiState.value.nameInput,
+                            phoneInput = if (!_uiState.value.isEditing) cleanedProfile.phoneNumber else _uiState.value.phoneInput,
                             formattedCreatedAt = formattedDate,
                             errorMessage = null
                         )
@@ -203,10 +204,7 @@ class ProfileViewModel @Inject constructor(
 
         val rawPhone = _uiState.value.phoneInput
         val clean = UserProfile.cleanPhoneNumber(rawPhone)
-        val phoneErr = if (clean.isBlank()) {
-            hasError = true
-            "Phone number is required"
-        } else if (!UserProfile.isValidPhoneNumber(rawPhone)) {
+        val phoneErr = if (clean.isNotBlank() && !UserProfile.isValidPhoneNumber(rawPhone)) {
             hasError = true
             "Enter a valid phone number (e.g. +94778654657, 0116754378, or 748796654)"
         } else null

@@ -205,4 +205,27 @@ class ExpenseCategoriesTest {
         val isInvalid = sameId == sameId
         assertTrue(isInvalid)
     }
+
+    @Test
+    fun filterExpensesByCategory_returnsOnlyMatchingExpenses() {
+        val exp1 = createExpense("e1", "cat_food", 1200.0)
+        val exp2 = createExpense("e2", "cat_transport", 800.0)
+        val exp3 = createExpense("e3", "cat_food", 2500.0)
+        val exp4 = createExpense("e4", "cat_bills", 5000.0)
+
+        val allExpenses = listOf(exp1, exp2, exp3, exp4)
+
+        // Filter by cat_food
+        val selectedCat = "cat_food"
+        val filtered = allExpenses.filter { it.categoryId == selectedCat }
+
+        assertEquals(2, filtered.size)
+        assertTrue(filtered.all { it.categoryId == "cat_food" })
+        assertEquals(3700.0, filtered.sumOf { it.amountLKR }, 0.01)
+
+        // Clear filter
+        val clearedFilter: String? = null
+        val unfiltered = if (clearedFilter.isNullOrBlank()) allExpenses else allExpenses.filter { it.categoryId == clearedFilter }
+        assertEquals(4, unfiltered.size)
+    }
 }

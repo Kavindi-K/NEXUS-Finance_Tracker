@@ -34,7 +34,17 @@ class AuthRepositoryImpl @Inject constructor(
         val listener = firestore.collection("users").document(userId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    val current = auth.currentUser
+                    if (current != null && current.uid == userId) {
+                        trySend(
+                            UserProfile(
+                                uid = current.uid,
+                                email = current.email ?: "",
+                                displayName = current.displayName ?: "",
+                                photoUrl = current.photoUrl?.toString()
+                            )
+                        )
+                    }
                     return@addSnapshotListener
                 }
                 val profile = snapshot?.toObject(UserProfile::class.java)
@@ -115,6 +125,39 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun login(email: String, password: String): Result<Unit> = runCatching {
         auth.signInWithEmailAndPassword(email, password).await()
+    }
+
+    override suspend fun signInWithGoogle(idToken: String): Result<Unit> = runCatching {
+        val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+        val authResult = auth.signInWithCredential(credential).await()
+        val user = authResult.user ?: throw IllegalStateException("Firebase user is null after Google sign-in")
+
+        // Ensure user document exists in Firestore
+        val userDoc = firestore.collection("users").document(user.uid).get().await()
+        if (!userDoc.exists()) {
+            val displayName = user.displayName.orEmpty().ifBlank {
+                user.email?.substringBefore("@").orEmpty().ifBlank { "User" }
+            }
+            val validPhone = if (UserProfile.isValidPhoneNumber(user.phoneNumber.orEmpty())) {
+                user.phoneNumber.orEmpty()
+            } else {
+                "" // Empty by default for Google Sign-In
+            }
+            val newProfile = UserProfile(
+                uid = user.uid,
+                email = user.email.orEmpty(),
+                displayName = displayName,
+                photoUrl = user.photoUrl?.toString(),
+                phoneNumber = validPhone
+            )
+            firestore.collection("users").document(user.uid).set(newProfile).await()
+        } else {
+            // Clean up placeholder if it was saved during earlier test
+            val existing = userDoc.toObject(UserProfile::class.java)
+            if (existing?.phoneNumber == "+94770000000") {
+                firestore.collection("users").document(user.uid).update("phoneNumber", "").await()
+            }
+        }
     }
 
     override suspend fun updatePassword(newPassword: String): Result<Unit> = runCatching {

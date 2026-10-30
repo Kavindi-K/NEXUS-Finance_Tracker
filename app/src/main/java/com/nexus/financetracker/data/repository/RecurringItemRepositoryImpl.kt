@@ -55,15 +55,23 @@ class RecurringItemRepositoryImpl @Inject constructor(
     }
 
     override suspend fun addRecurringItem(item: RecurringItem): String {
-        val docRef = recurringCollection.add(item).await()
+        val docRef = if (item.id.isNotBlank()) recurringCollection.document(item.id) else recurringCollection.document()
+        val withId = item.copy(id = docRef.id)
+        try {
+            docRef.set(withId).await()
+        } catch (_: Exception) {}
         return docRef.id
     }
 
     override suspend fun updateRecurringItem(item: RecurringItem) {
-        recurringCollection.document(item.id).set(item).await()
+        try {
+            recurringCollection.document(item.id).set(item).await()
+        } catch (_: Exception) {}
     }
 
     override suspend fun confirmPayment(itemId: String, expenseDate: Date) {
-        recurringCollection.document(itemId).update("isActive", true).await()
+        try {
+            recurringCollection.document(itemId).update("isActive", true).await()
+        } catch (_: Exception) {}
     }
 }

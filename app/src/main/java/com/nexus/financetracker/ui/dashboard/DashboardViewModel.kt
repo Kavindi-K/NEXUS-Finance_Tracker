@@ -8,6 +8,7 @@ import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.repository.GoalRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
+import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.domain.model.Category
 import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseClassification
@@ -50,7 +51,8 @@ class DashboardViewModel @Inject constructor(
     private val goalRepository: GoalRepository,
     private val categoryRepository: CategoryRepository,
     private val authRepository: AuthRepository,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -58,6 +60,15 @@ class DashboardViewModel @Inject constructor(
 
     init {
         loadDashboardSummary()
+        observeNetworkStatus()
+    }
+
+    private fun observeNetworkStatus() {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.value = _uiState.value.copy(isOffline = !online)
+            }
+        }
     }
 
     fun loadDashboardSummary() {
@@ -106,8 +117,33 @@ class DashboardViewModel @Inject constructor(
                 }
                 val totalExpense = monthExpenses.sumOf { it.amountLKR }
 
-                // 3. Net result for the month
-                val netResult = totalIncome - totalExpense
+                // 3. Category Estimation Budget Deduction logic:
+                // Estimated values are reduced from income at beginning of the month.
+                // For categories where actual expenses exceed estimation, the excess is also reduced from total income.
+                val estimatedCategories = categories.filter { it.estimatedAmount != null && (it.estimatedAmount ?: 0.0) > 0.0 }
+                val estimatedCategoryIds = estimatedCategories.map { it.id }.toSet()
+
+                var totalEstimatedBudgetDeduction = 0.0
+                for (cat in estimatedCategories) {
+                    val est = cat.estimatedAmount ?: 0.0
+                    val actualForCat = monthExpenses.filter { it.categoryId == cat.id }.sumOf { it.amountLKR }
+                    val deduction = if (actualForCat > est) {
+                        est + (actualForCat - est)
+                    } else {
+                        est
+                    }
+                    totalEstimatedBudgetDeduction += deduction
+                }
+
+                val nonEstimatedExpenses = monthExpenses.filter { it.categoryId !in estimatedCategoryIds }.sumOf { it.amountLKR }
+                val effectiveDeductions = if (estimatedCategories.isNotEmpty()) {
+                    totalEstimatedBudgetDeduction + nonEstimatedExpenses
+                } else {
+                    totalExpense
+                }
+
+                // Net result for the month: Total Income minus effective category deductions
+                val netResult = totalIncome - effectiveDeductions
 
                 // 4. Committed vs Discretionary split (FR18)
                 val (committedPercent, discretionaryPercent) = calculateCommittedDiscretionarySplit(
@@ -123,7 +159,7 @@ class DashboardViewModel @Inject constructor(
                     .sumOf { it.amountLKR }
 
                 // 5. Active priority goal summary (FR15, FR17)
-                // Only priority (HIGH) active goals are displayed on the dashboard
+                // Only high-priority ONGOING goals are displayed on the dashboard (achieved and overdue goals excluded)
                 val priorityGoals = goals.filter { it.isActive && it.priority.equals(GoalPriority.HIGH, ignoreCase = true) }
                 val priorityGoalItems = priorityGoals.map { goal ->
                     PriorityGoalItem(
@@ -134,6 +170,12 @@ class DashboardViewModel @Inject constructor(
                             expenses = expenses
                         )
                     )
+                }.filter { item ->
+                    val isAchieved = item.calculation.isCompleted ||
+                        item.calculation.remainingAmountLKR <= 0.0 ||
+                        item.goal.openingSavingsLKR >= item.goal.targetAmountLKR
+                    val isOverdue = item.calculation.isOverdue && item.calculation.daysRemaining < 0L
+                    !isAchieved && !isOverdue
                 }
                 val activeGoal = priorityGoalItems.firstOrNull()?.goal
                 val goalCalculation = priorityGoalItems.firstOrNull()?.calculation
@@ -185,17 +227,15 @@ class DashboardViewModel @Inject constructor(
     companion object {
         /**
          * Resolves the greeting string based on the current hour of the day:
-         * - 05:00 - 11:59 -> "Good Morning,"
+         * - 00:00 - 11:59 -> "Good Morning,"
          * - 12:00 - 16:59 -> "Good Afternoon,"
-         * - 17:00 - 20:59 -> "Good Evening,"
-         * - 21:00 - 04:59 -> "Good Night,"
+         * - 17:00 - 23:59 -> "Good Evening,"
          */
         fun getGreeting(calendar: Calendar = Calendar.getInstance()): String {
             return when (calendar.get(Calendar.HOUR_OF_DAY)) {
-                in 5..11 -> "Good Morning,"
+                in 0..11 -> "Good Morning,"
                 in 12..16 -> "Good Afternoon,"
-                in 17..20 -> "Good Evening,"
-                else -> "Good Night,"
+                else -> "Good Evening,"
             }
         }
 
@@ -377,6 +417,7 @@ data class PriorityGoalItem(
  */
 data class DashboardUiState(
     val isLoading: Boolean = true,
+    val isOffline: Boolean = false,
     val greeting: String = DashboardViewModel.getGreeting(),
     val userName: String = "User",
     val userPhotoUrl: String? = null,

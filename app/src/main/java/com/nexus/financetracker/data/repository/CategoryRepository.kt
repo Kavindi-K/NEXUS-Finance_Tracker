@@ -10,7 +10,9 @@ import kotlinx.coroutines.flow.Flow
 interface CategoryRepository {
     fun getCategories(userId: String): Flow<List<Category>>
     suspend fun addCategory(category: Category): String
+    suspend fun updateCategory(category: Category)
     suspend fun renameCategory(categoryId: String, newName: String)
     suspend fun mergeCategories(sourceCategoryId: String, targetCategoryId: String)
     suspend fun deleteCategory(categoryId: String)
+    suspend fun clearLocalCache(userId: String)
 }

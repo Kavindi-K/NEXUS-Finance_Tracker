@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -213,17 +214,66 @@ fun DashboardScreen(
                     }
                 }
             }
+
+            // Offline Mode Indicator Banner
+            if (uiState.isOffline) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFFEF3C7),
+                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFDE68A)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudOff,
+                                contentDescription = "Offline Mode",
+                                tint = Color(0xFFB45309),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Offline Mode Active",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF92400E)
+                            )
+                            Text(
+                                text = "Showing local cached balances. All new logs will sync automatically when reconnected.",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.sp,
+                                color = Color(0xFFB45309)
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // --- 2. Main White Content Sheet ---
+        // --- 2. Main Themed Content Sheet ---
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight(),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            color = Color.White
+            color = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
@@ -234,7 +284,7 @@ fun DashboardScreen(
                 // Section Title: Menu
                 Text(
                     text = "Menu",
-                    color = TextPrimaryNavy,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -252,7 +302,7 @@ fun DashboardScreen(
                             Icon(
                                 imageVector = Icons.Default.ArrowDownward,
                                 contentDescription = "Income",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(24.dp)
                             )
                         },
@@ -266,7 +316,7 @@ fun DashboardScreen(
                             Icon(
                                 imageVector = Icons.Default.ArrowUpward,
                                 contentDescription = "Expenses",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(24.dp)
                             )
                         },
@@ -294,7 +344,8 @@ fun DashboardScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCardBg)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(
                         modifier = Modifier
@@ -303,7 +354,7 @@ fun DashboardScreen(
                     ) {
                         Text(
                             text = "Income vs Expenses",
-                            color = TextPrimaryNavy,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -318,21 +369,27 @@ fun DashboardScreen(
                     }
                 }
 
-                // Card 2: Financial Goal (Priority Goals only)
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onNavigateToGoals() },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCardBg)
-                ) {
-                    Column(
+                // Card 2: Financial Goal (Priority Goals only — displayed only if ongoing priority goals exist)
+                val priorityGoals = uiState.priorityGoals.filter { item ->
+                    val isAchieved = item.calculation.isCompleted ||
+                        item.calculation.remainingAmountLKR <= 0.0 ||
+                        item.goal.openingSavingsLKR >= item.goal.targetAmountLKR
+                    val isOverdue = item.calculation.isOverdue && item.calculation.daysRemaining < 0L
+                    !isAchieved && !isOverdue
+                }
+                if (priorityGoals.isNotEmpty()) {
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .clickable { onNavigateToGoals() },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = LightCardBg)
                     ) {
-                        val priorityGoals = uiState.priorityGoals
-                        if (priorityGoals.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -340,7 +397,7 @@ fun DashboardScreen(
                             ) {
                                 Text(
                                     text = if (priorityGoals.size == 1) "Priority Goal" else "Priority Goals",
-                                    color = TextPrimaryNavy,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -363,7 +420,7 @@ fun DashboardScreen(
                             priorityGoals.forEachIndexed { index, item ->
                                 if (index > 0) {
                                     Spacer(modifier = Modifier.height(12.dp))
-                                    HorizontalDivider(color = Color(0xFFCBD5E1), thickness = 0.8.dp)
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.8.dp)
                                     Spacer(modifier = Modifier.height(10.dp))
                                 }
 
@@ -378,14 +435,14 @@ fun DashboardScreen(
                                 ) {
                                     Text(
                                         text = goal.title,
-                                        color = TextPrimaryNavy,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.weight(1f, fill = false)
                                     )
                                     Text(
                                         text = "Target: LKR ${currencyFormat.format(goal.targetAmountLKR)}",
-                                        color = TextSubtleNavy,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Medium
                                     )
@@ -399,7 +456,7 @@ fun DashboardScreen(
                                         .fillMaxWidth()
                                         .height(10.dp)
                                         .clip(RoundedCornerShape(5.dp))
-                                        .background(Color.White)
+                                        .background(MaterialTheme.colorScheme.surface)
                                 ) {
                                     if (progressFraction > 0f) {
                                         Box(
@@ -407,14 +464,14 @@ fun DashboardScreen(
                                                 .fillMaxWidth(fraction = progressFraction)
                                                 .fillMaxHeight()
                                                 .clip(RoundedCornerShape(5.dp))
-                                                .background(TextPrimaryNavy)
+                                                .background(MaterialTheme.colorScheme.primary)
                                         )
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                val progressPercentStr = "%.0f%%".format(calc.progressPercentage)
+                                val progressPercentStr = if (calc.progressPercentage >= 100.0 || calc.isCompleted) "100%" else "%.0f%%".format(calc.progressPercentage.coerceIn(0.0, 100.0))
                                 val needAmountStr = "Need LKR ${currencyFormat.format(calc.remainingAmountLKR)}"
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -423,13 +480,13 @@ fun DashboardScreen(
                                 ) {
                                     Text(
                                         text = "$progressPercentStr complete",
-                                        color = TextPrimaryNavy,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
                                         text = needAmountStr,
-                                        color = TextSubtleNavy,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Medium
                                     )
@@ -450,24 +507,24 @@ fun DashboardScreen(
                                         Icon(
                                             imageVector = Icons.Default.CalendarMonth,
                                             contentDescription = null,
-                                            tint = TextSubtleNavy,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(15.dp)
                                         )
                                         Text(
                                             text = "Deadline: ${dateFormat.format(goal.targetDate)}",
                                             fontSize = 12.sp,
-                                            color = TextSubtleNavy,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             fontWeight = FontWeight.Medium
                                         )
                                     }
 
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
-                                        color = if (calc.daysRemaining < 0) Color(0xFFFEE2E2) else TextPrimaryNavy
+                                        color = if (calc.daysRemaining < 0) Color(0xFFFEE2E2) else MaterialTheme.colorScheme.primary
                                     ) {
                                         Text(
                                             text = calc.daysRemainingText,
-                                            color = if (calc.daysRemaining < 0) Color(0xFFDC2626) else Color.White,
+                                            color = if (calc.daysRemaining < 0) Color(0xFFDC2626) else MaterialTheme.colorScheme.onPrimary,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -475,31 +532,6 @@ fun DashboardScreen(
                                     }
                                 }
                             }
-                        } else {
-                            Text(
-                                text = "Priority Financial Goal",
-                                color = TextPrimaryNavy,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                text = "No high-priority goal set",
-                                color = TextSubtleNavy,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Text(
-                                text = "+ Tap here to set a high-priority goal",
-                                color = TextPrimaryNavy,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
-                            )
                         }
                     }
                 }
@@ -508,7 +540,8 @@ fun DashboardScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCardBg)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(
                         modifier = Modifier
@@ -523,13 +556,13 @@ fun DashboardScreen(
                             Column {
                                 Text(
                                     text = "Expenses by Category",
-                                    color = TextPrimaryNavy,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
                                     text = uiState.selectedMonthLabel.ifBlank { "Current Month" },
-                                    color = TextSubtleNavy,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -537,7 +570,7 @@ fun DashboardScreen(
                             if (uiState.categorySpendings.isNotEmpty()) {
                                 Text(
                                     text = "${uiState.categorySpendings.size} categories",
-                                    color = TextSubtleNavy,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -556,14 +589,14 @@ fun DashboardScreen(
                             ) {
                                 Text(
                                     text = "No expenses recorded this month",
-                                    color = TextSubtleNavy,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = "+ Tap here to log an expense",
-                                    color = TextPrimaryNavy,
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.clickable { onLogExpense() }
@@ -582,7 +615,8 @@ fun DashboardScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = LightCardBg)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(
                         modifier = Modifier
@@ -597,13 +631,13 @@ fun DashboardScreen(
                             Column {
                                 Text(
                                     text = "Income by Source",
-                                    color = TextPrimaryNavy,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
                                     text = uiState.selectedMonthLabel.ifBlank { "Current Month" },
-                                    color = TextSubtleNavy,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -611,7 +645,7 @@ fun DashboardScreen(
                             if (uiState.incomeSources.isNotEmpty()) {
                                 Text(
                                     text = "${uiState.incomeSources.size} streams",
-                                    color = TextSubtleNavy,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -629,14 +663,14 @@ fun DashboardScreen(
                             ) {
                                 Text(
                                     text = "No confirmed income recorded this month",
-                                    color = TextSubtleNavy,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = "+ Tap here to log income",
-                                    color = TextPrimaryNavy,
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.clickable { onAddIncome() }
@@ -671,6 +705,9 @@ private fun CircularSpendingProgressBar(
     val incomePercent = if (total > 0) ((totalIncome / total) * 100).roundToInt() else 0
     val expensePercent = if (total > 0) (100 - incomePercent) else 0
     val hasData = total > 0
+    val trackColor = MaterialTheme.colorScheme.surface
+    val incomeColor = MaterialTheme.colorScheme.primary
+    val expenseColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -685,9 +722,9 @@ private fun CircularSpendingProgressBar(
                 val radius = (size.minDimension - strokeWidth) / 2f
                 val center = Offset(size.width / 2f, size.height / 2f)
 
-                // 1. Full track (White circle track)
+                // 1. Full track
                 drawCircle(
-                    color = Color.White,
+                    color = trackColor,
                     radius = radius,
                     center = center,
                     style = Stroke(width = strokeWidth)
@@ -698,10 +735,10 @@ private fun CircularSpendingProgressBar(
                     val expenseSweep = (expensePercent / 100f) * 360f
                     val incomeSweep = (incomePercent / 100f) * 360f
 
-                    // 2. Expense arc (Muted blue-gray)
+                    // 2. Expense arc
                     if (expenseSweep > 0f) {
                         drawArc(
-                            color = Color(0xFFBAC7D5),
+                            color = expenseColor,
                             startAngle = -90f,
                             sweepAngle = expenseSweep,
                             useCenter = false,
@@ -709,10 +746,10 @@ private fun CircularSpendingProgressBar(
                         )
                     }
 
-                    // 3. Income arc (Deep navy main progress indicator)
+                    // 3. Income arc
                     if (incomeSweep > 0f) {
                         drawArc(
-                            color = TextPrimaryNavy,
+                            color = incomeColor,
                             startAngle = -90f + expenseSweep,
                             sweepAngle = incomeSweep,
                             useCenter = false,
@@ -728,13 +765,13 @@ private fun CircularSpendingProgressBar(
             ) {
                 Text(
                     text = if (hasData) "$incomePercent%" else "0%",
-                    color = TextPrimaryNavy,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = "Income",
-                    color = TextSubtleNavy,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -750,7 +787,7 @@ private fun CircularSpendingProgressBar(
             } else {
                 "No income or expenses recorded this month"
             },
-            color = TextSubtleNavy,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium
         )
@@ -758,7 +795,7 @@ private fun CircularSpendingProgressBar(
 }
 
 /**
- * Menu Action Button matching wireframe: Dark navy squircle with white centered icon.
+ * Menu Action Button matching wireframe: Dark navy squircle with centered icon.
  */
 @Composable
 private fun WireframeMenuButton(
@@ -774,7 +811,7 @@ private fun WireframeMenuButton(
             modifier = Modifier
                 .size(56.dp)
                 .clip(RoundedCornerShape(18.dp))
-                .background(TextPrimaryNavy),
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
             iconContent()
@@ -784,7 +821,7 @@ private fun WireframeMenuButton(
 
         Text(
             text = label,
-            color = TextPrimaryNavy,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold
         )
@@ -795,19 +832,22 @@ private fun WireframeMenuButton(
  * Concentric target/bullseye icon matching the wireframe Goal button.
  */
 @Composable
-private fun BullseyeIcon(modifier: Modifier = Modifier) {
+private fun BullseyeIcon(
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onPrimaryContainer
+) {
     Canvas(modifier = modifier.size(24.dp)) {
         val center = Offset(size.width / 2f, size.height / 2f)
         // Outer ring
         drawCircle(
-            color = Color.White,
+            color = color,
             radius = 8.5.dp.toPx(),
             center = center,
             style = Stroke(width = 2.dp.toPx())
         )
         // Inner dot
         drawCircle(
-            color = Color.White,
+            color = color,
             radius = 3.5.dp.toPx(),
             center = center
         )
@@ -818,7 +858,10 @@ private fun BullseyeIcon(modifier: Modifier = Modifier) {
  * 3 Vertical bars icon matching the wireframe Reports button.
  */
 @Composable
-private fun BarChartIcon(modifier: Modifier = Modifier) {
+private fun BarChartIcon(
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onPrimaryContainer
+) {
     Canvas(modifier = modifier.size(24.dp)) {
         val stroke = 2.6.dp.toPx()
         val bottomY = size.height - 4.dp.toPx()
@@ -827,11 +870,11 @@ private fun BarChartIcon(modifier: Modifier = Modifier) {
         val x3 = size.width * 0.72f
 
         // Bar 1 (left)
-        drawLine(Color.White, Offset(x1, bottomY - 8.dp.toPx()), Offset(x1, bottomY), stroke, StrokeCap.Round)
+        drawLine(color, Offset(x1, bottomY - 8.dp.toPx()), Offset(x1, bottomY), stroke, StrokeCap.Round)
         // Bar 2 (center, tallest)
-        drawLine(Color.White, Offset(x2, bottomY - 14.dp.toPx()), Offset(x2, bottomY), stroke, StrokeCap.Round)
+        drawLine(color, Offset(x2, bottomY - 14.dp.toPx()), Offset(x2, bottomY), stroke, StrokeCap.Round)
         // Bar 3 (right, medium)
-        drawLine(Color.White, Offset(x3, bottomY - 10.dp.toPx()), Offset(x3, bottomY), stroke, StrokeCap.Round)
+        drawLine(color, Offset(x3, bottomY - 10.dp.toPx()), Offset(x3, bottomY), stroke, StrokeCap.Round)
     }
 }
 

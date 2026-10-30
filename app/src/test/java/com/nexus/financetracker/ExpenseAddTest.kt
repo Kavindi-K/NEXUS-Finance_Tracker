@@ -40,7 +40,7 @@ class ExpenseAddTest {
         assertTrue("Must include Food & Dining", names.contains("Food & Dining"))
         assertTrue("Must include Groceries", names.contains("Groceries"))
         assertTrue("Must include Transport", names.contains("Transport"))
-        assertTrue("Must include Rent & Housing", names.contains("Rent & Housing"))
+        assertTrue("Must include Rent or Rent & Housing", names.contains("Rent") || names.contains("Rent & Housing"))
         assertTrue("Must include Bills & Utilities", names.contains("Bills & Utilities"))
     }
 

@@ -82,7 +82,7 @@ fun AppBottomNavBar(
     currentRoute: String?,
     hasUnreadAlerts: Boolean = false,
     onNavigateToDestination: (String) -> Unit,
-    onQuickAdd: () -> Unit = { onNavigateToDestination(Screen.AddExpense.createRoute()) }
+    onQuickAdd: () -> Unit = { onNavigateToDestination(Screen.CategoryDashboard.route) }
 ) {
     Box(
         modifier = Modifier
@@ -96,7 +96,7 @@ fun AppBottomNavBar(
                 .fillMaxWidth()
                 .height(64.dp)
                 .align(Alignment.BottomCenter),
-            color = Color.White
+            color = MaterialTheme.colorScheme.surface
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Subtle top border divider
@@ -104,7 +104,7 @@ fun AppBottomNavBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(1.dp)
-                        .background(Color(0xFFE2E8F0))
+                        .background(MaterialTheme.colorScheme.outlineVariant)
                 )
 
                 Row(
@@ -187,7 +187,7 @@ fun AppBottomNavBar(
             }
         }
 
-        // 2. Central Elevated Navy Action Button (matches wireframe center plus circle)
+        // 2. Central Elevated Action Button (matches wireframe center plus circle)
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -195,15 +195,15 @@ fun AppBottomNavBar(
                 .size(56.dp)
                 .shadow(6.dp, CircleShape)
                 .clip(CircleShape)
-                .background(Color(0xFF072044))
-                .border(3.5.dp, Color.White, CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+                .border(3.5.dp, MaterialTheme.colorScheme.surface, CircleShape)
                 .clickable { onQuickAdd() },
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Quick Add",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(28.dp)
             )
         }
@@ -217,8 +217,8 @@ private fun RowScope.WireframeBottomNavItem(
     onClick: () -> Unit,
     icon: @Composable (tint: Color) -> Unit
 ) {
-    val activeColor = Color(0xFF072044)
-    val inactiveColor = Color(0xFF94A3B8)
+    val activeColor = MaterialTheme.colorScheme.primary
+    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant
     val color = if (isSelected) activeColor else inactiveColor
 
     Column(

@@ -3,7 +3,9 @@ package com.nexus.financetracker.ui.income
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.nexus.financetracker.data.repository.ExchangeRateRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
+import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
@@ -19,6 +21,13 @@ import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.roundToLong
+
+enum class IncomeSortOrder {
+    DATE_DESC,
+    DATE_ASC,
+    AMOUNT_DESC,
+    AMOUNT_ASC
+}
 
 enum class IncomeFilter {
     ALL,
@@ -69,6 +78,8 @@ data class IncomeFormState(
     val amountOriginal: String = "130000.00",
     val currency: String = "LKR",
     val exchangeRate: String = "1.0",
+    val isFetchingRate: Boolean = false,
+    val isRateLive: Boolean = false,
     val isCryptoLoss: Boolean = false,
     val dateReceived: Date = Date(),
     val expectedDate: Date = Date(),
@@ -97,6 +108,7 @@ data class IncomeUiState(
     val streamConfirmedLKR: Double = 0.0,
     val streamPendingLKR: Double = 0.0,
     val lastSalaryAmount: Double? = null,
+    val selectedSortOrder: IncomeSortOrder = IncomeSortOrder.DATE_DESC,
     val selectedFilter: IncomeFilter = IncomeFilter.ALL,
     val selectedSource: String? = null,
     val selectedMonthLabel: String = "",
@@ -104,6 +116,7 @@ data class IncomeUiState(
     val monthlyIncomeTotals: Map<String, Double> = emptyMap(),
     val isPeriodAllTime: Boolean = false,
     val reconciliation: MonthlyReconciliation? = null,
+    val isOffline: Boolean = false,
     val isLoading: Boolean = true,
     val errorMessage: String? = null
 )
@@ -111,7 +124,9 @@ data class IncomeUiState(
 @HiltViewModel
 class IncomeViewModel @Inject constructor(
     private val incomeRepository: IncomeRepository,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val networkMonitor: NetworkMonitor,
+    private val exchangeRateRepository: ExchangeRateRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(IncomeUiState())
@@ -128,6 +143,16 @@ class IncomeViewModel @Inject constructor(
 
     init {
         loadIncomes()
+        observeNetworkStatus()
+        fetchLiveExchangeRate("USD", _formState.value.dateReceived)
+    }
+
+    private fun observeNetworkStatus() {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _uiState.value = _uiState.value.copy(isOffline = !online)
+            }
+        }
     }
 
     fun loadIncomes() {
@@ -370,10 +395,11 @@ class IncomeViewModel @Inject constructor(
         val streamConfirmedLKR = streamIncomes.filter { it.status == IncomeStatus.CONFIRMED }.sumOf { it.amountLKR }
         val streamPendingLKR = streamIncomes.filter { it.status == IncomeStatus.PENDING }.sumOf { it.amountLKR }
 
-        val filtered = applyFilter(streamIncomes, _uiState.value.selectedFilter)
+        val sortedStreamIncomes = sortIncomes(streamIncomes, _uiState.value.selectedSortOrder)
+        val filtered = applyFilter(sortedStreamIncomes, _uiState.value.selectedFilter)
 
         _uiState.value = _uiState.value.copy(
-            incomes = streamIncomes,
+            incomes = sortedStreamIncomes,
             filteredIncomes = filtered,
             totalConfirmedLKR = overallConfirmedTotal,
             totalPendingLKR = overallPendingTotal,
@@ -421,6 +447,32 @@ class IncomeViewModel @Inject constructor(
         val endOfMonth = cal.time
 
         return Pair(startOfMonth, endOfMonth)
+    }
+
+    fun onSortOrderSelected(order: IncomeSortOrder) {
+        _uiState.value = _uiState.value.copy(selectedSortOrder = order)
+        recomputeState()
+    }
+
+    private fun sortIncomes(list: List<Income>, order: IncomeSortOrder): List<Income> {
+        return when (order) {
+            IncomeSortOrder.DATE_DESC -> list.sortedWith(
+                compareByDescending<Income> { it.dateReceived ?: it.expectedDate ?: it.createdAt }
+                    .thenByDescending { it.createdAt }
+            )
+            IncomeSortOrder.DATE_ASC -> list.sortedWith(
+                compareBy<Income> { it.dateReceived ?: it.expectedDate ?: it.createdAt }
+                    .thenBy { it.createdAt }
+            )
+            IncomeSortOrder.AMOUNT_DESC -> list.sortedWith(
+                compareByDescending<Income> { it.amountLKR }
+                    .thenByDescending { it.dateReceived ?: it.expectedDate ?: it.createdAt }
+            )
+            IncomeSortOrder.AMOUNT_ASC -> list.sortedWith(
+                compareBy<Income> { it.amountLKR }
+                    .thenByDescending { it.dateReceived ?: it.expectedDate ?: it.createdAt }
+            )
+        }
     }
 
     fun onSourceFilterSelected(source: String?) {
@@ -537,6 +589,10 @@ class IncomeViewModel @Inject constructor(
             isCryptoLoss = false,
             error = null
         )
+
+        if (defaults.currency.equals("USD", ignoreCase = true)) {
+            fetchLiveExchangeRate("USD", _formState.value.dateReceived)
+        }
     }
 
     fun onStatusChanged(status: String) {
@@ -555,6 +611,38 @@ class IncomeViewModel @Inject constructor(
             exchangeRate = defaultRate,
             error = null
         )
+
+        if (uppercaseCurrency == "USD") {
+            fetchLiveExchangeRate("USD", _formState.value.dateReceived)
+        }
+    }
+
+    fun fetchLiveExchangeRate(currency: String = "USD", date: Date? = null) {
+        if (currency.equals("LKR", ignoreCase = true)) {
+            _formState.value = _formState.value.copy(
+                exchangeRate = "1.0",
+                isFetchingRate = false,
+                isRateLive = false
+            )
+            return
+        }
+
+        val targetDate = date ?: _formState.value.dateReceived
+        viewModelScope.launch {
+            _formState.value = _formState.value.copy(isFetchingRate = true)
+            val result = exchangeRateRepository.getExchangeRate(
+                baseCurrency = currency,
+                targetCurrency = "LKR",
+                date = targetDate
+            )
+            if (_formState.value.currency.equals(currency, ignoreCase = true)) {
+                _formState.value = _formState.value.copy(
+                    exchangeRate = String.format(Locale.US, "%.2f", result.rate),
+                    isFetchingRate = false,
+                    isRateLive = result.isLive
+                )
+            }
+        }
     }
 
     fun onExchangeRateChanged(rate: String) {
@@ -598,6 +686,9 @@ class IncomeViewModel @Inject constructor(
 
     fun onDateReceivedChanged(date: Date) {
         _formState.value = _formState.value.copy(dateReceived = date, error = null)
+        if (_formState.value.currency.equals("USD", ignoreCase = true) && !_formState.value.isEditMode) {
+            fetchLiveExchangeRate("USD", date)
+        }
     }
 
     fun onExpectedDateChanged(date: Date) {
