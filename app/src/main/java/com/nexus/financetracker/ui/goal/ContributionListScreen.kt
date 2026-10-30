@@ -348,7 +348,7 @@ fun ContributionListScreen(
                         Text(
                             text = "Achieved and expired goals cannot receive contributions. Create a new goal or check your goals on the Goals screen.",
                             fontSize = 12.sp,
-                            color = TextMutedSlate,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
