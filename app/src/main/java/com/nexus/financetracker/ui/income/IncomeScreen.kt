@@ -274,8 +274,8 @@ fun IncomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // 0. Month Selector Filter Card
             Card(
@@ -470,7 +470,8 @@ fun IncomeScreen(
                         FilterChip(
                             selected = isSelected,
                             onClick = { viewModel.onFilterSelected(filter) },
-                            label = { Text(label) }
+                            label = { Text(label) },
+                            shape = RoundedCornerShape(20.dp)
                         )
                     }
                 }
@@ -517,8 +518,8 @@ fun IncomeScreen(
                                 }
                             },
                             shape = RoundedCornerShape(20.dp),
-                            color = if (isDateActive) NavyPrimary else Color.White,
-                            border = BorderStroke(1.dp, if (isDateActive) NavyPrimary else Color(0xFFCBD5E1))
+                            color = if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else Color.White,
+                            border = BorderStroke(1.dp, if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else Color(0xFFCBD5E1))
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -528,7 +529,7 @@ fun IncomeScreen(
                                 Icon(
                                     imageVector = Icons.Default.CalendarToday,
                                     contentDescription = null,
-                                    tint = if (isDateActive) Color.White else NavyPrimary,
+                                    tint = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary,
                                     modifier = Modifier.size(13.dp)
                                 )
                                 Text(
@@ -537,13 +538,13 @@ fun IncomeScreen(
                                     } else "Date",
                                     fontSize = 12.sp,
                                     fontWeight = if (isDateActive) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isDateActive) Color.White else NavyPrimary
+                                    color = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
                                 )
                                 if (isDateActive) {
                                     Icon(
                                         imageVector = if (isDateDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
                                         contentDescription = null,
-                                        tint = Color.White,
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                         modifier = Modifier.size(13.dp)
                                     )
                                 }
@@ -562,8 +563,8 @@ fun IncomeScreen(
                                 }
                             },
                             shape = RoundedCornerShape(20.dp),
-                            color = if (isAmountActive) NavyPrimary else Color.White,
-                            border = BorderStroke(1.dp, if (isAmountActive) NavyPrimary else Color(0xFFCBD5E1))
+                            color = if (isAmountActive) MaterialTheme.colorScheme.secondaryContainer else Color.White,
+                            border = BorderStroke(1.dp, if (isAmountActive) MaterialTheme.colorScheme.secondaryContainer else Color(0xFFCBD5E1))
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -576,13 +577,13 @@ fun IncomeScreen(
                                     } else "Amount",
                                     fontSize = 12.sp,
                                     fontWeight = if (isAmountActive) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isAmountActive) Color.White else NavyPrimary
+                                    color = if (isAmountActive) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
                                 )
                                 if (isAmountActive) {
                                     Icon(
                                         imageVector = if (isAmountDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
                                         contentDescription = null,
-                                        tint = Color.White,
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                         modifier = Modifier.size(13.dp)
                                     )
                                 }
