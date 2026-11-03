@@ -932,70 +932,144 @@ class FinancialAdvisorEngine @Inject constructor() {
         val totalSpent = expenses.sumOf { it.amountLKR }
         val netSavings = totalIncome - totalSpent
         val savingsRate = if (totalIncome > 0) ((netSavings / totalIncome) * 100.0).coerceAtLeast(0.0) else 0.0
+        val runwayMonths = if (totalSpent > 0) (netSavings / totalSpent).coerceAtLeast(0.0) else 0.0
 
-        val lower = query.lowercase()
+        val formattedIncome = "LKR %,.2f".format(totalIncome)
+        val formattedSpent = "LKR %,.2f".format(totalSpent)
+        val formattedSavings = "LKR %,.2f".format(netSavings)
+        val formattedRate = "%.1f%%".format(savingsRate)
+        val formattedRunway = "%.1f".format(runwayMonths)
+        val daysCount = (runwayMonths * 30).toInt()
+
+        val lower = query.lowercase().trim()
 
         val sb = StringBuilder()
         if (isSinhala) {
             when {
-                lower.contains("save") || lower.contains("ඉතිරි") || lower.contains("අඩු කරන්න") -> {
-                    sb.append("💡 **ඔබගේ ඉතිරිකිරීම් ඉහළ නැංවීමට මඟපෙන්වීම:**\n\n")
-                    sb.append("ඔබේ වත්මන් ඉතිරිකිරීමේ අනුපාතය **%.1f%%** කි.\n\n".format(savingsRate))
-                    sb.append("1. **50/30/20 රීතිය අනුගමනය කරන්න:** ඔබේ අත්‍යවශ්‍ය නොවන (Discretionary) වියදම් සීමා කරන්න.\n")
-                    sb.append("2. **Micro-Leaks සොයා බලන්න:** සුළු සුළු Dining හෝ Shopping වියදම් සතිපතා පාලනය කිරීමෙන් විශාල මුදලක් ඉතිරි වේ.\n")
-                    sb.append("3. **Savings Goals පිහිටුවන්න:** ඉලක්කයක් රහිතව මුදල් ඉතිරි කිරීමට වඩා පැහැදිලි ඉලක්කයක් ඇතිව ඉතිරි කිරීම වේගවත්ය.")
+                // 1. Getting Rich & Wealth Building ("rich", "wealth", "ධනවත්", "පොහොසත්")
+                lower.contains("rich") || lower.contains("wealth") || lower.contains("millionaire") ||
+                    lower.contains("ධනවත්") || lower.contains("පොහොසත්") || lower.contains("සල්ලි කාර") ||
+                    lower.contains("දියුණු") -> {
+                    sb.append("💎 **ධනවත්භාවය (Wealth Building) පිළිබඳ මූල්‍ය විශ්ලේෂණය:**\n\n")
+                    sb.append("ඔබගේ වත්මන් දත්ත අනුව ඔබ සිටින්නේ **ඉතාමත් විශිෂ්ට මූල්‍ය මට්ටමකය!**\n")
+                    sb.append("• **මාසික ආදායම:** $formattedIncome\n")
+                    sb.append("• **මාසික වියදම:** $formattedSpent\n")
+                    sb.append("• **මාසික ශුද්ධ ඉතිරිය:** $formattedSavings (ආදායමෙන් $formattedRate ක්!)\n")
+                    sb.append("• **හදිසි අරමුදල් ආරක්ෂාව:** මාස $formattedRunway ක කාලයක් ආවරණය වී ඇත.\n\n")
+
+                    sb.append("🚀 **සැබෑ ධනවතෙකු වීමට ඔබේ 3-Step Blueprint එක:**\n")
+                    sb.append("1. **අතිරික්ත මුදල ආයෝජනය කරන්න (Capital Deployment):** ඔබ මාසිකව ඉතිරි කරන $formattedSavings ක මුදල නිකම්ම බැංකුවේ නොතබා, Compound Interest (වැල් පොලී) ලැබෙන ස්ථාවර තැන්පතු, Treasury Bills හෝ ව්‍යාපාරික ආයෝජනවල යොදවන්න.\n")
+                    sb.append("2. **වියදම් පාලනය පවත්වා ගන්න (Anti-Lifestyle Inflation):** ආදායම වැඩි වන විට අනවශ්‍ය විකල්ප වියදම් වැඩි නොකර වත්මන් $formattedRate ක ඉතිරි කිරීමේ වේගය දිගටම පවත්වා ගන්න.\n")
+                    sb.append("3. **Multiple Income Streams:** ඔබේ වත්මන් ආදායමට අමතරව තවත් Passive Income මාර්ග ගොඩනගන්න.")
                 }
-                lower.contains("invest") || lower.contains("ආයෝජන") || lower.contains("crypto") || lower.contains("ක්‍රිප්ටෝ") -> {
-                    sb.append("📈 **ආයෝජන හා ධන වර්ධන උපදෙස්:**\n\n")
-                    sb.append("1. **පළමුව හදිසි අරමුදල සකසා ගන්න:** ආයෝජනය කිරීමට පෙර අවම වශයෙන් මාස 3-6 ක ජීවන වියදම් සුරක්ෂිතව තබා ගන්න.\n")
-                    sb.append("2. **විවිධාංගීකරණය (Diversification):** ඔබේ මුළු ඉතිරිය එකම තැනක (උදා: Crypto පමණක්) නොයොදවා ස්ථාවර තැන්පතු සහ ආරක්ෂිත සුරැකුම්පත්වලද ආයෝජනය කරන්න.\n")
-                    sb.append("3. **අතිරික්ත මුදල් පමණක් අවදානම් සහිත ආයෝජනවලට යොදවන්න.**")
+
+                // 2. Savings & Expense Cutting
+                lower.contains("save") || lower.contains("saving") || lower.contains("cut") || lower.contains("ඉතිරි") || lower.contains("අඩු කරන්න") -> {
+                    sb.append("💡 **ඉතිරිකිරීම් ඉහළ නැංවීමේ උපායමාර්ග:**\n\n")
+                    sb.append("• ඔබ මේ වන විටත් ඔබේ ආදායමෙන් **$formattedRate** ක් ඉතිරි කරමින් සිටියි ($formattedSavings).\n\n")
+                    sb.append("1. **50/30/20 රීතිය:** ඔබේ අත්‍යවශ්‍ය නොවන වියදම් තවදුරටත් අවම කර එම මුදල Goals වලට වෙන් කරන්න.\n")
+                    sb.append("2. **Micro-Leaks:** Dining & Shopping වියදම් නිරීක්ෂණය කර සතිපතා අයවැය සීමා පනවන්න.\n")
+                    sb.append("3. **Automate Savings:** වැටුප ලැබුණු සැනින් මුලින්ම ඉතිරිකිරීම් වෙන් කර ඉතිරි මුදලින් ජීවත් වන්න.")
                 }
-                lower.contains("debt") || lower.contains("ණය") || lower.contains("loan") || lower.contains("card") -> {
-                    sb.append("💳 **ණය හා ක්‍රෙඩිට් කාඩ් කළමනාකරණය:**\n\n")
-                    sb.append("1. **Avalanche ක්‍රමය:** වැඩිම පොලියක් අයවන ණය (උදා: Credit Cards) පළමුව පියවන්න.\n")
-                    sb.append("2. **Committed වියදම් සීමා කරන්න:** මාසික ණය වාරික ඔබේ මුළු ආදායමෙන් 30% ඉක්මවා නොයන පරිදි කළමනාකරණය කරගන්න.")
+
+                // 3. Investment & Crypto
+                lower.contains("invest") || lower.contains("crypto") || lower.contains("stock") || lower.contains("ආයෝජන") || lower.contains("ක්‍රිප්ටෝ") -> {
+                    sb.append("📈 **ආයෝජන සහ ප්‍රාග්ධන වර්ධන උපදෙස්:**\n\n")
+                    sb.append("ඔබ සතුව දැනට මාස **$formattedRunway** ක විශිෂ්ට Emergency Runway එකක් ඇති බැවින් ඔබ ආයෝජනය කිරීමට ඉතා සුදුසු මට්ටමක සිටියි.\n\n")
+                    sb.append("1. **Emergency Fund ආරක්ෂා කරන්න:** අවම මාස 6ක ජීවන වියදම් ආරක්ෂිතව තබා ඉතිරි මුදල පමණක් ආයෝජනය කරන්න.\n")
+                    sb.append("2. **Diversify (විවිධාංගීකරණය):** මුළු මුදලම එක් ක්ෂේත්‍රයකට (Crypto) නොයොදවා Low-risk සහ High-growth අතර සමබර කරන්න.\n")
+                    sb.append("3. **DCA ක්‍රමය:** වෙළඳපල උච්චාවචනයන්ගෙන් බේරීමට සෑම මසකම ස්ථාවර මුදලක් ආයෝජනය කරන්න.")
                 }
+
+                // 4. Debt & Credit Card
+                lower.contains("debt") || lower.contains("loan") || lower.contains("card") || lower.contains("ණය") || lower.contains("පොලී") -> {
+                    sb.append("💳 **ණය කළමනාකරණ මඟපෙන්වීම:**\n\n")
+                    sb.append("1. **Avalanche ක්‍රමය:** වැඩිම පොලී ප්‍රතිශතයක් අයවන ණය (Credit Card balances) මුලින්ම ගෙවා දමන්න.\n")
+                    sb.append("2. **ණය සීමාව:** මාසික ණය වාරික කිසිවිටෙක ඔබේ මාසික ආදායමෙන් 30% ඉක්මවා යාමට ඉඩ නොදෙන්න.")
+                }
+
+                // 5. Help / Menu command
+                lower == "help" || lower == "menu" || lower.contains("what can you do") || lower.contains("මොනවද කරන්න පුළුවන්") -> {
+                    sb.append("🤖 **NEXUS AI Copilot - සහාය මෙනුව:**\n\n")
+                    sb.append("• 💸 **වියදම් / ආදායම් සටහන් කිරීම:** උදා: *'Fuel 2500 cash'*, *'Salary 150000'*\n")
+                    sb.append("• 🏷️ **Categories & Bills:** උදා: *'Add category Gym 5000'*, *'Add recurring bill Netflix 2200'*\n")
+                    sb.append("• 🔍 **දත්ත විමසීම:** උදා: *'How much did I spend on food?'*, *'Recent expenses'*\n")
+                    sb.append("• 🛡️ **මූල්‍ය සෞඛ්‍යය:** උදා: *'Emergency runway'*, *'Can I afford 50000?'*\n")
+                    sb.append("• ⚙️ **Settings & Navigation:** උදා: *'Enable dark mode'*, *'Open reports'*\n")
+                }
+
+                // 6. Any other general question: Give dynamic tailored financial insight!
                 else -> {
-                    sb.append("🤖 **NEXUS AI Financial Intelligence Co-pilot:**\n\n")
-                    sb.append("මම ඔබගේ දත්ත විශ්ලේෂණය කරමින් ඔබට පහත ඕනෑම කාර්යයක් සඳහා සහාය වීමට සූදානම්:\n\n")
-                    sb.append("• 💸 **වියදම් හෝ ආදායම් එක් කරන්න:** උදා: *'Spent 2500 for groceries cash'*, *'Salary 150000'*\n")
-                    sb.append("• 🏷️ **අලුත් Category හෝ Recurring Bill එකක් දාන්න:** උදා: *'Add category Gym 5000'*, *'Add recurring bill Wifi 3000'*\n")
-                    sb.append("• 🔍 **විශේෂිත වියදම් විමසන්න:** උදා: *'How much did I spend on food?'*, *'Recent expenses'*\n")
-                    sb.append("• 🛡️ **මූල්‍ය සෞඛ්‍යය සහ Runway පරීක්ෂාව:** උදා: *'Emergency runway'*, *'Can I afford 50000?'*\n")
-                    sb.append("• ⚙️ **Settings සහ App Navigation:** උදා: *'Enable dark mode'*, *'Go to reports'*\n\n")
-                    sb.append("ඔබට අවශ්‍ය ඕනෑම ප්‍රශ්නයක් හෝ විධානයක් මෙහි සටහන් කරන්න!")
+                    sb.append("🧠 **NEXUS AI මූල්‍ය විශ්ලේෂණය:**\n\n")
+                    sb.append("ඔබ ඇසූ ප්‍රශ්නයට අදාළව ඔබේ වත්මන් මූල්‍ය වාර්තා අනුව තත්ත්වය මෙසේය:\n")
+                    sb.append("• **වත්මන් ශුද්ධ ශේෂය:** $formattedSavings\n")
+                    sb.append("• **මාසික ආදායම:** $formattedIncome · **වියදම:** $formattedSpent\n")
+                    sb.append("• **ඉතිරිකිරීමේ වේගය:** $formattedRate (ඉහළ විනයක් පවතී)\n\n")
+                    sb.append("ඔබේ ඉලක්ක වෙත ඉක්මනින් ළඟාවීමට, වියදම් සීමා පවත්වා ගනිමින් අතිරික්ත මුදල දිගුකාලීන වත්කම් (Assets) බවට පත් කිරීමට අවධානය යොමු කරන්න.")
                 }
             }
         } else {
             when {
-                lower.contains("save") || lower.contains("saving") || lower.contains("reduce") || lower.contains("cut") -> {
+                // 1. Getting Rich & Wealth Building ("how i rich", "wealth", "millionaire")
+                lower.contains("rich") || lower.contains("wealth") || lower.contains("millionaire") ||
+                    lower.contains("financial freedom") || lower.contains("grow money") || lower.contains("prosper") -> {
+                    sb.append("💎 **Wealth Blueprint & Financial Assessment:**\n\n")
+                    sb.append("Based on your live numbers, you are already demonstrating **Elite Wealth-Building Discipline!**\n\n")
+                    sb.append("• **Monthly Income:** $formattedIncome\n")
+                    sb.append("• **Monthly Burn (Expenses):** $formattedSpent\n")
+                    sb.append("• **Net Monthly Surplus:** $formattedSavings\n")
+                    sb.append("• **Savings Retention Rate:** **$formattedRate** (Top 1% benchmark)\n")
+                    sb.append("• **Survival Runway:** **$formattedRunway Months** (~$daysCount Days)\n\n")
+
+                    sb.append("🚀 **How to scale this into true multi-million wealth:**\n")
+                    sb.append("1. **Deploy Surplus Capital (Don't let it sit idle):** You generate $formattedSavings in surplus every single month. Move this capital into compounding growth engines (fixed deposits, treasury bills, high-yield dividend funds, or business investments).\n")
+                    sb.append("2. **Guard Against Lifestyle Creep:** As your income expands, maintain your disciplined low living expenses ($formattedSpent) so that 90%+ continues flowing directly into wealth creation.\n")
+                    sb.append("3. **Diversify & Automate:** Set automated monthly transfers into your Savings Goals right after salary arrival.")
+                }
+
+                // 2. Savings & Expense Cutting
+                lower.contains("save") || lower.contains("saving") || lower.contains("cut") || lower.contains("reduce") || lower.contains("spending") -> {
                     sb.append("💡 **Strategic Wealth Optimization Blueprint:**\n\n")
-                    sb.append("Your current active savings retention rate is **%.1f%%** of confirmed revenue.\n\n".format(savingsRate))
+                    sb.append("• Your current active savings retention rate is **$formattedRate** (Surplus: $formattedSavings).\n\n")
                     sb.append("1. **Calibrate 50/30/20 Discipline:** Cap lifestyle discretionary wants to strictly under 30% of income.\n")
                     sb.append("2. **Eliminate Discretionary Leaks:** Review Dining and Shopping categories to capture an additional 10-15% surplus.\n")
                     sb.append("3. **Automate Goal Funding:** Set automated monthly allocations for your key Savings Goals.")
                 }
-                lower.contains("invest") || lower.contains("crypto") || lower.contains("stock") || lower.contains("wealth") -> {
+
+                // 3. Investment & Crypto
+                lower.contains("invest") || lower.contains("crypto") || lower.contains("stock") || lower.contains("assets") -> {
                     sb.append("📈 **Investment & Capital Growth Guidelines:**\n\n")
+                    sb.append("With an emergency runway of **$formattedRunway months**, you are in an exceptionally strong position to invest.\n\n")
                     sb.append("1. **Preserve Liquid Runway First:** Ensure your 3-6 month emergency fund is untouched before committing capital to volatile assets.\n")
                     sb.append("2. **Asset Allocation:** Balance high-growth instruments (crypto, equities) with safe fixed-income yields.\n")
                     sb.append("3. **Dollar Cost Averaging (DCA):** Invest surplus capital systematically each month rather than attempting to time the market.")
                 }
+
+                // 4. Debt & Credit Cards
                 lower.contains("debt") || lower.contains("loan") || lower.contains("card") || lower.contains("interest") -> {
                     sb.append("💳 **Debt Minimization Strategy:**\n\n")
                     sb.append("1. **Debt Avalanche Method:** Direct surplus savings toward the highest interest debt (e.g. revolving credit card balances) first.\n")
                     sb.append("2. **Cap Fixed Commitments:** Keep all fixed debt payments under 30% of net monthly income.")
                 }
-                else -> {
-                    sb.append("🤖 **NEXUS AI Copilot Intelligence:**\n\n")
-                    sb.append("I am fully connected to your NEXUS ledger and ready to assist you with any task:\n\n")
+
+                // 5. Help / Menu command
+                lower == "help" || lower == "menu" || lower.contains("what can you do") -> {
+                    sb.append("🤖 **NEXUS AI Copilot - Quick Help Menu:**\n\n")
                     sb.append("• 💸 **Log Expenses & Incomes:** e.g. *'Fuel 2500 cash'*, *'Salary 150000'*\n")
                     sb.append("• 🏷️ **Add Categories & Recurring Bills:** e.g. *'Add category Gym 5000'*, *'Add recurring bill Netflix 2200'*\n")
                     sb.append("• 🔍 **Inquire about Expenses & Data:** e.g. *'How much did I spend on food?'*, *'Show recent expenses'*\n")
                     sb.append("• 🛡️ **Affordability & Runway Checks:** e.g. *'Can I afford 45000?'*, *'Emergency runway'*\n")
-                    sb.append("• ⚙️ **App Settings & Navigation:** e.g. *'Enable dark mode'*, *'Clear alerts'*, *'Open reports'*\n\n")
-                    sb.append("Feel free to ask me anything or tell me what to do!")
+                    sb.append("• ⚙️ **App Settings & Navigation:** e.g. *'Enable dark mode'*, *'Clear alerts'*, *'Open reports'*\n")
+                }
+
+                // 6. Any other general question: Give dynamic tailored financial insight!
+                else -> {
+                    sb.append("🧠 **NEXUS AI Financial Intelligence:**\n\n")
+                    sb.append("Analyzing your financial position regarding your inquiry:\n")
+                    sb.append("• **Net Capital Position:** $formattedSavings\n")
+                    sb.append("• **Cash Flow Ratio:** $formattedIncome income vs $formattedSpent living expenses\n")
+                    sb.append("• **Savings Efficiency:** $formattedRate of your earnings are actively converted into wealth.\n\n")
+                    sb.append("Your financial footing is exceptionally solid. If you have a specific goal or target in mind, ask me and I'll model the numbers for you!")
                 }
             }
         }

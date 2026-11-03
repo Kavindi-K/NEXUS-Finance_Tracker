@@ -305,4 +305,27 @@ class ChatBotEngineTest {
         )
         assertTrue(consultation.contains("50/30/20"))
     }
+
+    @Test
+    fun advisorEngine_howIRich_returnsWealthBlueprint() {
+        val now = Date()
+        val incomes = listOf(
+            Income(id = "inc1", userId = "u1", amountLKR = 666859.60, status = IncomeStatus.CONFIRMED, dateReceived = now)
+        )
+        val expenses = listOf(
+            Expense(id = "exp1", userId = "u1", amountLKR = 21300.00, categoryId = "cat_groceries", date = now)
+        )
+
+        val reply = advisorEngine.provideGeneralConsultation(
+            "how I rich",
+            incomes,
+            expenses,
+            emptyList(),
+            emptyList(),
+            isSinhala = false
+        )
+        assertTrue(reply.contains("Wealth Blueprint"))
+        assertTrue(reply.contains("Elite Wealth-Building"))
+        assertTrue(reply.contains("Deploy Surplus Capital"))
+    }
 }
