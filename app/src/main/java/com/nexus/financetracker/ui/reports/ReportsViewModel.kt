@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.nexus.financetracker.data.repository.CategoryRepository
+import com.nexus.financetracker.data.repository.ContributionManager
+import com.nexus.financetracker.domain.model.Contribution
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.repository.GoalRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
@@ -91,6 +93,7 @@ class ReportsViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val goalRepository: GoalRepository,
     private val categoryRepository: CategoryRepository,
+    private val contributionManager: ContributionManager,
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
@@ -150,8 +153,9 @@ class ReportsViewModel @Inject constructor(
                 incomeRepository.getIncomes(userId).catch { emit(emptyList()) },
                 expenseRepository.getExpenses(userId).catch { emit(emptyList()) },
                 goalRepository.getGoals(userId).catch { emit(emptyList()) },
-                categoryRepository.getCategories(userId).catch { emit(emptyList()) }
-            ) { incomes, expenses, goals, categories ->
+                categoryRepository.getCategories(userId).catch { emit(emptyList()) },
+                contributionManager.contributions
+            ) { incomes, expenses, goals, categories, contributions ->
                 val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
                 val monthKeyFormat = SimpleDateFormat("yyyy-MM", Locale.US)
 
@@ -204,37 +208,57 @@ class ReportsViewModel @Inject constructor(
                 endOfMonth = endOfMonth
             )
 
-                  // Goal assignment calculations for all goals for this specific month
-                    val goalReports = allTargetGoals.map { goal ->
-                        val goalCalc = GoalCalculation.calculate(goal, incomes, expenses, endOfMonth)
-                        val targetMonthly = goalCalc.requiredMonthlySavingsLKR
-                        val fractionOfTarget = if (targetMonthly > 0) {
-                            (netSavingsThisMonth / targetMonthly).toFloat().coerceIn(0f, 1f)
-                        } else if (netSavingsThisMonth > 0) {
-                            1f
-                        } else {
-                            0f
-                        }
-
-                        MonthlyGoalReport(
-                            goalId = goal.id,
-                            goalTitle = goal.title,
-                            priority = goal.priority,
-                            isActive = goal.isActive,
-                            targetAmountLKR = goal.targetAmountLKR,
-                            assignedThisMonthLKR = netSavingsThisMonth,
-                            targetMonthlyLKR = targetMonthly,
-                            assignedFractionOfMonthlyTarget = fractionOfTarget,
-                            cumulativeSavingsLKR = goalCalc.estimatedCurrentSavingsLKR,
-                            remainingAmountLKR = goalCalc.remainingAmountLKR,
-                            overallProgressFraction = goalCalc.progressFraction,
-                            overallProgressPercentage = goalCalc.progressPercentage,
-                            hasActiveGoal = true,
-                            isCompleted = goalCalc.isCompleted,
-                            daysRemaining = goal.daysRemaining,
-                            daysRemainingText = goal.daysRemainingText,
-                            targetDate = goal.targetDate
+                  // Goal assignment calculations for goals that belong to this specific month.
+                    // Completed goals ONLY display in their completed month (not in subsequent/current months).
+                    val goalReports = allTargetGoals.mapNotNull { goal ->
+                        val completionMonth = resolveGoalCompletionMonth(
+                            goal = goal,
+                            incomes = incomes,
+                            expenses = expenses,
+                            contributions = contributions,
+                            monthFormat = monthFormat
                         )
+
+                        val shouldDisplay = shouldDisplayGoalInMonth(
+                            goal = goal,
+                            monthLabel = label,
+                            endOfMonth = endOfMonth,
+                            completionMonth = completionMonth
+                        )
+
+                        if (!shouldDisplay) {
+                            null
+                        } else {
+                            val goalCalc = GoalCalculation.calculate(goal, incomes, expenses, endOfMonth)
+                            val targetMonthly = goalCalc.requiredMonthlySavingsLKR
+                            val fractionOfTarget = if (targetMonthly > 0) {
+                                (netSavingsThisMonth / targetMonthly).toFloat().coerceIn(0f, 1f)
+                            } else if (netSavingsThisMonth > 0) {
+                                1f
+                            } else {
+                                0f
+                            }
+
+                            MonthlyGoalReport(
+                                goalId = goal.id,
+                                goalTitle = goal.title,
+                                priority = goal.priority,
+                                isActive = goal.isActive,
+                                targetAmountLKR = goal.targetAmountLKR,
+                                assignedThisMonthLKR = netSavingsThisMonth,
+                                targetMonthlyLKR = targetMonthly,
+                                assignedFractionOfMonthlyTarget = fractionOfTarget,
+                                cumulativeSavingsLKR = goalCalc.estimatedCurrentSavingsLKR,
+                                remainingAmountLKR = goalCalc.remainingAmountLKR,
+                                overallProgressFraction = goalCalc.progressFraction,
+                                overallProgressPercentage = goalCalc.progressPercentage,
+                                hasActiveGoal = true,
+                                isCompleted = completionMonth != null || goalCalc.isCompleted,
+                                daysRemaining = goal.daysRemaining,
+                                daysRemainingText = goal.daysRemainingText,
+                                targetDate = goal.targetDate
+                            )
+                        }
                     }
 
                     // Discretionary categories comparison for this month
@@ -394,6 +418,73 @@ class ReportsViewModel @Inject constructor(
     }
 
     companion object {
+        /**
+         * Resolves the month in which a goal was completed (if completed).
+         * Priority:
+         * 1. Latest allocated contribution's monthLabel (e.g. surplus allocated in October 2026).
+         * 2. Transaction history when cumulative confirmed savings reached or exceeded target amount.
+         * 3. Fallback: goal createdAt month if created already completed.
+         * Returns null if goal is ongoing.
+         */
+        fun resolveGoalCompletionMonth(
+            goal: Goal,
+            incomes: List<Income>,
+            expenses: List<Expense>,
+            contributions: List<Contribution> = emptyList(),
+            monthFormat: SimpleDateFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
+        ): String? {
+            val currentCalc = GoalCalculation.calculate(goal, incomes, expenses, Date())
+            val isCompleted = currentCalc.isCompleted || goal.openingSavingsLKR >= goal.targetAmountLKR
+            if (!isCompleted) return null
+
+            // 1. Check if contributions allocated to this goal specify completion month
+            val goalContributions = contributions.filter {
+                it.isAllocated && (it.allocatedGoalId == goal.id || it.allocatedGoalTitle.equals(goal.title, ignoreCase = true))
+            }.sortedBy { it.createdAt }
+
+            if (goalContributions.isNotEmpty()) {
+                val latest = goalContributions.last()
+                return if (latest.monthLabel.isNotBlank()) latest.monthLabel else monthFormat.format(latest.createdAt)
+            }
+
+            // 2. Chronological progression from incomes & expenses
+            val relevantIncomes = incomes.filter {
+                it.status == IncomeStatus.CONFIRMED &&
+                    (it.dateReceived ?: it.createdAt).time >= goal.startDate.time
+            }.sortedBy { (it.dateReceived ?: it.createdAt).time }
+
+            for (income in relevantIncomes) {
+                val incDate = income.dateReceived ?: income.createdAt
+                val incTime = incDate.time
+                val incSum = relevantIncomes.filter { (it.dateReceived ?: it.createdAt).time <= incTime }.sumOf { it.amountLKR }
+                val expSum = expenses.filter { it.date.time >= goal.startDate.time && it.date.time <= incTime }.sumOf { it.amountLKR }
+                if (goal.openingSavingsLKR + incSum - expSum >= goal.targetAmountLKR) {
+                    return monthFormat.format(incDate)
+                }
+            }
+
+            // 3. Fallback: creation month
+            return monthFormat.format(goal.createdAt)
+        }
+
+        /**
+         * Determines if a goal should be displayed in a given month's report.
+         * Completed goals ONLY display in their goal completed month.
+         * Ongoing goals display if started by this month.
+         */
+        fun shouldDisplayGoalInMonth(
+            goal: Goal,
+            monthLabel: String,
+            endOfMonth: Date,
+            completionMonth: String?
+        ): Boolean {
+            return if (completionMonth != null) {
+                completionMonth.equals(monthLabel, ignoreCase = true)
+            } else {
+                !goal.startDate.after(endOfMonth)
+            }
+        }
+
         fun calculateSourcesForIncomes(confirmedIncomes: List<Income>): List<IncomeSourceSpending> {
             if (confirmedIncomes.isEmpty()) return emptyList()
             val sourceTotals = confirmedIncomes.groupBy { it.source }

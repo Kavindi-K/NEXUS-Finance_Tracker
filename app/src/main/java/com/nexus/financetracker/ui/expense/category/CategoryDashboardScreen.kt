@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -17,6 +18,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.ui.platform.LocalContext
 import java.text.SimpleDateFormat
@@ -48,6 +51,12 @@ private val DashboardGraphCardBg = Color(0xFFE2E8F0)
 private val CardBorderColor = Color(0xFFCBD5E1)
 private val TextMutedSlate = Color(0xFF64748B)
 
+enum class CategoryClassificationFilter {
+    ALL,
+    DISCRETIONARY,
+    COMMITTED
+}
+
 /**
  * Category Dashboard Screen:
  * - Dynamic theme support (light and dark mode adaptive)
@@ -72,6 +81,14 @@ fun CategoryDashboardScreen(
     val currentMonthLabel = remember { currentMonthFormat.format(Date()) }
 
     var searchQuery by remember { mutableStateOf("") }
+    var selectedClassification by remember { mutableStateOf(CategoryClassificationFilter.ALL) }
+
+    val discretionaryCount = remember(categories) {
+        categories.count { !it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true) }
+    }
+    val committedCount = remember(categories) {
+        categories.count { it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true) }
+    }
     var categoryForReview by remember { mutableStateOf<Category?>(null) }
     val reviewedCategories by viewModel.reviewedCategories.collectAsState()
 
@@ -103,16 +120,32 @@ fun CategoryDashboardScreen(
         }
     }
     val categorySpentMap = remember(currentMonthExpenses) {
-        currentMonthExpenses.groupBy { it.categoryId }
-            .mapValues { (_, list) -> list.sumOf { it.amountLKR } }
+        val map = mutableMapOf<String, Double>()
+        currentMonthExpenses.forEach { exp ->
+            map[exp.categoryId] = (map[exp.categoryId] ?: 0.0) + exp.amountLKR
+            val lower = exp.categoryId.lowercase()
+            if (lower != exp.categoryId) {
+                map[lower] = (map[lower] ?: 0.0) + exp.amountLKR
+            }
+        }
+        map
     }
 
-    val filteredCategories = remember(categories, searchQuery) {
+    val filteredCategories = remember(categories, searchQuery, selectedClassification) {
+        val classified = when (selectedClassification) {
+            CategoryClassificationFilter.ALL -> categories
+            CategoryClassificationFilter.DISCRETIONARY -> categories.filter {
+                !it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+            }
+            CategoryClassificationFilter.COMMITTED -> categories.filter {
+                it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+            }
+        }
         if (searchQuery.isBlank()) {
-            categories
+            classified
         } else {
             val query = searchQuery.trim().lowercase()
-            categories.filter { it.name.lowercase().contains(query) }
+            classified.filter { it.name.lowercase().contains(query) }
         }
     }
 
@@ -196,13 +229,17 @@ fun CategoryDashboardScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 placeholder = {
-                    Text("Search categories...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                    Text(
+                        text = "Search categories...",
+                        color = TextMutedSlate,
+                        fontSize = 14.sp
+                    )
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = DarkNavyBg
                     )
                 },
                 trailingIcon = {
@@ -211,7 +248,7 @@ fun CategoryDashboardScreen(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Clear search",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = DarkNavyBg
                             )
                         }
                     }
@@ -219,15 +256,55 @@ fun CategoryDashboardScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    cursorColor = MaterialTheme.colorScheme.primary
+                    focusedContainerColor = Color(0xFFF1F5F9),
+                    unfocusedContainerColor = Color(0xFFF1F5F9),
+                    focusedBorderColor = DarkNavyBg,
+                    unfocusedBorderColor = Color(0xFFCBD5E1),
+                    focusedTextColor = DarkNavyBg,
+                    unfocusedTextColor = DarkNavyBg,
+                    cursorColor = DarkNavyBg
                 )
             )
+
+            // Classification Filter Chips (All, Discretionary, Committed)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CategoryClassificationFilter.values().forEach { filter ->
+                    val isSelected = selectedClassification == filter
+                    val count = when (filter) {
+                        CategoryClassificationFilter.ALL -> categories.size
+                        CategoryClassificationFilter.DISCRETIONARY -> discretionaryCount
+                        CategoryClassificationFilter.COMMITTED -> committedCount
+                    }
+                    val label = when (filter) {
+                        CategoryClassificationFilter.ALL -> "All ($count)"
+                        CategoryClassificationFilter.DISCRETIONARY -> "Discretionary ($count)"
+                        CategoryClassificationFilter.COMMITTED -> "Committed ($count)"
+                    }
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { selectedClassification = filter },
+                        label = {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    )
+                }
+            }
 
             // New Month Estimation Banner (Opens when review is done; disappears after adding estimation)
             AnimatedVisibility(
@@ -358,14 +435,6 @@ fun CategoryDashboardScreen(
                 }
             }
 
-            // Category Count / Header indicator
-            Text(
-                text = "${filteredCategories.size} ${if (filteredCategories.size == 1) "Category" else "Categories"}",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)
-            )
 
             if (filteredCategories.isEmpty()) {
                 Box(
@@ -385,13 +454,23 @@ fun CategoryDashboardScreen(
                             modifier = Modifier.size(48.dp)
                         )
                         Text(
-                            text = "No categories found",
-                            color = MaterialTheme.colorScheme.onSurface,
+                            text = if (searchQuery.isNotEmpty()) {
+                                "No categories found"
+                            } else when (selectedClassification) {
+                                CategoryClassificationFilter.DISCRETIONARY -> "No discretionary categories found"
+                                CategoryClassificationFilter.COMMITTED -> "No committed categories found"
+                                CategoryClassificationFilter.ALL -> "No categories found"
+                            },
+                            color = DarkNavyBg,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 16.sp
                         )
                         Text(
-                            text = "Try searching with a different term",
+                            text = if (searchQuery.isNotEmpty()) {
+                                "Try searching with a different term"
+                            } else {
+                                "Tap '+ New category' to add one"
+                            },
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp
                         )
@@ -400,11 +479,15 @@ fun CategoryDashboardScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(filteredCategories, key = { it.id }) { category ->
-                        val spent = categorySpentMap[category.id] ?: 0.0
+                        val spent = categorySpentMap[category.id]
+                            ?: categorySpentMap[category.id.lowercase()]
+                            ?: categorySpentMap[category.name]
+                            ?: categorySpentMap[category.name.lowercase()]
+                            ?: 0.0
                         val est = category.estimatedAmount ?: 0.0
                         val reviewKey = "${category.id}_$currentMonthLabel"
                         val isReviewed = reviewKey in reviewedCategories
@@ -627,6 +710,9 @@ fun CategoryDashboardScreen(
 
 /**
  * Compact horizontal category card (one category per line)
+ * Background: Dashboard graph card color (Color(0xFFE2E8F0))
+ * Text color: Navy Blue (DarkNavyBg)
+ * Height: Compact height matching wireframe screenshot
  */
 @Composable
 private fun CategoryRowCard(
@@ -644,8 +730,8 @@ private fun CategoryRowCard(
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = DashboardGraphCardBg,
+        border = BorderStroke(1.dp, CardBorderColor),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -664,44 +750,23 @@ private fun CategoryRowCard(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // Line 1: Category Name with Committed / Discretionary badge right after
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = category.name,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-
-                        // Type Badge (Discretionary vs Committed)
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                        ) {
-                            Text(
-                                text = if (isCommitted) "Committed" else "Discretionary",
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (isCommitted) MaterialTheme.colorScheme.primary else Color(0xFF2563EB)
-                            )
-                        }
-                    }
+                    // Line 1: Category Name
+                    Text(
+                        text = category.name,
+                        color = DarkNavyBg,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
                     // Line 2: Estimation & Spent details (or recurring frequency for committed)
                     if (isCommitted) {
                         val frequency = category.recurringFrequency?.replaceFirstChar { it.uppercase() } ?: "Monthly"
                         Text(
                             text = frequency,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = TextMutedSlate,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -710,14 +775,14 @@ private fun CategoryRowCard(
                         if (est != null && est > 0.0) {
                             Text(
                                 text = "Est: LKR %,.0f • Spent: LKR %,.0f".format(est, spentAmount),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = TextMutedSlate,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         } else {
                             Text(
                                 text = "Est: LKR 0 • Spent: LKR %,.0f".format(spentAmount),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = TextMutedSlate,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -736,7 +801,7 @@ private fun CategoryRowCard(
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit Category",
-                            tint = MaterialTheme.colorScheme.onSurface,
+                            tint = DarkNavyBg,
                             modifier = Modifier.size(17.dp)
                         )
                     }
@@ -748,7 +813,7 @@ private fun CategoryRowCard(
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete Category",
-                            tint = MaterialTheme.colorScheme.error,
+                            tint = Color(0xFFEF4444),
                             modifier = Modifier.size(17.dp)
                         )
                     }
@@ -756,7 +821,7 @@ private fun CategoryRowCard(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = Color(0xFF94A3B8),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -767,7 +832,7 @@ private fun CategoryRowCard(
                 Surface(
                     onClick = onReviewSurplus,
                     shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surface,
+                    color = Color.White,
                     border = BorderStroke(1.dp, Color(0xFF15803D)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -797,7 +862,7 @@ private fun CategoryRowCard(
                         }
                         Text(
                             text = "Review ›",
-                            color = MaterialTheme.colorScheme.primary,
+                            color = Color(0xFF2563EB),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )

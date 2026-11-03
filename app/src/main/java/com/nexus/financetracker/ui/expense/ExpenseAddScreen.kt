@@ -4,6 +4,8 @@ import android.app.DatePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -64,9 +66,19 @@ fun ExpenseAddScreen(
     LaunchedEffect(categoryId, uiState.allCategories) {
         val cleanCatId = if (!categoryId.isNullOrBlank() && categoryId != "{categoryId}") categoryId else null
         if (cleanCatId != null && (expenseId.isNullOrBlank() || expenseId == "{expenseId}")) {
-            val found = uiState.allCategories.find { it.id == cleanCatId }
-                ?: viewModel.formState.value.availableCategories.find { it.id == cleanCatId }
-                ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == cleanCatId }
+            val found = uiState.allCategories.find {
+                it.id.equals(cleanCatId, ignoreCase = true) ||
+                it.name.equals(cleanCatId, ignoreCase = true) ||
+                it.id.replace("_", "-").equals(cleanCatId.replace("_", "-"), ignoreCase = true)
+            } ?: viewModel.formState.value.availableCategories.find {
+                it.id.equals(cleanCatId, ignoreCase = true) ||
+                it.name.equals(cleanCatId, ignoreCase = true) ||
+                it.id.replace("_", "-").equals(cleanCatId.replace("_", "-"), ignoreCase = true)
+            } ?: DEFAULT_EXPENSE_CATEGORIES.find {
+                it.id.equals(cleanCatId, ignoreCase = true) ||
+                it.name.equals(cleanCatId, ignoreCase = true) ||
+                it.id.replace("_", "-").equals(cleanCatId.replace("_", "-"), ignoreCase = true)
+            }
             if (found != null) {
                 viewModel.onCategorySelected(found)
                 viewModel.onClassificationSelected(found.classification)
@@ -212,7 +224,9 @@ fun ExpenseAddScreen(
                     }
                 }
                 // Pre-selected Category & Classification Card
+                var showCategoryPicker by remember { mutableStateOf(false) }
                 Card(
+                    onClick = { showCategoryPicker = true },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -227,7 +241,7 @@ fun ExpenseAddScreen(
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                text = "Category",
+                                text = "Category (Tap to switch)",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Medium
@@ -239,18 +253,96 @@ fun ExpenseAddScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                         }
-                        val isCommitted = formState.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.surface
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val isCommitted = formState.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surface
+                            ) {
+                                Text(
+                                    text = if (isCommitted) "Committed" else "Discretionary",
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isCommitted) MaterialTheme.colorScheme.primary else Color(0xFF3B82F6)
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.Category,
+                                contentDescription = "Change Category",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (showCategoryPicker) {
+                    ModalBottomSheet(
+                        onDismissRequest = { showCategoryPicker = false },
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 12.dp)
+                                .navigationBarsPadding(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text(
-                                text = if (isCommitted) "Committed" else "Discretionary",
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                fontSize = 12.sp,
+                                text = "Select Expense Category",
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isCommitted) MaterialTheme.colorScheme.primary else Color(0xFF3B82F6)
+                                color = MaterialTheme.colorScheme.onSurface
                             )
+                            val availableCats = (uiState.allCategories.ifEmpty { formState.availableCategories }).ifEmpty { DEFAULT_EXPENSE_CATEGORIES }
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 380.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(availableCats, key = { it.id }) { cat ->
+                                    val isSelected = cat.id == formState.categoryId ||
+                                        cat.name.equals(formState.categoryName, ignoreCase = true)
+                                    Surface(
+                                        onClick = {
+                                            viewModel.onCategorySelected(cat)
+                                            viewModel.onClassificationSelected(cat.classification)
+                                            showCategoryPicker = false
+                                        },
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                        border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = cat.name,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                            )
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Category,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
