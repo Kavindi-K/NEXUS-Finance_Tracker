@@ -12,6 +12,10 @@ enum class ActionType {
     ADD_EXPENSE,
     ADD_INCOME,
     ADD_GOAL,
+    ADD_CATEGORY,
+    ADD_RECURRING_BILL,
+    CLEAR_ALERTS,
+    UPDATE_SETTINGS,
     NAVIGATE
 }
 
@@ -31,7 +35,12 @@ data class ActionPayload(
     val note: String = "",
     val title: String = "",
     val targetDate: Date = Date(),
-    val destinationRoute: String = ""
+    val destinationRoute: String = "",
+    val settingKey: String = "",
+    val settingValue: Boolean = false,
+    val themeMode: String = "",
+    val frequency: String = "monthly",
+    val estimatedAmount: Double? = null
 )
 
 data class ChatActionCard(

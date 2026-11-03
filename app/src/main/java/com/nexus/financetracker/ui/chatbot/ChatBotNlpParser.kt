@@ -4,17 +4,44 @@ import com.nexus.financetracker.domain.model.Category
 import com.nexus.financetracker.domain.model.ExpenseAccount
 import com.nexus.financetracker.domain.model.ExpenseClassification
 import com.nexus.financetracker.domain.model.IncomeSource
+import com.nexus.financetracker.domain.model.RecurringFrequency
 import com.nexus.financetracker.ui.navigation.Screen
 import java.util.Calendar
+import java.util.Date
 import java.util.regex.Pattern
 import javax.inject.Inject
 import javax.inject.Singleton
+
+enum class AppTopic {
+    OFFLINE_SYNC,
+    BUDGET_50_30_20,
+    EMERGENCY_RUNWAY,
+    BIOMETRIC_SECURITY,
+    GOALS_PACE,
+    MULTI_CURRENCY,
+    RECURRING_BILLS,
+    CATEGORY_BUDGETS,
+    ABOUT_NEXUS
+}
 
 sealed class ParsedIntent {
     data class AddExpense(val payload: ActionPayload) : ParsedIntent()
     data class AddIncome(val payload: ActionPayload) : ParsedIntent()
     data class AddGoal(val payload: ActionPayload) : ParsedIntent()
+    data class AddCategory(val payload: ActionPayload) : ParsedIntent()
+    data class AddRecurringBill(val payload: ActionPayload) : ParsedIntent()
+    object ClearAlerts : ParsedIntent()
+    data class ToggleSetting(val settingKey: String, val enable: Boolean, val label: String) : ParsedIntent()
     data class Navigate(val destinationRoute: String, val screenName: String) : ParsedIntent()
+
+    // Smart data-driven inquiries
+    data class CategorySpendingQuery(val categoryKeyword: String) : ParsedIntent()
+    object RecentTransactionsQuery : ParsedIntent()
+    object UpcomingBillsQuery : ParsedIntent()
+    object IncomeBreakdownQuery : ParsedIntent()
+    data class GoalSpecificQuery(val goalKeyword: String) : ParsedIntent()
+
+    // Advisory & analytics
     data class AffordabilityQuery(val amount: Double) : ParsedIntent()
     object FinancialHealthQuery : ParsedIntent()
     object ExpenseAnalysisQuery : ParsedIntent()
@@ -23,7 +50,13 @@ sealed class ParsedIntent {
     object PredictionAndAdvice : ParsedIntent()
     object FinancialSummary : ParsedIntent()
     object GoalPaceReport : ParsedIntent()
+
+    // Explanations & help
+    data class AppExplanationQuery(val topic: AppTopic) : ParsedIntent()
     object GreetingOrHelp : ParsedIntent()
+
+    // N8N workflow-style intelligent consultative fallback
+    data class GeneralConsultation(val query: String) : ParsedIntent()
     data class Unknown(val originalText: String) : ParsedIntent()
 }
 
@@ -32,88 +65,138 @@ class ChatBotNlpParser @Inject constructor() {
 
     fun parse(text: String, categories: List<Category>): ParsedIntent {
         val clean = text.trim()
+        if (clean.isBlank()) return ParsedIntent.GreetingOrHelp
         val lower = clean.lowercase()
 
         // 1. Navigation Commands
         val navMatch = matchNavigation(lower)
         if (navMatch != null) return navMatch
 
-        // 2. Greetings or General Help
+        // 2. Clear Alerts / Notifications
+        if (isClearAlertsCommand(lower)) {
+            return ParsedIntent.ClearAlerts
+        }
+
+        // 3. App Settings Commands (Theme, Notifications, Biometrics)
+        val settingMatch = matchSettingsAction(lower)
+        if (settingMatch != null) return settingMatch
+
+        // 4. Greetings or General Help
         if (isGreetingOrHelp(lower)) {
             return ParsedIntent.GreetingOrHelp
         }
 
-        // 3. Purchase Affordability Query (e.g. "Can I afford 50000?", "Can I buy a phone for 85k?")
+        // 5. Add Recurring Bill Intent (e.g. "Add recurring bill Netflix 2200", "Monthly bill Wifi 3000")
+        val recurringMatch = tryParseRecurringBill(lower, clean, categories)
+        if (recurringMatch != null) return recurringMatch
+
+        // 6. Add Category Intent (e.g. "Add category Gym 5000", "New category Tuition")
+        val categoryMatch = tryParseAddCategory(lower, clean)
+        if (categoryMatch != null) return categoryMatch
+
+        // 7. App Knowledge & Feature Inquiries
+        val topicMatch = matchAppExplanation(lower)
+        if (topicMatch != null) {
+            return ParsedIntent.AppExplanationQuery(topicMatch)
+        }
+
+        // 8. Upcoming Bills & Recurring Inquiries
+        if (isUpcomingBillsQuery(lower)) {
+            return ParsedIntent.UpcomingBillsQuery
+        }
+
+        // 9. Recent Transactions Inquiry
+        if (isRecentTransactionsQuery(lower)) {
+            return ParsedIntent.RecentTransactionsQuery
+        }
+
+        // 10. Income Stream Breakdown Inquiry
+        if (isIncomeBreakdownQuery(lower)) {
+            return ParsedIntent.IncomeBreakdownQuery
+        }
+
+        // 11. Specific Category Spending Inquiry (e.g. "How much did I spend on food?", "Show fuel expenses")
+        val catSpendingMatch = matchCategorySpendingQuery(lower, categories)
+        if (catSpendingMatch != null) return catSpendingMatch
+
+        // 12. Specific Goal Inquiry (e.g. "Progress on laptop goal", "My car goal")
+        val goalQueryMatch = matchGoalQuery(lower)
+        if (goalQueryMatch != null) return goalQueryMatch
+
+        // 13. Purchase Affordability Query (e.g. "Can I afford 50000?", "Can I buy a phone for 85k?")
         val affordAmount = checkAffordabilityQuery(lower)
         if (affordAmount != null) {
             return ParsedIntent.AffordabilityQuery(affordAmount)
         }
 
-        // 4. Financial Health & Score Query
+        // 14. Financial Health & Score Query
         if (isFinancialHealthQuery(lower)) {
             return ParsedIntent.FinancialHealthQuery
         }
 
-        // 5. Emergency Runway Query
+        // 15. Emergency Runway Query
         if (isRunwayQuery(lower)) {
             return ParsedIntent.EmergencyRunwayQuery
         }
 
-        // 6. Expense Breakdown & Leak Analysis
+        // 16. Expense Breakdown & Leak Analysis
         if (isExpenseAnalysisQuery(lower)) {
             return ParsedIntent.ExpenseAnalysisQuery
         }
 
-        // 7. General Financial Advice / Budgeting rules (e.g. 50/30/20 rule)
+        // 17. General Financial Advice / Budgeting rules (e.g. 50/30/20 rule)
         if (isGeneralAdviceQuery(lower)) {
             return ParsedIntent.GeneralFinancialAdvice
         }
 
-        // 8. Predictions and Pace Forecast
+        // 18. Predictions and Pace Forecast
         if (isPredictionQuery(lower)) {
             return ParsedIntent.PredictionAndAdvice
         }
 
-        // 9. Goal Progress and Pace Report
+        // 19. Goal Progress and Pace Report
         if (isGoalPaceQuery(lower)) {
             return ParsedIntent.GoalPaceReport
         }
 
-        // 10. Financial Summary / Overview
+        // 20. Financial Summary / Overview
         if (isSummaryQuery(lower)) {
             return ParsedIntent.FinancialSummary
         }
 
-        // 11. Add Goal Intent
+        // 21. Add Goal Intent
         val goalMatch = tryParseGoal(lower, clean)
         if (goalMatch != null) return goalMatch
 
-        // 12. Add Income Intent
+        // 22. Add Income Intent
         val incomeMatch = tryParseIncome(lower, clean)
         if (incomeMatch != null) return incomeMatch
 
-        // 13. Add Expense Intent
+        // 23. Add Expense Intent
         val expenseMatch = tryParseExpense(lower, clean, categories)
         if (expenseMatch != null) return expenseMatch
 
-        return ParsedIntent.Unknown(clean)
+        // 24. Intelligent N8N workflow-style consultative fallback (never rigid failure!)
+        return ParsedIntent.GeneralConsultation(clean)
     }
 
     private fun matchNavigation(lower: String): ParsedIntent? {
         val isNav = lower.contains("go to") || lower.contains("open") || lower.contains("show me") ||
             lower.contains("navigate") || lower.contains("යන්න") || lower.contains("පෙන්නන්න") ||
-            lower.startsWith("view ")
+            lower.startsWith("view ") || lower.contains("take me to")
 
         if (!isNav) return null
 
         return when {
+            lower.contains("dashboard") || lower.contains("home") || lower.contains("මුල් පිටුව") ->
+                ParsedIntent.Navigate(Screen.Dashboard.route, "Dashboard")
             lower.contains("expense") || lower.contains("වියදම්") ->
                 ParsedIntent.Navigate(Screen.Expenses.route, "Expenses")
             lower.contains("income") || lower.contains("ආදායම්") ->
                 ParsedIntent.Navigate(Screen.Income.route, "Income")
             lower.contains("goal") || lower.contains("ඉලක්ක") ->
                 ParsedIntent.Navigate(Screen.Goals.route, "Goals")
-            lower.contains("report") || lower.contains("chart") || lower.contains("වාර්තා") ->
+            lower.contains("report") || lower.contains("chart") || lower.contains("analytics") || lower.contains("වාර්තා") ->
                 ParsedIntent.Navigate(Screen.Reports.route, "Reports")
             lower.contains("alert") || lower.contains("notification") || lower.contains("දැනුම්දීම්") ->
                 ParsedIntent.Navigate(Screen.Alerts.route, "Alerts")
@@ -121,8 +204,178 @@ class ChatBotNlpParser @Inject constructor() {
                 ParsedIntent.Navigate(Screen.Settings.route, "Settings")
             lower.contains("profile") || lower.contains("පැතිකඩ") ->
                 ParsedIntent.Navigate(Screen.Profile.route, "Profile")
+            lower.contains("categor") || lower.contains("කාණ්ඩ") ->
+                ParsedIntent.Navigate(Screen.CategoryDashboard.route, "Categories")
             else -> null
         }
+        return null
+    }
+
+    private fun isClearAlertsCommand(lower: String): Boolean {
+        return ((lower.contains("clear") || lower.contains("dismiss") || lower.contains("delete")) &&
+            (lower.contains("alert") || lower.contains("notification"))) ||
+            lower.contains("dismiss all") || lower.contains("mark all read") ||
+            lower.contains("mark notifications read") || lower.contains("දැනුම්දීම් අයින්") ||
+            lower.contains("alerts clear")
+    }
+
+    private fun matchSettingsAction(lower: String): ParsedIntent? {
+        return when {
+            lower.contains("dark mode") || lower.contains("dark theme") || lower.contains("night mode") || lower.contains("කළු තේමාව") ->
+                ParsedIntent.ToggleSetting("theme_dark", true, "Dark Theme")
+            lower.contains("light mode") || lower.contains("light theme") || lower.contains("එළිය තේමාව") ->
+                ParsedIntent.ToggleSetting("theme_light", false, "Light Theme")
+            (lower.contains("turn on") || lower.contains("enable")) && (lower.contains("notification") || lower.contains("දැනුම්දීම්")) ->
+                ParsedIntent.ToggleSetting("notifications", true, "Notifications")
+            (lower.contains("turn off") || lower.contains("disable")) && (lower.contains("notification") || lower.contains("දැනුම්දීම්")) ->
+                ParsedIntent.ToggleSetting("notifications", false, "Notifications")
+            (lower.contains("turn on") || lower.contains("enable")) && (lower.contains("biometric") || lower.contains("fingerprint") || lower.contains("face id")) ->
+                ParsedIntent.ToggleSetting("biometrics", true, "Biometric Lock")
+            (lower.contains("turn off") || lower.contains("disable")) && (lower.contains("biometric") || lower.contains("fingerprint")) ->
+                ParsedIntent.ToggleSetting("biometrics", false, "Biometric Lock")
+            else -> null
+        }
+        return null
+    }
+
+    private fun matchAppExplanation(lower: String): AppTopic? {
+        val isAdd = lower.contains("add") || lower.contains("create") || lower.contains("new") || lower.contains("හදන්න")
+        if (isAdd) return null
+
+        return when {
+            lower.contains("offline") || lower.contains("sync") || lower.contains("room db") || lower.contains("without internet") || lower.contains("නෙට් නැතිව") ->
+                AppTopic.OFFLINE_SYNC
+            lower.contains("what is 50") || lower.contains("explain 50/30/20") || lower.contains("50 30 20 rule") || lower.contains("50 30 20 නීතිය") ->
+                AppTopic.BUDGET_50_30_20
+            lower.contains("what is runway") || lower.contains("what is emergency") || lower.contains("explain runway") || lower.contains("හදිසි අරමුදල යනු") ->
+                AppTopic.EMERGENCY_RUNWAY
+            lower.contains("biometric") || lower.contains("fingerprint") || lower.contains("face unlock") || lower.contains("app lock") || lower.contains("ආරක්ෂාව") ->
+                AppTopic.BIOMETRIC_SECURITY
+            lower.contains("how goals work") || lower.contains("pace status") || lower.contains("milestone") || lower.contains("ඉලක්ක ගණනය") ->
+                AppTopic.GOALS_PACE
+            lower.contains("currency") || lower.contains("foreign") || lower.contains("usd") || lower.contains("eur") || lower.contains("විනිමය") ->
+                AppTopic.MULTI_CURRENCY
+            lower.contains("recurring") || lower.contains("bill reminder") || lower.contains("පුනරාවර්තී") ->
+                AppTopic.RECURRING_BILLS
+            lower.contains("budget limit") || lower.contains("estimation") || lower.contains("surplus") || lower.contains("ඇස්තමේන්තුව") ->
+                AppTopic.CATEGORY_BUDGETS
+            lower.contains("what is nexus") || lower.contains("about nexus") || lower.contains("who made you") || lower.contains("ඇප් එක ගැන") ->
+                AppTopic.ABOUT_NEXUS
+            else -> null
+        }
+        return null
+    }
+
+    private fun isUpcomingBillsQuery(lower: String): Boolean {
+        val keywords = listOf(
+            "upcoming bills", "due bills", "recurring bills", "what bills are due",
+            "next payments", "subscriptions", "ඉදිරි බිල්පත්", "ගෙවන්න තියෙන බිල්", "බිල්පත් මොනවද"
+        )
+        return keywords.any { lower.contains(it) }
+    }
+
+    private fun isRecentTransactionsQuery(lower: String): Boolean {
+        val keywords = listOf(
+            "recent expense", "recent spending", "recent transactions", "last expense",
+            "last spending", "latest expense", "මෑත වියදම්", "අන්තිම වියදම්", "මෑතකදී කළ වියදම්"
+        )
+        return keywords.any { lower.contains(it) }
+    }
+
+    private fun isIncomeBreakdownQuery(lower: String): Boolean {
+        val keywords = listOf(
+            "income breakdown", "income sources", "where did my income come from",
+            "how did i earn", "salary and freelance", "ආදායම් විස්තර", "ආදායම් මාර්ග"
+        )
+        return keywords.any { lower.contains(it) }
+    }
+
+    private fun tryParseRecurringBill(lower: String, original: String, categories: List<Category>): ParsedIntent? {
+        val isRecurring = lower.contains("recurring bill") || lower.contains("monthly bill") ||
+            lower.contains("recurring payment") || lower.contains("add recurring") ||
+            lower.contains("මාසික බිල") || lower.contains("පුනරාවර්තී බිල")
+
+        if (!isRecurring) return null
+
+        val amount = extractAmount(lower) ?: return null
+        val (catId, catName, classification) = matchCategory(lower, categories)
+
+        var title = original
+            .replace("(?i)\\b(?:add|create|recurring|monthly|bill|payment|for|lkr|rs|රු|මාසික|බිලක්|දාන්න)\\b".toRegex(), "")
+            .replace("[0-9,.]".toRegex(), "")
+            .trim()
+
+        if (title.isBlank()) title = "$catName Bill"
+
+        val targetCal = Calendar.getInstance().apply { add(Calendar.MONTH, 1) }
+
+        val payload = ActionPayload(
+            amount = amount,
+            title = title.replaceFirstChar { it.uppercase() },
+            categoryId = catId,
+            categoryName = catName,
+            classification = ExpenseClassification.COMMITTED,
+            frequency = RecurringFrequency.MONTHLY,
+            targetDate = targetCal.time
+        )
+        return ParsedIntent.AddRecurringBill(payload)
+    }
+
+    private fun tryParseAddCategory(lower: String, original: String): ParsedIntent? {
+        val isCategory = lower.contains("add category") || lower.contains("create category") ||
+            lower.contains("new category") || lower.contains("කැටගරි එකක් හදන්න") ||
+            lower.contains("අලුත් category")
+
+        if (!isCategory) return null
+
+        val budget = extractAmount(lower)
+
+        var name = original
+            .replace("(?i)\\b(?:add|create|new|category|budget|limit|estimation|lkr|rs|කැටගරි|එකක්|හදන්න|අලුත්)\\b".toRegex(), "")
+            .replace("[0-9,.]".toRegex(), "")
+            .trim()
+
+        if (name.isBlank()) name = "Custom Category"
+
+        val payload = ActionPayload(
+            title = name.replaceFirstChar { it.uppercase() },
+            classification = ExpenseClassification.DISCRETIONARY,
+            estimatedAmount = budget
+        )
+        return ParsedIntent.AddCategory(payload)
+    }
+
+    private fun matchCategorySpendingQuery(lower: String, categories: List<Category>): ParsedIntent? {
+        val isSpendingQuery = lower.contains("how much did i spend") || lower.contains("spent on") ||
+            lower.contains("spending on") || lower.contains("expense on") ||
+            lower.contains("expenses for") || lower.contains("වියදම කීයද") ||
+            lower.contains("කොච්චර ගියාද") || lower.contains("වියදම් වුනේ කොහොමද")
+
+        if (!isSpendingQuery) return null
+
+        for (cat in categories) {
+            val cName = cat.name.lowercase()
+            if (cName.isNotBlank() && lower.contains(cName)) {
+                return ParsedIntent.CategorySpendingQuery(cat.name)
+            }
+        }
+
+        val common = listOf("food", "transport", "fuel", "groceries", "bills", "rent", "shopping", "health", "dining")
+        for (w in common) {
+            if (lower.contains(w)) {
+                return ParsedIntent.CategorySpendingQuery(w.replaceFirstChar { it.uppercase() })
+            }
+        }
+
+        return null
+    }
+
+    private fun matchGoalQuery(lower: String): ParsedIntent? {
+        if (!lower.contains("goal") && !lower.contains("ඉලක්ක")) return null
+        if (lower.contains("add") || lower.contains("create") || lower.contains("save") || lower.contains("pace")) return null
+
+        val clean = lower.replace("goal", "").replace("progress", "").replace("status", "").replace("on", "").replace("my", "").trim()
+        return if (clean.isNotBlank()) ParsedIntent.GoalSpecificQuery(clean) else null
     }
 
     private fun isGreetingOrHelp(lower: String): Boolean {
@@ -175,7 +428,7 @@ class ChatBotNlpParser @Inject constructor() {
 
     private fun isPredictionQuery(lower: String): Boolean {
         val keywords = listOf(
-            "predict", "prediction", "forecast", "pace", "how to save", "advice", "advise",
+            "predict", "prediction", "forecast", "pace", "advice", "advise",
             "අනාවැකි", "ඉස්සරහට", "කොහොම වෙයිද", "උපදෙස්", "වියදම් වැඩි"
         )
         return keywords.any { lower.contains(it) }
@@ -206,7 +459,6 @@ class ChatBotNlpParser @Inject constructor() {
 
         val amount = extractAmount(lower) ?: return null
 
-        // Extract clean goal title
         var title = original
             .replace("(?i)\\b(?:add|create|goal|save|for|target|lkr|rs|රු|රුපියල්|ඉතිරි|කරන්න|ඉලක්කය)\\b".toRegex(), "")
             .replace("[0-9,.]".toRegex(), "")
@@ -256,6 +508,10 @@ class ChatBotNlpParser @Inject constructor() {
     }
 
     private fun tryParseExpense(lower: String, original: String, categories: List<Category>): ParsedIntent? {
+        val isQuestion = lower.startsWith("how ") || lower.startsWith("why ") ||
+            lower.startsWith("what ") || lower.contains("invest") || lower.contains("should i")
+        if (isQuestion) return null
+
         val amount = extractAmount(lower) ?: return null
 
         // Identify account
@@ -361,19 +617,20 @@ class ChatBotNlpParser @Inject constructor() {
         val regexNumber = Pattern.compile("(?:lkr|rs|රු|රුපියල්)?\\s*([0-9]+(?:,[0-9]{3})*(?:\\.[0-9]+)?)", Pattern.CASE_INSENSITIVE)
         val matcher = regexNumber.matcher(text)
 
-        var foundAmount: Double? = null
         while (matcher.find()) {
+            val fullMatch = matcher.group(0) ?: ""
             val raw = matcher.group(1)?.replace(",", "")
             val parsed = raw?.toDoubleOrNull()
             if (parsed != null && parsed > 0) {
-                if (parsed in 2020.0..2030.0 && (text.contains("year") || text.contains("2026"))) {
-                    foundAmount = parsed
-                } else {
-                    return parsed
+                val hasCurrency = fullMatch.contains("lkr", ignoreCase = true) ||
+                    fullMatch.contains("rs", ignoreCase = true) ||
+                    fullMatch.contains("රු")
+                if (parsed in 2020.0..2035.0 && !hasCurrency) {
+                    continue
                 }
+                return parsed
             }
         }
-
-        return foundAmount
+        return null
     }
 }

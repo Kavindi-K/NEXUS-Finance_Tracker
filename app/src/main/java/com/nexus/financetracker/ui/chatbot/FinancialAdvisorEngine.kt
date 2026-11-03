@@ -8,8 +8,11 @@ import com.nexus.financetracker.domain.model.GoalCalculation
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeStatus
 import com.nexus.financetracker.domain.model.PaceStatus
+import com.nexus.financetracker.domain.model.RecurringItem
+import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.max
@@ -585,5 +588,417 @@ class FinancialAdvisorEngine @Inject constructor() {
             !d.before(startOfMonth) && it.status == IncomeStatus.CONFIRMED
         }
         return Pair(mIncomes, mExpenses)
+    }
+
+    fun explainAppFeature(topic: AppTopic, isSinhala: Boolean = false): String {
+        return if (isSinhala) {
+            when (topic) {
+                AppTopic.OFFLINE_SYNC ->
+                    "📱 **NEXUS Offline First & Dual-Sync Architecture:**\n\n" +
+                    "NEXUS නිර්මාණය කර ඇත්තේ පූර්ණ Offline-First තාක්ෂණයෙනි.\n" +
+                    "• **Room SQLite Local Database:** අන්තර්ජාලය නොමැතිව වුවද ඔබට වියදම්, ආදායම්, goals හා categories කිසිදු බාධාවකින් තොරව එක් කළ හැක.\n" +
+                    "• **Firestore Cloud Sync:** අන්තර්ජාල සම්බන්ධතාවය ලැබුණු වහාම පසුබිමින් දත්ත ක්ලවුඩ් එක සමඟ ස්වයංක්‍රීයව සමමුහුර්ත (sync) වේ.\n" +
+                    "• ඔබගේ දත්ත කිසිදා නැති නොවන අතර උපාංගය තුළ මෙන්ම Cloud එකේද සුරක්ෂිතව පවතී."
+                AppTopic.BUDGET_50_30_20 ->
+                    "📐 **50/30/20 රන් අයවැය රීතිය (Golden Budget Rule):**\n\n" +
+                    "ජාත්‍යන්තර මූල්‍ය විශේෂඥයින් අනුමත කරන ප්‍රශස්ත ක්‍රමය:\n" +
+                    "• **50% Needs (අත්‍යවශ්‍ය වියදම්):** නිවාස කුලිය, විදුලි/ජල බිල්පත්, ආහාර, වෛද්‍ය සහ ප්‍රවාහන.\n" +
+                    "• **30% Wants (විකල්ප/ජීවන රටා වියදම්):** පිටතින් කෑම ගැනීම, විනෝදාස්වාදය, ෂොපින්.\n" +
+                    "• **20% Wealth & Savings (ධනය හා ඉතිරිකිරීම්):** Savings Goals, ණය පියවීම් සහ ආයෝජන.\n" +
+                    "NEXUS තුළ ඔබේ සියලු වියදම් Committed සහ Discretionary ලෙස වර්ගීකරණය වන්නේ මෙම රීතියට අනුකූලවයි."
+                AppTopic.EMERGENCY_RUNWAY ->
+                    "🛡️ **හදිසි අරමුදල සහ Emergency Runway:**\n\n" +
+                    "හදිසි අරමුදලක් යනු කිසියම් අනපේක්ෂිත සිදුවීමකදී (රැකියාව අහිමිවීම, හදිසි රෝගාබාධ) ඔබේ ජීවිතය ගැටගසා ගැනීමට ඇති ආරක්ෂිත දැලයි.\n" +
+                    "• **සම්මතය:** අවම වශයෙන් මාස 3 සිට 6 දක්වා ජීවන වියදම් ආවරණය විය යුතුය.\n" +
+                    "• **NEXUS Runway:** ඔබගේ සාමාන්‍ය මාසික වියදමෙන් ඔබ සතු ශුද්ධ ඉතිරිය බෙදීමෙන්, ආදායමක් නොමැතිව ඔබට ජීවත් විය හැකි නිශ්චිත මාස සහ දින ගණන ගණනය කෙරේ."
+                AppTopic.BIOMETRIC_SECURITY ->
+                    "🔐 **ජෛවමිතික ආරක්ෂාව (Biometric Security):**\n\n" +
+                    "• NEXUS ඔබගේ මූල්‍ය රහස්‍යභාවය සුරැකීමට Fingerprint සහ Face Unlock තාක්ෂණය භාවිතා කරයි.\n" +
+                    "• Settings වෙත ගොස් **'Biometric Lock'** සක්‍රීය කළ හැක. ඔබ ඇප් එකෙන් ඉවත් වූ විට එය ස්වයංක්‍රීයව අගුළු වැටේ.\n" +
+                    "• ඔබගේ දත්ත ඔබගේ උපාංගය සහ ඔබගේ පුද්ගලික ගිණුමට පමණක් සීමා වේ."
+                AppTopic.GOALS_PACE ->
+                    "🎯 **Savings Goals & Smart Pace Tracking:**\n\n" +
+                    "NEXUS තුළ ඉලක්කයක් සැකසූ විට:\n" +
+                    "• **Dynamic Pace Projection:** ඉලක්කගත දිනයට ළඟාවීමට මේ මාසයේ ඉතිරි කළ යුතු මුදල ස්වයංක්‍රීයව ගණනය වේ.\n" +
+                    "• **Pace Statuses:** Ahead of Pace (ඉදිරියෙන්), On Track (නියමිත වේගයෙන්), Behind Pace (පසුපසින්) හෝ Overdue (කල් ඉකුත් වූ).\n" +
+                    "• **Milestones:** 25%, 50%, 75% සහ 100% සම්පූර්ණ වන විට විශේෂ ඇගයීම් සහ දැනුම්දීම් ලැබේ."
+                AppTopic.MULTI_CURRENCY ->
+                    "💱 **බහු මුදල් ඒකක ආදායම් කළමනාකරණය (Multi-Currency):**\n\n" +
+                    "• ඔබට Freelance, Upwork, Fiverr හෝ AdSense මඟින් USD, EUR, GBP ආදී විදේශ මුදලින් ලැබෙන ආදායම් සටහන් කළ හැක.\n" +
+                    "• අදාළ විනිමය අනුපාතිකය (Exchange Rate) ලබා දුන් විට එය ශ්‍රී ලංකා රුපියල් (LKR) බවට පරිවර්තනය වී ප්‍රධාන ශේෂයට එකතු වේ."
+                AppTopic.RECURRING_BILLS ->
+                    "⏰ **පුනරාවර්තී බිල්පත් සහ දැනුම්දීම් (Recurring Items & Reminders):**\n\n" +
+                    "• මාසික විදුලි බිල්පත්, වතුර, Wifi, Netflix හෝ Insurance වැනි නිශ්චිත දිනවල ගෙවිය යුතු බිල්පත් සටහන් කර තැබිය හැක.\n" +
+                    "• ගෙවීමට දින 1කට පෙර සහ එදින උදෑසන 9:00ට ඔබට Android Notification සහ Alerts ලැබේ."
+                AppTopic.CATEGORY_BUDGETS ->
+                    "📊 **කාණ්ඩ අයවැය සහ ඉතිරිවීම් (Category Budgets & Surplus):**\n\n" +
+                    "• එක් එක් වියදම් අංශය (උදා: Food, Transport) සඳහා මාසික ඇස්තමේන්තුවක් (Estimation) ලබා දිය හැක.\n" +
+                    "• මාසය අවසානයේ ඔබ ඇස්තමේන්තුවට වඩා අඩුවෙන් වියදම් කළහොත් ඉතිරි මුදල (Surplus) Goals සඳහා හෝ සාමාන්‍ය ඉතිරියට යොමු කළ හැක."
+                AppTopic.ABOUT_NEXUS ->
+                    "🌟 **NEXUS Personal Finance Tracker:**\n\n" +
+                    "NEXUS යනු ශ්‍රී ලාංකික පරිශීලකයින් සඳහා විශේෂයෙන් සකස් කළ, ඔබේ ආදායම්, වියදම් සහ ඉතිරිකිරීම් ප්‍රශස්ත කරන මූල්‍ය සහායක පද්ධතියකි.\n" +
+                    "• සරලව මූල්‍ය වාර්තා තබා ගැනීම (Track)\n" +
+                    "• දත්ත ගැඹුරින් විශ්ලේෂණය කිරීම (Analyze)\n" +
+                    "• ධනය වර්ධනය සඳහා ප්‍රශස්ත කිරීම (Optimize)"
+            }
+        } else {
+            when (topic) {
+                AppTopic.OFFLINE_SYNC ->
+                    "📱 **NEXUS Offline-First & Dual-Sync Architecture:**\n\n" +
+                    "NEXUS is engineered for 100% offline resilience:\n" +
+                    "• **Room SQLite Local Cache:** You can log expenses, incomes, goals, and categories without any internet connection.\n" +
+                    "• **Firestore Cloud Sync:** As soon as network connectivity is restored, all offline mutations sync in the background with zero conflicts.\n" +
+                    "• Your financial data is private, secure, and always accessible."
+                AppTopic.BUDGET_50_30_20 ->
+                    "📐 **The 50/30/20 Golden Budget Rule:**\n\n" +
+                    "A proven financial blueprint recommended by wealth advisors:\n" +
+                    "• **50% Needs (Essential Committed Expenses):** Rent, utilities, basic groceries, transport, healthcare.\n" +
+                    "• **30% Wants (Discretionary Lifestyle):** Dining out, entertainment, shopping, hobbies.\n" +
+                    "• **20% Wealth & Savings:** Savings goals, debt payoff, investments.\n" +
+                    "NEXUS automatically classifies your spending into Committed vs Discretionary to benchmark your performance against this rule."
+                AppTopic.EMERGENCY_RUNWAY ->
+                    "🛡️ **Emergency Fund & Runway Explained:**\n\n" +
+                    "An emergency runway measures how many months you can sustain your baseline living costs with zero incoming revenue.\n" +
+                    "• **Safety Standard:** 3 to 6 months of typical monthly expenditures.\n" +
+                    "• **Calculation:** Available liquid savings divided by your historical monthly burn rate.\n" +
+                    "Ask me *'What is my emergency runway?'* anytime to check your current buffer."
+                AppTopic.BIOMETRIC_SECURITY ->
+                    "🔐 **Biometric Lock & Encryption:**\n\n" +
+                    "• Secure your financial records with Fingerprint, Face ID, or Device PIN.\n" +
+                    "• Enable it from **Settings > Security & Privacy > Biometric Lock**.\n" +
+                    "• Whenever the app is minimized or backgrounded, biometric verification protects your sensitive information."
+                AppTopic.GOALS_PACE ->
+                    "🎯 **Savings Goals & Smart Pace Tracking:**\n\n" +
+                    "NEXUS doesn't just store goal targets — it projects feasibility:\n" +
+                    "• **Required Monthly Savings:** Recalculates dynamically based on your target date and cumulative contributions.\n" +
+                    "• **Pace Status:** Ahead of Pace, On Track, Behind Pace, or Overdue.\n" +
+                    "• **Milestones:** Celebratory alerts trigger at 25%, 50%, 75%, and 100% completion."
+                AppTopic.MULTI_CURRENCY ->
+                    "💱 **Multi-Currency Global Income Support:**\n\n" +
+                    "• Track earnings in foreign currencies (USD, EUR, GBP, AUD, CAD, SGD, etc.) for freelance, remote contracts, or crypto.\n" +
+                    "• Live or custom exchange rates convert all currencies transparently to your base LKR ledger."
+                AppTopic.RECURRING_BILLS ->
+                    "⏰ **Automated Bill Reminders (Recurring Payments):**\n\n" +
+                    "• Schedule repeating expenses (electricity, rent, internet, gym, subscriptions).\n" +
+                    "• NEXUS alerts you 1 day before and at 9:00 AM on the due date so you never miss a payment."
+                AppTopic.CATEGORY_BUDGETS ->
+                    "📊 **Category Estimations & Surplus Recycling:**\n\n" +
+                    "• Set target spending caps on individual categories (e.g. Dining, Groceries).\n" +
+                    "• If you spend less than your budget, the surplus can be recycled directly into your high-priority Savings Goals."
+                AppTopic.ABOUT_NEXUS ->
+                    "🌟 **About NEXUS Finance Tracker:**\n\n" +
+                    "NEXUS is an intelligent, privacy-first personal wealth optimization platform.\n" +
+                    "• **Track:** Seamless cash flow and multi-account logging.\n" +
+                    "• **Analyze:** Real-time 50/30/20 breakdown, burn rates, and financial health scores.\n" +
+                    "• **Optimize:** Proactive advice, emergency runway modeling, and goal pace projections."
+            }
+        }
+    }
+
+    fun queryCategorySpending(
+        keyword: String,
+        expenses: List<Expense>,
+        categories: List<Category>,
+        isSinhala: Boolean = false
+    ): String {
+        val lowerKey = keyword.lowercase().trim()
+        val catMap = categories.associate { it.id to it.name }
+        val matchingExpenses = expenses.filter { exp ->
+            val name = catMap[exp.categoryId]?.lowercase() ?: exp.categoryId.lowercase()
+            name.contains(lowerKey) || (exp.note?.lowercase()?.contains(lowerKey) == true)
+        }
+
+        if (matchingExpenses.isEmpty()) {
+            return if (isSinhala) {
+                "🔍 **'${keyword}' සඳහා වියදම් සටහන්ව නොමැත.**\n\nඔබට නව වියදමක් එක් කිරීමට අවශ්‍ය නම් *'Spent 1500 for ${keyword}'* ලෙස පවසන්න."
+            } else {
+                "🔍 **No recorded expenses found for '${keyword}'.**\n\nIf you recently made a purchase, you can tell me *'Spent 1500 for ${keyword}'* to record it right away."
+            }
+        }
+
+        val totalAmount = matchingExpenses.sumOf { it.amountLKR }
+        val count = matchingExpenses.size
+        val avg = totalAmount / count
+        val dateFormat = SimpleDateFormat("MMM dd", Locale.getDefault())
+
+        val sb = StringBuilder()
+        if (isSinhala) {
+            sb.append("🏷️ **'${keyword}' වියදම් විශ්ලේෂණය:**\n\n")
+            sb.append("• **මුළු වියදම:** LKR %,.2f\n".format(totalAmount))
+            sb.append("• **ගනුදෙනු ගණන:** %d\n".format(count))
+            sb.append("• **සාමාන්‍ය වියදම:** LKR %,.2f\n\n".format(avg))
+            sb.append("📌 **මෑතකදී කළ වියදම්:**\n")
+            matchingExpenses.sortedByDescending { it.date }.take(4).forEach { exp ->
+                val cName = catMap[exp.categoryId] ?: "Expense"
+                sb.append("• %s: LKR %,.0f (%s)\n".format(dateFormat.format(exp.date), exp.amountLKR, cName))
+            }
+        } else {
+            sb.append("🏷️ **Spending Breakdown for '${keyword}':**\n\n")
+            sb.append("• **Total Spent:** LKR %,.2f\n".format(totalAmount))
+            sb.append("• **Transactions:** %d entries\n".format(count))
+            sb.append("• **Average per entry:** LKR %,.2f\n\n".format(avg))
+            sb.append("📌 **Recent Transactions:**\n")
+            matchingExpenses.sortedByDescending { it.date }.take(4).forEach { exp ->
+                val cName = catMap[exp.categoryId] ?: "Expense"
+                sb.append("• %s: LKR %,.0f (%s)\n".format(dateFormat.format(exp.date), exp.amountLKR, cName))
+            }
+        }
+        return sb.toString().trimEnd()
+    }
+
+    fun queryRecentTransactions(
+        expenses: List<Expense>,
+        categories: List<Category>,
+        isSinhala: Boolean = false
+    ): String {
+        if (expenses.isEmpty()) {
+            return if (isSinhala) {
+                "📝 ඔබ තවමත් කිසිදු වියදමක් සටහන් කර නොමැත. වියදමක් එක් කිරීමට උදා: *'Spent 1500 for lunch cash'* ලෙස සඳහන් කරන්න."
+            } else {
+                "📝 You haven't recorded any expenses yet. You can log one anytime, e.g. *'Spent 1500 for lunch cash'*."
+            }
+        }
+
+        val catMap = categories.associate { it.id to it.name }
+        val recent = expenses.sortedByDescending { it.date }.take(5)
+        val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+
+        val sb = StringBuilder()
+        if (isSinhala) {
+            sb.append("🕒 **මෑතකදී කළ වියදම් (Recent Expenses):**\n\n")
+            recent.forEachIndexed { i, exp ->
+                val catName = catMap[exp.categoryId] ?: "Other"
+                val noteStr = if (!exp.note.isNullOrBlank() && exp.note != "Logged via NEXUS AI Copilot") " · \"${exp.note}\"" else ""
+                sb.append("${i + 1}. **%s:** LKR %,.2f (%s%s) - %s\n".format(
+                    catName, exp.amountLKR, exp.account.uppercase(), noteStr, dateFormat.format(exp.date)
+                ))
+            }
+        } else {
+            sb.append("🕒 **Recent Recorded Expenses:**\n\n")
+            recent.forEachIndexed { i, exp ->
+                val catName = catMap[exp.categoryId] ?: "Other"
+                val noteStr = if (!exp.note.isNullOrBlank() && exp.note != "Logged via NEXUS AI Copilot") " · \"${exp.note}\"" else ""
+                sb.append("${i + 1}. **%s:** LKR %,.2f (%s%s) - %s\n".format(
+                    catName, exp.amountLKR, exp.account.uppercase(), noteStr, dateFormat.format(exp.date)
+                ))
+            }
+        }
+        return sb.toString().trimEnd()
+    }
+
+    fun queryUpcomingBills(
+        recurringItems: List<RecurringItem>,
+        isSinhala: Boolean = false
+    ): String {
+        val active = recurringItems.filter { it.isActive }
+        if (active.isEmpty()) {
+            return if (isSinhala) {
+                "📅 **ඉදිරි බිල්පත් හෝ Recurring Payments සටහන්ව නැත.**\n\nනව බිල්පතක් එක් කිරීමට *'Add recurring bill Netflix 2200'* ලෙස පවසන්න."
+            } else {
+                "📅 **No active recurring bills found.**\n\nTo schedule a recurring bill reminder, tell me *'Add recurring bill Netflix 2200'*."
+            }
+        }
+
+        val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+        val now = Date()
+
+        val sb = StringBuilder()
+        if (isSinhala) {
+            sb.append("⏰ **ඉදිරි පුනරාවර්තී බිල්පත් (Upcoming Recurring Bills):**\n\n")
+            active.sortedBy { it.nextDueDate }.forEach { item ->
+                val daysLeft = ((item.nextDueDate.time - now.time) / (1000 * 60 * 60 * 24)).coerceAtLeast(0)
+                val statusTag = if (daysLeft <= 3) "🚨 Due in $daysLeft days" else "📅 Due in $daysLeft days"
+                sb.append("• **${item.title}:** LKR %,.2f (%s)\n   └ %s (%s)\n\n".format(
+                    item.amountLKR, item.frequency.replaceFirstChar { it.uppercase() },
+                    statusTag, dateFormat.format(item.nextDueDate)
+                ))
+            }
+        } else {
+            sb.append("⏰ **Scheduled Recurring Bills & Subscriptions:**\n\n")
+            active.sortedBy { it.nextDueDate }.forEach { item ->
+                val daysLeft = ((item.nextDueDate.time - now.time) / (1000 * 60 * 60 * 24)).coerceAtLeast(0)
+                val statusTag = if (daysLeft <= 3) "🚨 Due in $daysLeft days" else "📅 Due in $daysLeft days"
+                sb.append("• **${item.title}:** LKR %,.2f (%s)\n   └ %s (%s)\n\n".format(
+                    item.amountLKR, item.frequency.replaceFirstChar { it.uppercase() },
+                    statusTag, dateFormat.format(item.nextDueDate)
+                ))
+            }
+        }
+        return sb.toString().trimEnd()
+    }
+
+    fun queryIncomeBreakdown(
+        incomes: List<Income>,
+        isSinhala: Boolean = false
+    ): String {
+        if (incomes.isEmpty()) {
+            return if (isSinhala) {
+                "💰 ඔබ තවමත් කිසිදු ආදායමක් සටහන් කර නොමැත. ආදායමක් එක් කිරීමට *'Salary 150000'* ලෙස පවසන්න."
+            } else {
+                "💰 No income recorded yet. You can log income anytime, e.g. *'Salary 150000'* or *'Freelance 45000'*."
+            }
+        }
+
+        val confirmed = incomes.filter { it.status == IncomeStatus.CONFIRMED }
+        val pending = incomes.filter { it.status == IncomeStatus.PENDING }
+        val totalConfirmed = confirmed.sumOf { it.amountLKR }
+        val totalPending = pending.sumOf { it.amountLKR }
+
+        val bySource = confirmed.groupBy { it.source }
+
+        val sb = StringBuilder()
+        if (isSinhala) {
+            sb.append("💰 **සවිස්තරාත්මක ආදායම් විශ්ලේෂණය:**\n\n")
+            sb.append("• **තහවුරු වූ මුළු ආදායම:** LKR %,.2f\n".format(totalConfirmed))
+            if (totalPending > 0) {
+                sb.append("• **ලැබීමට ඇති (Pending):** LKR %,.2f (%d payments)\n".format(totalPending, pending.size))
+            }
+            sb.append("\n🏷️ **ආදායම් මාර්ග අනුව වර්ගීකරණය:**\n")
+            bySource.forEach { (src, list) ->
+                val sum = list.sumOf { it.amountLKR }
+                val pct = if (totalConfirmed > 0) (sum / totalConfirmed) * 100.0 else 0.0
+                sb.append("• **%s:** LKR %,.0f (%.1f%%)\n".format(src.replaceFirstChar { it.uppercase() }, sum, pct))
+            }
+        } else {
+            sb.append("💰 **Income Stream Breakdown:**\n\n")
+            sb.append("• **Total Confirmed Income:** LKR %,.2f\n".format(totalConfirmed))
+            if (totalPending > 0) {
+                sb.append("• **Pending Income:** LKR %,.2f (%d items expected)\n".format(totalPending, pending.size))
+            }
+            sb.append("\n🏷️ **Earnings by Channel:**\n")
+            bySource.forEach { (src, list) ->
+                val sum = list.sumOf { it.amountLKR }
+                val pct = if (totalConfirmed > 0) (sum / totalConfirmed) * 100.0 else 0.0
+                sb.append("• **%s:** LKR %,.0f (%.1f%%)\n".format(src.replaceFirstChar { it.uppercase() }, sum, pct))
+            }
+        }
+        return sb.toString().trimEnd()
+    }
+
+    fun queryGoalSpecific(
+        goalKeyword: String,
+        goals: List<Goal>,
+        incomes: List<Income>,
+        expenses: List<Expense>,
+        isSinhala: Boolean = false
+    ): String {
+        val active = goals.filter { it.isActive }
+        if (active.isEmpty()) {
+            return if (isSinhala) {
+                "🎯 ඔබ සතුව ක්‍රියාකාරී Savings Goals නොමැත. නව ඉලක්කයක් සෑදීමට *'Save 250000 for laptop'* ලෙස පවසන්න."
+            } else {
+                "🎯 You have no active Savings Goals. To create one, tell me *'Save 250000 for laptop'*."
+            }
+        }
+
+        val targetGoal = active.find { it.title.lowercase().contains(goalKeyword.lowercase()) }
+            ?: active.first()
+
+        val calc = GoalCalculation.calculate(targetGoal, incomes, expenses, Date())
+        val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+
+        val sb = StringBuilder()
+        if (isSinhala) {
+            sb.append("🎯 **ඉලක්ක ප්‍රගති වාර්තාව: ${targetGoal.title}**\n\n")
+            sb.append("• **ඉලක්කගත මුදල:** LKR %,.0f\n".format(targetGoal.targetAmountLKR))
+            sb.append("• **වත්මන් ඉතිරිය:** LKR %,.0f (%.1f%% සම්පූර්ණයි)\n".format(calc.estimatedCurrentSavingsLKR, calc.progressPercentage))
+            sb.append("• **තව අවශ්‍ය මුදල:** LKR %,.0f\n".format(calc.remainingAmountLKR))
+            sb.append("• **ඉලක්කගත දිනය:** %s (%s)\n".format(dateFormat.format(targetGoal.targetDate), calc.daysRemainingText))
+            if (calc.requiredMonthlySavingsLKR > 0) {
+                sb.append("• **මාසිකව ඉතිරි කළ යුතු මුදල:** LKR %,.0f\n".format(calc.requiredMonthlySavingsLKR))
+            }
+        } else {
+            sb.append("🎯 **Goal Progress Report: ${targetGoal.title}**\n\n")
+            sb.append("• **Target Amount:** LKR %,.0f\n".format(targetGoal.targetAmountLKR))
+            sb.append("• **Current Savings:** LKR %,.0f (%.1f%% complete)\n".format(calc.estimatedCurrentSavingsLKR, calc.progressPercentage))
+            sb.append("• **Remaining Gap:** LKR %,.0f\n".format(calc.remainingAmountLKR))
+            sb.append("• **Target Deadline:** %s (%s)\n".format(dateFormat.format(targetGoal.targetDate), calc.daysRemainingText))
+            if (calc.requiredMonthlySavingsLKR > 0) {
+                sb.append("• **Required Monthly Savings:** LKR %,.0f\n".format(calc.requiredMonthlySavingsLKR))
+            }
+        }
+        return sb.toString().trimEnd()
+    }
+
+    fun provideGeneralConsultation(
+        query: String,
+        incomes: List<Income>,
+        expenses: List<Expense>,
+        goals: List<Goal>,
+        categories: List<Category>,
+        isSinhala: Boolean = false
+    ): String {
+        val totalIncome = incomes.filter { it.status == IncomeStatus.CONFIRMED }.sumOf { it.amountLKR }
+        val totalSpent = expenses.sumOf { it.amountLKR }
+        val netSavings = totalIncome - totalSpent
+        val savingsRate = if (totalIncome > 0) ((netSavings / totalIncome) * 100.0).coerceAtLeast(0.0) else 0.0
+
+        val lower = query.lowercase()
+
+        val sb = StringBuilder()
+        if (isSinhala) {
+            when {
+                lower.contains("save") || lower.contains("ඉතිරි") || lower.contains("අඩු කරන්න") -> {
+                    sb.append("💡 **ඔබගේ ඉතිරිකිරීම් ඉහළ නැංවීමට මඟපෙන්වීම:**\n\n")
+                    sb.append("ඔබේ වත්මන් ඉතිරිකිරීමේ අනුපාතය **%.1f%%** කි.\n\n".format(savingsRate))
+                    sb.append("1. **50/30/20 රීතිය අනුගමනය කරන්න:** ඔබේ අත්‍යවශ්‍ය නොවන (Discretionary) වියදම් සීමා කරන්න.\n")
+                    sb.append("2. **Micro-Leaks සොයා බලන්න:** සුළු සුළු Dining හෝ Shopping වියදම් සතිපතා පාලනය කිරීමෙන් විශාල මුදලක් ඉතිරි වේ.\n")
+                    sb.append("3. **Savings Goals පිහිටුවන්න:** ඉලක්කයක් රහිතව මුදල් ඉතිරි කිරීමට වඩා පැහැදිලි ඉලක්කයක් ඇතිව ඉතිරි කිරීම වේගවත්ය.")
+                }
+                lower.contains("invest") || lower.contains("ආයෝජන") || lower.contains("crypto") || lower.contains("ක්‍රිප්ටෝ") -> {
+                    sb.append("📈 **ආයෝජන හා ධන වර්ධන උපදෙස්:**\n\n")
+                    sb.append("1. **පළමුව හදිසි අරමුදල සකසා ගන්න:** ආයෝජනය කිරීමට පෙර අවම වශයෙන් මාස 3-6 ක ජීවන වියදම් සුරක්ෂිතව තබා ගන්න.\n")
+                    sb.append("2. **විවිධාංගීකරණය (Diversification):** ඔබේ මුළු ඉතිරිය එකම තැනක (උදා: Crypto පමණක්) නොයොදවා ස්ථාවර තැන්පතු සහ ආරක්ෂිත සුරැකුම්පත්වලද ආයෝජනය කරන්න.\n")
+                    sb.append("3. **අතිරික්ත මුදල් පමණක් අවදානම් සහිත ආයෝජනවලට යොදවන්න.**")
+                }
+                lower.contains("debt") || lower.contains("ණය") || lower.contains("loan") || lower.contains("card") -> {
+                    sb.append("💳 **ණය හා ක්‍රෙඩිට් කාඩ් කළමනාකරණය:**\n\n")
+                    sb.append("1. **Avalanche ක්‍රමය:** වැඩිම පොලියක් අයවන ණය (උදා: Credit Cards) පළමුව පියවන්න.\n")
+                    sb.append("2. **Committed වියදම් සීමා කරන්න:** මාසික ණය වාරික ඔබේ මුළු ආදායමෙන් 30% ඉක්මවා නොයන පරිදි කළමනාකරණය කරගන්න.")
+                }
+                else -> {
+                    sb.append("🤖 **NEXUS AI Financial Intelligence Co-pilot:**\n\n")
+                    sb.append("මම ඔබගේ දත්ත විශ්ලේෂණය කරමින් ඔබට පහත ඕනෑම කාර්යයක් සඳහා සහාය වීමට සූදානම්:\n\n")
+                    sb.append("• 💸 **වියදම් හෝ ආදායම් එක් කරන්න:** උදා: *'Spent 2500 for groceries cash'*, *'Salary 150000'*\n")
+                    sb.append("• 🏷️ **අලුත් Category හෝ Recurring Bill එකක් දාන්න:** උදා: *'Add category Gym 5000'*, *'Add recurring bill Wifi 3000'*\n")
+                    sb.append("• 🔍 **විශේෂිත වියදම් විමසන්න:** උදා: *'How much did I spend on food?'*, *'Recent expenses'*\n")
+                    sb.append("• 🛡️ **මූල්‍ය සෞඛ්‍යය සහ Runway පරීක්ෂාව:** උදා: *'Emergency runway'*, *'Can I afford 50000?'*\n")
+                    sb.append("• ⚙️ **Settings සහ App Navigation:** උදා: *'Enable dark mode'*, *'Go to reports'*\n\n")
+                    sb.append("ඔබට අවශ්‍ය ඕනෑම ප්‍රශ්නයක් හෝ විධානයක් මෙහි සටහන් කරන්න!")
+                }
+            }
+        } else {
+            when {
+                lower.contains("save") || lower.contains("saving") || lower.contains("reduce") || lower.contains("cut") -> {
+                    sb.append("💡 **Strategic Wealth Optimization Blueprint:**\n\n")
+                    sb.append("Your current active savings retention rate is **%.1f%%** of confirmed revenue.\n\n".format(savingsRate))
+                    sb.append("1. **Calibrate 50/30/20 Discipline:** Cap lifestyle discretionary wants to strictly under 30% of income.\n")
+                    sb.append("2. **Eliminate Discretionary Leaks:** Review Dining and Shopping categories to capture an additional 10-15% surplus.\n")
+                    sb.append("3. **Automate Goal Funding:** Set automated monthly allocations for your key Savings Goals.")
+                }
+                lower.contains("invest") || lower.contains("crypto") || lower.contains("stock") || lower.contains("wealth") -> {
+                    sb.append("📈 **Investment & Capital Growth Guidelines:**\n\n")
+                    sb.append("1. **Preserve Liquid Runway First:** Ensure your 3-6 month emergency fund is untouched before committing capital to volatile assets.\n")
+                    sb.append("2. **Asset Allocation:** Balance high-growth instruments (crypto, equities) with safe fixed-income yields.\n")
+                    sb.append("3. **Dollar Cost Averaging (DCA):** Invest surplus capital systematically each month rather than attempting to time the market.")
+                }
+                lower.contains("debt") || lower.contains("loan") || lower.contains("card") || lower.contains("interest") -> {
+                    sb.append("💳 **Debt Minimization Strategy:**\n\n")
+                    sb.append("1. **Debt Avalanche Method:** Direct surplus savings toward the highest interest debt (e.g. revolving credit card balances) first.\n")
+                    sb.append("2. **Cap Fixed Commitments:** Keep all fixed debt payments under 30% of net monthly income.")
+                }
+                else -> {
+                    sb.append("🤖 **NEXUS AI Copilot Intelligence:**\n\n")
+                    sb.append("I am fully connected to your NEXUS ledger and ready to assist you with any task:\n\n")
+                    sb.append("• 💸 **Log Expenses & Incomes:** e.g. *'Fuel 2500 cash'*, *'Salary 150000'*\n")
+                    sb.append("• 🏷️ **Add Categories & Recurring Bills:** e.g. *'Add category Gym 5000'*, *'Add recurring bill Netflix 2200'*\n")
+                    sb.append("• 🔍 **Inquire about Expenses & Data:** e.g. *'How much did I spend on food?'*, *'Show recent expenses'*\n")
+                    sb.append("• 🛡️ **Affordability & Runway Checks:** e.g. *'Can I afford 45000?'*, *'Emergency runway'*\n")
+                    sb.append("• ⚙️ **App Settings & Navigation:** e.g. *'Enable dark mode'*, *'Clear alerts'*, *'Open reports'*\n\n")
+                    sb.append("Feel free to ask me anything or tell me what to do!")
+                }
+            }
+        }
+        return sb.toString().trimEnd()
     }
 }

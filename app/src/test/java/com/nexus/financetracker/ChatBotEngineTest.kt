@@ -246,4 +246,63 @@ class ChatBotEngineTest {
         val affordability = advisorEngine.checkAffordability(50000.0, incomes, expenses, isSinhala = false)
         assertTrue(affordability.contains("Safely Affordable"))
     }
+
+    @Test
+    fun parse_newWorkflows_categoryRecurringAndSettings() {
+        // Add Category
+        val catIntent = nlpParser.parse("Add category Gym with 5000 budget", testCategories)
+        assertTrue(catIntent is ParsedIntent.AddCategory)
+        val catPayload = (catIntent as ParsedIntent.AddCategory).payload
+        assertTrue(catPayload.title.contains("Gym", ignoreCase = true))
+        assertEquals(5000.0, catPayload.estimatedAmount ?: 0.0, 0.01)
+
+        // Add Recurring Bill
+        val billIntent = nlpParser.parse("Add recurring bill Netflix 2200", testCategories)
+        assertTrue(billIntent is ParsedIntent.AddRecurringBill)
+        val billPayload = (billIntent as ParsedIntent.AddRecurringBill).payload
+        assertTrue(billPayload.title.contains("Netflix", ignoreCase = true))
+        assertEquals(2200.0, billPayload.amount, 0.01)
+
+        // Clear Alerts
+        val clearIntent = nlpParser.parse("Clear all notifications", testCategories)
+        assertTrue(clearIntent is ParsedIntent.ClearAlerts)
+
+        // Settings
+        val darkIntent = nlpParser.parse("Enable dark mode", testCategories)
+        assertTrue(darkIntent is ParsedIntent.ToggleSetting)
+        assertEquals("theme_dark", (darkIntent as ParsedIntent.ToggleSetting).settingKey)
+        assertTrue(darkIntent.enable)
+
+        // App Explanation
+        val offlineTopic = nlpParser.parse("How does offline sync work without internet?", testCategories)
+        assertTrue(offlineTopic is ParsedIntent.AppExplanationQuery)
+
+        // Category Spending Query
+        val foodQuery = nlpParser.parse("How much did I spend on food?", testCategories)
+        assertTrue(foodQuery is ParsedIntent.CategorySpendingQuery)
+
+        // Fallback to intelligent consultation instead of rigid Unknown
+        val consult = nlpParser.parse("How can I invest wisely in 2026?", testCategories)
+        assertTrue(consult is ParsedIntent.GeneralConsultation)
+    }
+
+    @Test
+    fun advisorEngine_intelligentConsultationAndAppKnowledge() {
+        val offlineExplanation = advisorEngine.explainAppFeature(com.nexus.financetracker.ui.chatbot.AppTopic.OFFLINE_SYNC, isSinhala = false)
+        assertTrue(offlineExplanation.contains("Offline-First"))
+        assertTrue(offlineExplanation.contains("Room SQLite"))
+
+        val offlineSin = advisorEngine.explainAppFeature(com.nexus.financetracker.ui.chatbot.AppTopic.OFFLINE_SYNC, isSinhala = true)
+        assertTrue(offlineSin.contains("Offline-First"))
+
+        val consultation = advisorEngine.provideGeneralConsultation(
+            "How can I save more money?",
+            emptyList(),
+            emptyList(),
+            emptyList(),
+            emptyList(),
+            isSinhala = false
+        )
+        assertTrue(consultation.contains("50/30/20"))
+    }
 }

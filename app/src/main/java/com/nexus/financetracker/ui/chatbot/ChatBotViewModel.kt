@@ -3,15 +3,22 @@ package com.nexus.financetracker.ui.chatbot
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.nexus.financetracker.data.local.AppSettingsManager
+import com.nexus.financetracker.data.local.ThemeMode
 import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.repository.GoalRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
+import com.nexus.financetracker.data.repository.RecurringItemRepository
 import com.nexus.financetracker.domain.model.Category
 import com.nexus.financetracker.domain.model.Expense
+import com.nexus.financetracker.domain.model.ExpenseClassification
 import com.nexus.financetracker.domain.model.Goal
+import com.nexus.financetracker.domain.model.GoalPriority
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeStatus
+import com.nexus.financetracker.domain.model.RecurringItem
+import com.nexus.financetracker.notification.AlertsReadManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +38,9 @@ class ChatBotViewModel @Inject constructor(
     private val incomeRepository: IncomeRepository,
     private val goalRepository: GoalRepository,
     private val categoryRepository: CategoryRepository,
+    private val recurringItemRepository: RecurringItemRepository,
+    private val alertsReadManager: AlertsReadManager,
+    private val appSettingsManager: AppSettingsManager,
     private val advisorEngine: FinancialAdvisorEngine,
     private val nlpParser: ChatBotNlpParser
 ) : ViewModel() {
@@ -42,6 +52,7 @@ class ChatBotViewModel @Inject constructor(
     private var currentExpenses: List<Expense> = emptyList()
     private var currentGoals: List<Goal> = emptyList()
     private var currentCategories: List<Category> = emptyList()
+    private var currentRecurringItems: List<RecurringItem> = emptyList()
 
     init {
         initializeSession()
@@ -59,16 +70,17 @@ class ChatBotViewModel @Inject constructor(
         val firstName = user.displayName?.split(" ")?.firstOrNull()?.takeIf { it.isNotBlank() } ?: "Friend"
         _uiState.value = _uiState.value.copy(userFirstName = firstName)
 
-        // Initial welcoming message in English by default
+        // Welcoming message with intelligent interactive workflow capabilities
         val welcomeMsg = ChatMessage(
             sender = MessageSender.BOT,
             text = "Hello $firstName! I am your personal NEXUS AI Financial Copilot.\n\n" +
-                "You can chat with me in English or සිංහල to manage your finances:\n" +
-                "• 💸 **Log Expenses:** *'Petrol 2500 cash'*, *'Spent 1500 for lunch card'*\n" +
-                "• 💰 **Add Income:** *'Salary 150000'*, *'Freelance 35000'*\n" +
-                "• 🔮 **Predictions & Advice:** *'How is my spending pace?'*, *'How to save more?'*\n" +
-                "• 📊 **Summaries:** *'Monthly summary'*, *'Goals pace'*\n\n" +
-                "I respond in English by default, but if you message me in සිංහල or Singlish, I will gladly reply in සිංහල!"
+                "I am directly connected to your live financial records and ready to assist you:\n" +
+                "• 💸 **Log Expenses & Incomes:** *'Petrol 2500 cash'*, *'Salary 150000'*\n" +
+                "• 🏷️ **Manage Categories & Bills:** *'Add category Gym 5000'*, *'Add recurring bill Netflix 2200'*\n" +
+                "• 🔍 **Inquire about Spending:** *'How much did I spend on food?'*, *'Recent expenses'*\n" +
+                "• 🛡️ **Runway & Affordability:** *'Emergency runway'*, *'Can I afford 50000?'*\n" +
+                "• ⚙️ **App Actions & Workflows:** *'Enable dark mode'*, *'Clear alerts'*, *'Go to reports'*\n\n" +
+                "I respond in English by default, but if you message me in සිංහල or Singlish, I will gladly answer in සිංහල!"
         )
         _uiState.value = _uiState.value.copy(messages = listOf(welcomeMsg))
 
@@ -77,12 +89,14 @@ class ChatBotViewModel @Inject constructor(
             incomeRepository.getIncomes(user.uid),
             expenseRepository.getExpenses(user.uid),
             goalRepository.getGoals(user.uid),
-            categoryRepository.getCategories(user.uid)
-        ) { incomes, expenses, goals, categories ->
+            categoryRepository.getCategories(user.uid),
+            recurringItemRepository.getRecurringItems(user.uid)
+        ) { incomes, expenses, goals, categories, recurring ->
             currentIncomes = incomes
             currentExpenses = expenses
             currentGoals = goals
             currentCategories = categories
+            currentRecurringItems = recurring
         }
             .catch {
                 // Keep local state resilient even if remote sync encounters transient issues
@@ -119,14 +133,13 @@ class ChatBotViewModel @Inject constructor(
     }
 
     private fun isSinhalaLanguage(text: String): Boolean {
-        // 1. Any Sinhala Unicode characters: \u0D80 to \u0DFF
         if (text.any { it in '\u0D80'..'\u0DFF' }) return true
 
-        // 2. Common Singlish markers
         val singlishMarkers = listOf(
             "kiyada", "wiyadam", "aawa", "hambuna", "gahauwa", "gaththa", "gewwa",
             "karanna", "sinhalen", "kohomada", "ithuru", "padiya", "salli",
-            "wiyadama", "aadaayama", "ilakkaya", "mata", "ona", "mage", "kaewa"
+            "wiyadama", "aadaayama", "ilakkaya", "mata", "ona", "mage", "kaewa",
+            "balanna", "puluwanda", "hadanna", "mokakda"
         )
         val lower = text.lowercase()
         return singlishMarkers.any { lower.contains(it) }
@@ -194,6 +207,86 @@ class ChatBotViewModel @Inject constructor(
                 )
             }
 
+            is ParsedIntent.AddCategory -> {
+                val p = intent.payload
+                val budgetText = if (p.estimatedAmount != null && p.estimatedAmount > 0) " · Budget: LKR %,.0f".format(p.estimatedAmount) else ""
+                val card = ChatActionCard(
+                    type = ActionType.ADD_CATEGORY,
+                    title = if (isSinhala) "නව කාණ්ඩය තහවුරු කරන්න" else "Confirm New Category",
+                    summary = "Name: %s%s".format(p.title, budgetText),
+                    payload = p,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(
+                    sender = MessageSender.BOT,
+                    text = if (isSinhala) {
+                        "ඔබට නව කාණ්ඩයක් (Category) එක් කිරීමට පහත විස්තර සකස් කර ඇත. තහවුරු කිරීමට **'Confirm & Save'** ඔබන්න:"
+                    } else {
+                        "I have prepared your new expense category below. Tap **'Confirm & Save'** to create it:"
+                    },
+                    actionCard = card
+                )
+            }
+
+            is ParsedIntent.AddRecurringBill -> {
+                val p = intent.payload
+                val card = ChatActionCard(
+                    type = ActionType.ADD_RECURRING_BILL,
+                    title = if (isSinhala) "පුනරාවර්තී බිල්පත තහවුරු කරන්න" else "Confirm Recurring Bill",
+                    summary = "%s: LKR %,.2f · Frequency: Monthly".format(p.title, p.amount),
+                    payload = p,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(
+                    sender = MessageSender.BOT,
+                    text = if (isSinhala) {
+                        "ඔබගේ පුනරාවර්තී බිල්පත (Recurring Bill) පහත පරිදි කාලසටහන් කිරීමට සූදානම්. තහවුරු කිරීමට **'Confirm & Save'** ඔබන්න:"
+                    } else {
+                        "I have scheduled your recurring bill reminder below. Tap **'Confirm & Save'** to activate it:"
+                    },
+                    actionCard = card
+                )
+            }
+
+            is ParsedIntent.ClearAlerts -> {
+                val card = ChatActionCard(
+                    type = ActionType.CLEAR_ALERTS,
+                    title = if (isSinhala) "දැනුම්දීම් ඉවත් කිරීම" else "Clear All Active Alerts",
+                    summary = if (isSinhala) "සියලුම Alert දැනුම්දීම් කියවා අවසන් ලෙස සලකුණු කෙරේ." else "All notifications will be marked as read.",
+                    payload = ActionPayload(),
+                    isSinhala = isSinhala
+                )
+                ChatMessage(
+                    sender = MessageSender.BOT,
+                    text = if (isSinhala) {
+                        "ඔබේ දැනුම්දීම් ලැයිස්තුව පිරිසිදු කිරීමට අවශ්‍යද? තහවුරු කිරීමට පහත බොත්තම ඔබන්න:"
+                    } else {
+                        "Would you like to mark all pending notifications and alerts as read? Tap below to confirm:"
+                    },
+                    actionCard = card
+                )
+            }
+
+            is ParsedIntent.ToggleSetting -> {
+                val p = ActionPayload(settingKey = intent.settingKey, settingValue = intent.enable)
+                val card = ChatActionCard(
+                    type = ActionType.UPDATE_SETTINGS,
+                    title = "Update Setting: ${intent.label}",
+                    summary = "Set ${intent.label} to ${if (intent.enable) "Enabled" else "Disabled"}.",
+                    payload = p,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(
+                    sender = MessageSender.BOT,
+                    text = if (isSinhala) {
+                        "ඔබට ${intent.label} සැකසුම වෙනස් කිරීමට අවශ්‍ය නම් **'Confirm & Save'** ඔබන්න:"
+                    } else {
+                        "Tap **'Confirm & Save'** to apply this system preference change:"
+                    },
+                    actionCard = card
+                )
+            }
+
             is ParsedIntent.Navigate -> {
                 val p = ActionPayload(destinationRoute = intent.destinationRoute)
                 val card = ChatActionCard(
@@ -206,12 +299,63 @@ class ChatBotViewModel @Inject constructor(
                 ChatMessage(
                     sender = MessageSender.BOT,
                     text = if (isSinhala) {
-                        "ඔබට අවශ්‍ය ${intent.screenName} පිටුවට යාමට පහත බටන් එක ක්ලික් කරන්න:"
+                        "ඔබට අවශ්‍ය ${intent.screenName} පිටුවට යාමට පහත බොත්තම ඔබන්න:"
                     } else {
                         "Tap the button below to immediately open the ${intent.screenName} screen:"
                     },
                     actionCard = card
                 )
+            }
+
+            is ParsedIntent.CategorySpendingQuery -> {
+                val report = advisorEngine.queryCategorySpending(
+                    intent.categoryKeyword,
+                    currentExpenses,
+                    currentCategories,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(sender = MessageSender.BOT, text = report)
+            }
+
+            is ParsedIntent.RecentTransactionsQuery -> {
+                val report = advisorEngine.queryRecentTransactions(
+                    currentExpenses,
+                    currentCategories,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(sender = MessageSender.BOT, text = report)
+            }
+
+            is ParsedIntent.UpcomingBillsQuery -> {
+                val report = advisorEngine.queryUpcomingBills(
+                    currentRecurringItems,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(sender = MessageSender.BOT, text = report)
+            }
+
+            is ParsedIntent.IncomeBreakdownQuery -> {
+                val report = advisorEngine.queryIncomeBreakdown(
+                    currentIncomes,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(sender = MessageSender.BOT, text = report)
+            }
+
+            is ParsedIntent.GoalSpecificQuery -> {
+                val report = advisorEngine.queryGoalSpecific(
+                    intent.goalKeyword,
+                    currentGoals,
+                    currentIncomes,
+                    currentExpenses,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(sender = MessageSender.BOT, text = report)
+            }
+
+            is ParsedIntent.AppExplanationQuery -> {
+                val report = advisorEngine.explainAppFeature(intent.topic, isSinhala = isSinhala)
+                ChatMessage(sender = MessageSender.BOT, text = report)
             }
 
             is ParsedIntent.AffordabilityQuery -> {
@@ -298,42 +442,49 @@ class ChatBotViewModel @Inject constructor(
                 ChatMessage(
                     sender = MessageSender.BOT,
                     text = if (isSinhala) {
-                        "හායි! මම NEXUS AI Financial Copilot.\n\n" +
-                            "මම ඔබේ මූල්‍ය කළමනාකරු ලෙස ක්‍රියා කරනවා. ඔබට පුළුවන්:\n" +
-                            "1. **වියදම් හෝ ආදායම් එකතු කරන්න:** උදා: *'Fuel 2000 cash'*, *'Salary 120000'*\n" +
-                            "2. **අනාවැකි හා මූල්‍ය උපදෙස් ලබාගන්න:** උදා: *'මේ මාසෙ වියදම් කොහොම වෙයිද?'*, *'How to save more?'*\n" +
-                            "3. **මූල්‍ය සාරාංශය බලන්න:** උදා: *'Monthly summary'*, *'Goals pace'*\n" +
-                            "4. **පිටු අතර මාරු වෙන්න:** උදා: *'Go to reports'*, *'Open expenses'*\n\n" +
-                            "දැන්ම විධානයක් ලබා දෙන්න!"
+                        "හායි! මම ඔබගේ පුද්ගලික NEXUS AI Financial Copilot.\n\n" +
+                            "මම ඔබේ මූල්‍ය දත්ත සමඟ සජීවීව සම්බන්ධ වී සිටින අතර පහත ඕනෑම දෙයක් කිරීමට මට හැක:\n" +
+                            "• 💸 **වියදම් හෝ ආදායම් සටහන් කිරීම:** උදා: *'Fuel 2500 cash'*, *'Salary 150000'*\n" +
+                            "• 🏷️ **අලුත් Category හෝ Recurring Bill එකතු කිරීම:** උදා: *'Add category Gym 5000'*, *'Add recurring bill Wifi 3000'*\n" +
+                            "• 🔍 **වියදම් විමසීම:** උදා: *'How much did I spend on food?'*, *'Recent expenses'*\n" +
+                            "• 🛡️ **මූල්‍ය සෞඛ්‍යය සහ Runway:** උදා: *'Can I afford 50000?'*, *'Emergency runway'*\n" +
+                            "• ⚙️ **Settings සහ Navigation:** උදා: *'Enable dark mode'*, *'Clear alerts'*, *'Go to reports'*\n\n" +
+                            "ඔබට අවශ්‍ය ඕනෑම දෙයක් මගෙන් අසන්න!"
                     } else {
                         "Hello! I am your personal NEXUS AI Financial Copilot.\n\n" +
-                            "Here is what I can assist you with:\n" +
-                            "1. **Log Expenses or Income:** e.g. *'Fuel 2000 cash'*, *'Salary 150000'*\n" +
-                            "2. **Predictions & Financial Advice:** e.g. *'How is my spending pace?'*, *'How to save more?'*\n" +
-                            "3. **Financial Summaries:** e.g. *'Monthly summary'*, *'Goals pace'*\n" +
-                            "4. **Navigate the App:** e.g. *'Go to reports'*, *'Open expenses'*\n\n" +
+                            "I am directly connected to your live financial records and ready to assist you:\n" +
+                            "• 💸 **Log Expenses & Incomes:** e.g. *'Petrol 2500 cash'*, *'Salary 150000'*\n" +
+                            "• 🏷️ **Add Categories & Recurring Bills:** e.g. *'Add category Gym 5000'*, *'Add recurring bill Netflix 2200'*\n" +
+                            "• 🔍 **Inquire about Spending:** e.g. *'How much did I spend on food?'*, *'Recent expenses'*\n" +
+                            "• 🛡️ **Runway & Affordability:** e.g. *'Can I afford 50000?'*, *'Emergency runway'*\n" +
+                            "• ⚙️ **Settings & Navigation:** e.g. *'Enable dark mode'*, *'Clear alerts'*, *'Go to reports'*\n\n" +
                             "Feel free to type any command or tap a suggestion below!"
                     }
                 )
             }
 
-            is ParsedIntent.Unknown -> {
-                ChatMessage(
-                    sender = MessageSender.BOT,
-                    text = if (isSinhala) {
-                        "මට මෙය හරියටම තේරුම් ගැනීමට අපහසු විය. කරුණාකර පහත උදාහරණයක් මෙන් පැහැදිලි විධානයක් ලබා දෙන්න:\n\n" +
-                            "• *'Spent 2500 for groceries cash'*\n" +
-                            "• *'Salary 150000'*\n" +
-                            "• *'Monthly summary'*\n" +
-                            "• *'Spending prediction'*"
-                    } else {
-                        "I didn't quite catch that. Here are some examples of what you can ask me:\n\n" +
-                            "• *'Spent 2500 for groceries cash'*\n" +
-                            "• *'Salary 150000'*\n" +
-                            "• *'Monthly summary'*\n" +
-                            "• *'Spending prediction'*"
-                    }
+            is ParsedIntent.GeneralConsultation -> {
+                val response = advisorEngine.provideGeneralConsultation(
+                    intent.query,
+                    currentIncomes,
+                    currentExpenses,
+                    currentGoals,
+                    currentCategories,
+                    isSinhala = isSinhala
                 )
+                ChatMessage(sender = MessageSender.BOT, text = response)
+            }
+
+            is ParsedIntent.Unknown -> {
+                val response = advisorEngine.provideGeneralConsultation(
+                    intent.originalText,
+                    currentIncomes,
+                    currentExpenses,
+                    currentGoals,
+                    currentCategories,
+                    isSinhala = isSinhala
+                )
+                ChatMessage(sender = MessageSender.BOT, text = response)
             }
         }
     }
@@ -421,27 +572,108 @@ class ChatBotViewModel @Inject constructor(
                         title = p.title,
                         targetAmountLKR = p.amount,
                         openingSavingsLKR = 0.0,
-                        startDate = Date(),
                         targetDate = p.targetDate,
+                        priority = GoalPriority.HIGH,
                         isActive = true,
                         createdAt = Date()
                     )
                     goalRepository.addGoal(userId, newGoal)
                     val text = if (isSinhala) {
-                        "✅ **නව Savings Goal එක සාදන ලදී!**\n" +
+                        "🎯 **Savings Goal එක සාර්ථකව නිර්මාණය විය!**\n" +
                             "• ඉලක්කය: **%s**\n• මුදල: **LKR %,.0f**\n"
                                 .format(p.title, p.amount) +
-                            "Goals පිටුවෙන් ඔබට මෙහි ප්‍රගතිය නිරීක්ෂණය කළ හැක."
+                            "ඔබේ ප්‍රගතිය සහ අවශ්‍ය මාසික ඉතිරිය මම ස්වයංක්‍රීයව අධීක්ෂණය කරන්නෙමි."
                     } else {
-                        "✅ **New Savings Goal created!**\n" +
+                        "🎯 **Savings Goal created successfully!**\n" +
                             "• Goal: **%s**\n• Target: **LKR %,.0f**\n"
                                 .format(p.title, p.amount) +
-                            "You can track your real-time savings pace from the Goals screen."
+                            "I will proactively track your progress and required monthly pace."
                     }
                     updatedMessages.add(ChatMessage(sender = MessageSender.BOT, text = text))
                 }
 
-                ActionType.NAVIGATE -> {}
+                ActionType.ADD_CATEGORY -> {
+                    val p = card.payload
+                    val newCategory = Category(
+                        userId = userId,
+                        name = p.title,
+                        classification = p.classification,
+                        estimatedAmount = p.estimatedAmount,
+                        createdAt = Date()
+                    )
+                    categoryRepository.addCategory(newCategory)
+                    val budgetInfo = if (p.estimatedAmount != null && p.estimatedAmount > 0) " (Budget: LKR %,.0f)".format(p.estimatedAmount) else ""
+                    val text = if (isSinhala) {
+                        "🏷️ **නව කාණ්ඩය සාර්ථකව එකතු කරන ලදී!**\n" +
+                            "• නම: **%s**%s\n".format(p.title, budgetInfo) +
+                            "දැන් මෙම කාණ්ඩය යටතේ වියදම් සටහන් කළ හැක."
+                    } else {
+                        "🏷️ **Category added successfully!**\n" +
+                            "• Name: **%s**%s\n".format(p.title, budgetInfo) +
+                            "You can now assign expenses to this category immediately."
+                    }
+                    updatedMessages.add(ChatMessage(sender = MessageSender.BOT, text = text))
+                }
+
+                ActionType.ADD_RECURRING_BILL -> {
+                    val p = card.payload
+                    val newItem = RecurringItem(
+                        userId = userId,
+                        title = p.title,
+                        amountLKR = p.amount,
+                        categoryId = p.categoryId,
+                        classification = p.classification,
+                        frequency = p.frequency,
+                        nextDueDate = p.targetDate,
+                        isActive = true,
+                        createdAt = Date()
+                    )
+                    recurringItemRepository.addRecurringItem(newItem)
+                    val text = if (isSinhala) {
+                        "⏰ **පුනරාවර්තී බිල්පත සාර්ථකව කාලසටහන් කරන ලදී!**\n" +
+                            "• බිල්පත: **%s**\n• මුදල: **LKR %,.2f**\n".format(p.title, p.amount) +
+                            "නියමිත දිනයට පෙර මම ඔබට සිහිපත් කරන්නෙමි."
+                    } else {
+                        "⏰ **Recurring bill reminder scheduled successfully!**\n" +
+                            "• Bill: **%s**\n• Amount: **LKR %,.2f**\n".format(p.title, p.amount) +
+                            "Automated notifications will alert you prior to the due date."
+                    }
+                    updatedMessages.add(ChatMessage(sender = MessageSender.BOT, text = text))
+                }
+
+                ActionType.CLEAR_ALERTS -> {
+                    val allIds = currentRecurringItems.map { "bill_${it.id}" } +
+                        currentIncomes.map { "income_${it.id}" } +
+                        currentGoals.map { "goal_${it.id}" }
+                    alertsReadManager.markAllAsRead(allIds)
+                    alertsReadManager.markAllAsSeen(allIds)
+                    val text = if (isSinhala) {
+                        "🔔 **සියලුම දැනුම්දීම් කියවා අවසන් ලෙස සලකුණු කරන ලදී!**"
+                    } else {
+                        "🔔 **All active notifications have been marked as read!**"
+                    }
+                    updatedMessages.add(ChatMessage(sender = MessageSender.BOT, text = text))
+                }
+
+                ActionType.UPDATE_SETTINGS -> {
+                    val p = card.payload
+                    when (p.settingKey) {
+                        "theme_dark" -> appSettingsManager.setThemeMode(ThemeMode.DARK)
+                        "theme_light" -> appSettingsManager.setThemeMode(ThemeMode.LIGHT)
+                        "notifications" -> appSettingsManager.setNotificationsEnabled(p.settingValue)
+                        "biometrics" -> appSettingsManager.setBiometricLockEnabled(p.settingValue)
+                    }
+                    val text = if (isSinhala) {
+                        "⚙️ **සැකසුම සාර්ථකව යාවත්කාලීන කරන ලදී!**"
+                    } else {
+                        "⚙️ **System preference updated successfully!**"
+                    }
+                    updatedMessages.add(ChatMessage(sender = MessageSender.BOT, text = text))
+                }
+
+                ActionType.NAVIGATE -> {
+                    // Navigation actions are executed directly via onNavigate callback in UI
+                }
             }
 
             _uiState.value = _uiState.value.copy(messages = updatedMessages)
@@ -456,16 +688,15 @@ class ChatBotViewModel @Inject constructor(
         val message = currentMessages[messageIndex]
         val card = message.actionCard ?: return
 
-        if (card.status != ActionStatus.PENDING) return
-
         val updatedCard = card.copy(status = ActionStatus.CANCELLED)
         val updatedMessages = currentMessages.toMutableList()
         updatedMessages[messageIndex] = message.copy(actionCard = updatedCard)
 
-        val text = if (card.isSinhala) {
-            "❌ **ක්‍රියාව අවලංගු කරන ලදී.** කිසිදු දත්තයක් සටහන් නොවීය."
+        val isSinhala = card.isSinhala
+        val text = if (isSinhala) {
+            "❌ මෙම ක්‍රියාව අවලංගු කරන ලදී. කිසිදු දත්තයක් වෙනස් නොවිණි."
         } else {
-            "❌ **Action cancelled.** No changes were made to your records."
+            "❌ Action cancelled. No records were modified."
         }
         updatedMessages.add(ChatMessage(sender = MessageSender.BOT, text = text))
 
@@ -473,6 +704,15 @@ class ChatBotViewModel @Inject constructor(
     }
 
     fun clearChat() {
-        initializeSession()
+        val firstName = _uiState.value.userFirstName
+        val welcomeMsg = ChatMessage(
+            sender = MessageSender.BOT,
+            text = "Hello $firstName! How else can I assist you with your finances today?"
+        )
+        _uiState.value = _uiState.value.copy(messages = listOf(welcomeMsg))
+    }
+
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(errorMessage = null)
     }
 }
