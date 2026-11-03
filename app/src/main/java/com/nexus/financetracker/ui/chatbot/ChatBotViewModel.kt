@@ -42,7 +42,8 @@ class ChatBotViewModel @Inject constructor(
     private val alertsReadManager: AlertsReadManager,
     private val appSettingsManager: AppSettingsManager,
     private val advisorEngine: FinancialAdvisorEngine,
-    private val nlpParser: ChatBotNlpParser
+    private val nlpParser: ChatBotNlpParser,
+    private val geminiAiService: GeminiAiService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatBotUiState())
@@ -119,11 +120,32 @@ class ChatBotViewModel @Inject constructor(
         )
 
         viewModelScope.launch {
-            delay(350)
-
             val isSinhala = isSinhalaLanguage(text)
-            val intent = nlpParser.parse(text, currentCategories)
-            val botResponse = processIntent(intent, isSinhala)
+
+            // 1. Query Real Cloud AI (Gemini) with full financial context
+            val geminiResult = geminiAiService.queryGemini(
+                userMessage = text,
+                userFirstName = _uiState.value.userFirstName,
+                incomes = currentIncomes,
+                expenses = currentExpenses,
+                goals = currentGoals,
+                categories = currentCategories,
+                recurringItems = currentRecurringItems,
+                configuredApiKey = appSettingsManager.settings.value.geminiApiKey,
+                isSinhala = isSinhala
+            )
+
+            val botResponse = if (geminiResult != null && geminiResult.replyText.isNotBlank()) {
+                ChatMessage(
+                    sender = MessageSender.BOT,
+                    text = geminiResult.replyText,
+                    actionCard = geminiResult.actionCard
+                )
+            } else {
+                // 2. Hybrid Fallback: Use on-device dynamic engine
+                val intent = nlpParser.parse(text, currentCategories)
+                processIntent(intent, isSinhala)
+            }
 
             _uiState.value = _uiState.value.copy(
                 messages = _uiState.value.messages + botResponse,

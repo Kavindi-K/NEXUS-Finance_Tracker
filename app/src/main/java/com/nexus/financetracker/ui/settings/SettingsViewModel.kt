@@ -28,6 +28,7 @@ data class SettingsUiState(
     val isPinSet: Boolean = false,
     val baseCurrency: String = "LKR",
     val defaultExpenseAccount: String = "Card",
+    val geminiApiKey: String = "",
     val userEmail: String? = null,
     val displayName: String? = null,
     val cachedExpensesCount: Int = 0,
@@ -74,7 +75,8 @@ class SettingsViewModel @Inject constructor(
                     notificationsEnabled = settings.notificationsEnabled,
                     biometricLockEnabled = settings.biometricLockEnabled,
                     baseCurrency = settings.baseCurrency,
-                    defaultExpenseAccount = settings.defaultExpenseAccount
+                    defaultExpenseAccount = settings.defaultExpenseAccount,
+                    geminiApiKey = settings.geminiApiKey
                 )
             }
         }
@@ -173,6 +175,11 @@ class SettingsViewModel @Inject constructor(
     fun removePin() {
         securityManager.removePin()
         _uiState.value = _uiState.value.copy(isPinSet = false, message = "4-digit PIN removed")
+    }
+
+    fun setGeminiApiKey(key: String) {
+        appSettingsManager.setGeminiApiKey(key)
+        _uiState.value = _uiState.value.copy(message = "Gemini AI API Key saved successfully")
     }
 
     fun dismissMessage() {
