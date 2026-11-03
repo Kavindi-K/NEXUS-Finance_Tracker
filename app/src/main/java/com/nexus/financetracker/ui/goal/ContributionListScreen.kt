@@ -286,8 +286,9 @@ fun ContributionListScreen(
                 )
             },
             text = {
+                val catDisplayName = if (item.categoryName.startsWith("Monthly Savings Surplus", ignoreCase = true)) "Monthly Savings Surplus" else item.categoryName
                 Text(
-                    text = "Are you sure you want to delete this contribution of LKR ${currencyFormat.format(item.amountLKR)} from ${item.categoryName}? This action cannot be undone.",
+                    text = "Are you sure you want to delete this contribution of LKR ${currencyFormat.format(item.amountLKR)} from $catDisplayName? This action cannot be undone.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
@@ -324,8 +325,9 @@ fun ContributionListScreen(
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 18.sp
                     )
+                    val allocCatName = if (item.categoryName.startsWith("Monthly Savings Surplus", ignoreCase = true)) "Monthly Savings Surplus" else item.categoryName
                     Text(
-                        text = "Choose an active goal for LKR ${currencyFormat.format(item.amountLKR)} (${item.categoryName})",
+                        text = "Choose an active goal for LKR ${currencyFormat.format(item.amountLKR)} ($allocCatName)",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
@@ -435,8 +437,13 @@ private fun ContributionCardItem(
                     }
 
                     Column {
+                        val displayCategoryName = if (contribution.categoryName.startsWith("Monthly Savings Surplus", ignoreCase = true)) {
+                            "Monthly Savings Surplus"
+                        } else {
+                            contribution.categoryName
+                        }
                         Text(
-                            text = contribution.categoryName,
+                            text = displayCategoryName,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
