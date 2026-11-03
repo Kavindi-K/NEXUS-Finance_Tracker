@@ -487,8 +487,10 @@ fun AppNavGraph(
                     }
                 )
             ) { backStackEntry ->
-                val expenseId = backStackEntry.arguments?.getString("expenseId")?.takeIf { it.isNotBlank() && it != "{expenseId}" }
-                val categoryId = backStackEntry.arguments?.getString("categoryId")?.takeIf { it.isNotBlank() && it != "{categoryId}" }
+                val rawExpenseId = backStackEntry.arguments?.getString("expenseId")?.takeIf { it.isNotBlank() && it != "{expenseId}" }
+                val expenseId = rawExpenseId?.let { try { java.net.URLDecoder.decode(it, "UTF-8") } catch (e: Exception) { it } }
+                val rawCatId = backStackEntry.arguments?.getString("categoryId")?.takeIf { it.isNotBlank() && it != "{categoryId}" }
+                val categoryId = rawCatId?.let { try { java.net.URLDecoder.decode(it, "UTF-8") } catch (e: Exception) { it } }
                 val expenseViewModel: ExpenseViewModel = hiltViewModel()
                 ExpenseAddScreen(
                     viewModel = expenseViewModel,

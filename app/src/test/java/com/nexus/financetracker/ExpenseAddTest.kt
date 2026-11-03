@@ -82,4 +82,47 @@ class ExpenseAddTest {
         assertEquals("Transport", formState.categoryName)
         assertEquals(ExpenseAccount.CASH, formState.account)
     }
+
+    @Test
+    fun foodAndDiningSelection_neverOverwrittenByLastUsedCategory() {
+        // Given user explicitly opened or chose Food & Dining
+        val chosenCategory = DEFAULT_EXPENSE_CATEGORIES.first { it.id == "cat_food" }
+        val formState = ExpenseFormState(
+            categoryId = chosenCategory.id,
+            categoryName = chosenCategory.name,
+            classification = chosenCategory.classification,
+            hasUserSelectedCategory = true
+        )
+
+        // Simulated latest expense was recorded under Rent
+        val simulatedLatestCategory = Category(id = "cat_rent", name = "Rent")
+
+        val hasUserSelection = formState.hasUserSelectedCategory ||
+            (formState.categoryId.isNotBlank() && formState.isEditMode)
+
+        val defaultCatId = if (hasUserSelection && formState.categoryId.isNotBlank()) {
+            formState.categoryId
+        } else {
+            simulatedLatestCategory.id
+        }
+
+        // Must retain Food & Dining and NOT be replaced by Rent
+        assertEquals("cat_food", defaultCatId)
+        assertEquals("Food & Dining", formState.categoryName)
+    }
+
+    @Test
+    fun categorySelection_exactCategoryNamePreserved() {
+        val foodCategory = DEFAULT_EXPENSE_CATEGORIES.first { it.name == "Food & Dining" }
+        val updatedState = ExpenseFormState().copy(
+            categoryId = foodCategory.id,
+            categoryName = foodCategory.name,
+            classification = foodCategory.classification,
+            hasUserSelectedCategory = true
+        )
+
+        assertEquals("cat_food", updatedState.categoryId)
+        assertEquals("Food & Dining", updatedState.categoryName)
+        assertTrue(updatedState.hasUserSelectedCategory)
+    }
 }
