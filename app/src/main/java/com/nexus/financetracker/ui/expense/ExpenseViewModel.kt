@@ -73,7 +73,8 @@ data class ExpenseFormState(
     val isSubmitting: Boolean = false,
     val isLoadingDefaults: Boolean = false,
     val errorMessage: String? = null,
-    val availableCategories: List<Category> = emptyList()
+    val availableCategories: List<Category> = emptyList(),
+    val hasUserSelectedCategory: Boolean = false
 ) {
     val isEditMode: Boolean
         get() = !editingExpenseId.isNullOrBlank()
@@ -604,27 +605,40 @@ class ExpenseViewModel @Inject constructor(
 
                         val defaultAccount = latestExpense?.account ?: ExpenseAccount.CARD
                         val currentSelectedId = _formState.value.categoryId
-                        val hasUserSelection = currentSelectedId.isNotBlank() && currentSelectedId != "cat_food"
+                        val hasUserSelection = _formState.value.hasUserSelectedCategory ||
+                            (currentSelectedId.isNotBlank() && _formState.value.isEditMode)
 
-                        val defaultCatId = if (hasUserSelection) {
+                        val defaultCatId = if (hasUserSelection && currentSelectedId.isNotBlank()) {
                             currentSelectedId
                         } else {
                             latestExpense?.categoryId ?: combined.firstOrNull()?.id ?: "cat_food"
                         }
-                        val defaultCatName = catMap[defaultCatId]
-                            ?: combined.firstOrNull()?.name ?: "Food & Dining"
-                        val matchingCat = combined.find { it.id == defaultCatId }
+                        val matchingCat = combined.find {
+                            it.id.equals(defaultCatId, ignoreCase = true) ||
+                            it.name.equals(defaultCatId, ignoreCase = true) ||
+                            it.id.replace("_", "-").equals(defaultCatId.replace("_", "-"), ignoreCase = true)
+                        } ?: DEFAULT_EXPENSE_CATEGORIES.find {
+                            it.id.equals(defaultCatId, ignoreCase = true) ||
+                            it.name.equals(defaultCatId, ignoreCase = true) ||
+                            it.id.replace("_", "-").equals(defaultCatId.replace("_", "-"), ignoreCase = true)
+                        }
+                        val defaultCatName = matchingCat?.name
+                            ?: catMap[defaultCatId]
+                            ?: _formState.value.categoryName.takeIf { it.isNotBlank() }
+                            ?: "Food & Dining"
                         val defaultClassification = matchingCat?.classification
+                            ?: _formState.value.classification.takeIf { it.isNotBlank() }
                             ?: latestExpense?.classification
                             ?: ExpenseClassification.DISCRETIONARY
 
                         _formState.value = _formState.value.copy(
                             availableCategories = combined,
                             account = if (_formState.value.amountText.isNotBlank()) _formState.value.account else defaultAccount,
-                            categoryId = defaultCatId,
+                            categoryId = matchingCat?.id ?: defaultCatId,
                             categoryName = defaultCatName,
                             date = if (_formState.value.amountText.isNotBlank()) _formState.value.date else Date(),
                             classification = defaultClassification,
+                            hasUserSelectedCategory = hasUserSelection,
                             isLoadingDefaults = false
                         )
                     } else {
@@ -711,6 +725,8 @@ class ExpenseViewModel @Inject constructor(
         _formState.value = _formState.value.copy(
             categoryId = category.id,
             categoryName = category.name,
+            classification = category.classification,
+            hasUserSelectedCategory = true,
             errorMessage = null
         )
     }
@@ -1055,12 +1071,27 @@ class ExpenseViewModel @Inject constructor(
         } else {
             DEFAULT_EXPENSE_CATEGORIES
         }
-        val targetCat = if (!preferredCategoryId.isNullOrBlank() && preferredCategoryId != "{categoryId}") {
-            currentCats.find { it.id == preferredCategoryId }
-                ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == preferredCategoryId }
-                ?: currentCats.first()
+        val isExplicitPreferred = !preferredCategoryId.isNullOrBlank() && preferredCategoryId != "{categoryId}"
+        val targetCat = if (isExplicitPreferred) {
+            val cleanPref = preferredCategoryId!!.trim()
+            currentCats.find {
+                it.id.equals(cleanPref, ignoreCase = true) ||
+                it.name.equals(cleanPref, ignoreCase = true) ||
+                it.id.replace("_", "-").equals(cleanPref.replace("_", "-"), ignoreCase = true)
+            } ?: DEFAULT_EXPENSE_CATEGORIES.find {
+                it.id.equals(cleanPref, ignoreCase = true) ||
+                it.name.equals(cleanPref, ignoreCase = true) ||
+                it.id.replace("_", "-").equals(cleanPref.replace("_", "-"), ignoreCase = true)
+            } ?: Category(
+                id = cleanPref,
+                name = if (cleanPref.startsWith("cat_") || cleanPref.startsWith("cat-")) {
+                    cleanPref.removePrefix("cat_").removePrefix("cat-").replace("_", " ").replace("-", " ")
+                        .split(" ").joinToString(" ") { word -> word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } }
+                } else cleanPref,
+                classification = ExpenseClassification.DISCRETIONARY
+            )
         } else {
-            currentCats.first()
+            currentCats.firstOrNull() ?: DEFAULT_EXPENSE_CATEGORIES.first()
         }
         _formState.value = ExpenseFormState(
             editingExpenseId = null,
@@ -1074,7 +1105,8 @@ class ExpenseViewModel @Inject constructor(
             note = "",
             isSubmitting = false,
             errorMessage = null,
-            availableCategories = currentCats
+            availableCategories = currentCats,
+            hasUserSelectedCategory = isExplicitPreferred
         )
     }
 

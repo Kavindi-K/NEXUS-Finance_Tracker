@@ -34,8 +34,8 @@ sealed class Screen(val route: String) {
     object AddExpense : Screen("add_expense?expenseId={expenseId}&categoryId={categoryId}") {
         fun createRoute(expenseId: String? = null, categoryId: String? = null): String {
             val params = mutableListOf<String>()
-            if (!expenseId.isNullOrBlank()) params.add("expenseId=$expenseId")
-            if (!categoryId.isNullOrBlank()) params.add("categoryId=$categoryId")
+            if (!expenseId.isNullOrBlank()) params.add("expenseId=${java.net.URLEncoder.encode(expenseId, "UTF-8")}")
+            if (!categoryId.isNullOrBlank()) params.add("categoryId=${java.net.URLEncoder.encode(categoryId, "UTF-8")}")
             return if (params.isNotEmpty()) "add_expense?${params.joinToString("&")}" else "add_expense"
         }
     }
