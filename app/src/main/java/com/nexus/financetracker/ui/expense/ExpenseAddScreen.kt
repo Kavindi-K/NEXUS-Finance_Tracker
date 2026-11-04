@@ -55,9 +55,17 @@ fun ExpenseAddScreen(
     val dateFormatter = remember { SimpleDateFormat("EEE, MMM dd, yyyy", Locale.getDefault()) }
 
     LaunchedEffect(expenseId, categoryId) {
+        viewModel.checkAndApplyStagedExpenseForOther()
         if (!expenseId.isNullOrBlank() && expenseId != "{expenseId}") {
             viewModel.loadExpenseForEdit(expenseId)
-        } else {
+        } else if (!viewModel.formState.value.isPrefilledFromExpense) {
+            val cleanCatId = if (!categoryId.isNullOrBlank() && categoryId != "{categoryId}") categoryId else null
+            viewModel.resetForm(preferredCategoryId = cleanCatId)
+        }
+    }
+        if (!expenseId.isNullOrBlank() && expenseId != "{expenseId}") {
+            viewModel.loadExpenseForEdit(expenseId)
+        } else if (!viewModel.formState.value.isPrefilledFromExpense) {
             val cleanCatId = if (!categoryId.isNullOrBlank() && categoryId != "{categoryId}") categoryId else null
             viewModel.resetForm(preferredCategoryId = cleanCatId)
         }
