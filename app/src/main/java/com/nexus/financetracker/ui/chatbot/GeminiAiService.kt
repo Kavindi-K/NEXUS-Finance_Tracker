@@ -42,7 +42,6 @@ class GeminiAiService @Inject constructor() {
 
     companion object {
         private const val TAG = "GeminiAiService"
-        private const val DEFAULT_API_KEY = "AIzaSyAnLrjOzxTjBuYyDpDCxm1Y8QCkZwLmmqg"
 
         // Default candidate models to test in priority order if ListModels is unavailable
         val FALLBACK_CANDIDATE_MODELS = listOf(
@@ -226,7 +225,7 @@ class GeminiAiService @Inject constructor() {
         configuredModel: String? = null,
         isSinhala: Boolean
     ): GeminiAiOutcome = withContext(Dispatchers.IO) {
-        val apiKey = configuredApiKey?.trim()?.takeIf { it.isNotBlank() } ?: DEFAULT_API_KEY
+        val apiKey = configuredApiKey?.trim().orEmpty()
         if (apiKey.isBlank()) {
             return@withContext GeminiAiOutcome.ApiKeyMissing("No Gemini API key provided")
         }

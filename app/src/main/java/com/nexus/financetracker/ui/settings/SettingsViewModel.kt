@@ -14,6 +14,7 @@ import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.repository.GoalRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
+import com.nexus.financetracker.ui.chatbot.ChatHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,7 +53,8 @@ class SettingsViewModel @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val incomeDao: IncomeDao,
     private val goalDao: GoalDao,
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
+    private val chatHistoryRepository: ChatHistoryRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState(isPinSet = securityManager.isPinSet()))
@@ -158,6 +160,7 @@ class SettingsViewModel @Inject constructor(
                 incomeRepository.clearLocalCache(uid)
                 goalRepository.clearLocalCache(uid)
                 categoryRepository.clearLocalCache(uid)
+                chatHistoryRepository.clearHistory(uid)
             }
             authRepository.signOut()
             onSuccess()
