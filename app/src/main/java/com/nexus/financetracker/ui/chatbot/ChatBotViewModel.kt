@@ -214,7 +214,21 @@ class ChatBotViewModel @Inject constructor(
                     }
                     localMsg.copy(text = localMsg.text + note)
                 }
-                is GeminiAiOutcome.ApiKeyMissing, is GeminiAiOutcome.NetworkError -> {
+                is GeminiAiOutcome.NetworkError -> {
+                    val intent = nlpParser.parse(text, currentCategories)
+                    val localMsg = processIntent(intent, isSinhala)
+                    if (currentApiKey.isNotBlank()) {
+                        val note = if (isSinhala) {
+                            "\n\n---\n⚠️ *Gemini Cloud AI Error: ${outcome.error} (On-device advisor මඟින් පිළිතුරු සපයන ලදී)*"
+                        } else {
+                            "\n\n---\n⚠️ *Gemini Cloud AI Error: ${outcome.error} (Answered via on-device advisor)*"
+                        }
+                        localMsg.copy(text = localMsg.text + note)
+                    } else {
+                        localMsg
+                    }
+                }
+                is GeminiAiOutcome.ApiKeyMissing -> {
                     // Hybrid Fallback: Use on-device dynamic engine
                     val intent = nlpParser.parse(text, currentCategories)
                     val localMsg = processIntent(intent, isSinhala)

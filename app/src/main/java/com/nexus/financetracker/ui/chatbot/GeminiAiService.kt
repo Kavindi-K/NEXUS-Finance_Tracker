@@ -395,16 +395,22 @@ class GeminiAiService @Inject constructor() {
                 "${IncomeSource.getDisplayName(src)}: LKR %,.0f".format(amt)
             }
 
+        val formattedIncome = "LKR %,.2f".format(totalIncome)
+        val formattedExpenses = "LKR %,.2f".format(totalExpenses)
+        val formattedBalance = "LKR %,.2f".format(netBalance)
+        val formattedSavingsRate = "%.1f%%".format(savingsRate)
+        val formattedRunway = "%.1f".format(runwayMonths)
+
         return """
 You are NEXUS AI, an elite, empathetic, and exceptionally intelligent personal financial copilot inside the NEXUS Finance Tracker app.
 You are having a direct, engaging conversation with $userFirstName.
 
 Live Financial Ledger for $userFirstName:
-• Confirmed Total Income: LKR %,.2f (Breakdown: $incomeSourcesSummary)
-• Total Living Expenses: LKR %,.2f
-• Current Net Capital Surplus: LKR %,.2f
-• Savings Retention Rate: %.1f%%
-• Survival Emergency Runway: %.1f months (~$runwayDays days)
+• Confirmed Total Income: $formattedIncome (Breakdown: $incomeSourcesSummary)
+• Total Living Expenses: $formattedExpenses
+• Current Net Capital Surplus: $formattedBalance
+• Savings Retention Rate: $formattedSavingsRate
+• Survival Emergency Runway: $formattedRunway months (~$runwayDays days)
 • Active Savings Goals: $goalsSummary
 • Scheduled Recurring Commitments: $billsSummary
 
@@ -428,7 +434,7 @@ System Directives:
 - NAVIGATE: "route" ("dashboard"|"expenses"|"income"|"goals"|"reports"|"alerts"|"settings"|"profile"|"categories")
 
 If the user is asking advice, chatting, asking about wealth, or checking health, do NOT output any action block.
-""".trimIndent().format(totalIncome, totalExpenses, netBalance, savingsRate, runwayMonths)
+""".trimIndent()
     }
 
     private fun parseGeminiOutput(
