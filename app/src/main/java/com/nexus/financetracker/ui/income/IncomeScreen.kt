@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nexus.financetracker.domain.model.DetectedBankDeposit
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
@@ -64,6 +65,8 @@ fun IncomeScreen(
     var incomeToConfirm by remember { mutableStateOf<Income?>(null) }
     var incomeToDelete by remember { mutableStateOf<Income?>(null) }
     var showBreakdownSheet by remember { mutableStateOf(false) }
+    var depositToCategorize by remember { mutableStateOf<DetectedBankDeposit?>(null) }
+    var selectedDepositCategory by remember { mutableStateOf(IncomeSource.SALARY) }
     val scrollState = rememberScrollState()
 
     val isStreamDetail = uiState.selectedSource != null
@@ -245,6 +248,19 @@ fun IncomeScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = if (isStreamDetail) "Back to Income Overview" else "Back to Dashboard"
                         )
+                    }
+                },
+                actions = {
+                    if (uiState.detectedDeposit == null) {
+                        IconButton(
+                            onClick = { viewModel.simulateNewBankDeposit() }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AddAlert,
+                                contentDescription = "Simulate Bank Deposit Alert",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -495,6 +511,149 @@ fun IncomeScreen(
                                     fontWeight = FontWeight.Medium,
                                     color = TextHeaderSubtle
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Auto-detected Bank Deposit Review Banner (Accept / Reject)
+            val detectedDeposit = uiState.detectedDeposit
+            if (detectedDeposit != null && !isSalaryMonthView) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    ),
+                    border = BorderStroke(1.2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                modifier = Modifier.size(38.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.NotificationsActive,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "1 New Bank Deposit Detected",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Review incoming funds before adding to income balance",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = detectedDeposit.bankName,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = dateFormatter.format(detectedDeposit.date),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (!detectedDeposit.reference.isNullOrBlank()) {
+                                        Text(
+                                            text = "Ref: ${detectedDeposit.reference}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                        )
+                                    }
+                                }
+
+                                Text(
+                                    text = "LKR %,.2f".format(detectedDeposit.amountLKR),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF15803D)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { viewModel.rejectDetectedDeposit(detectedDeposit) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Reject Deposit",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("Reject", fontWeight = FontWeight.SemiBold)
+                            }
+
+                            Button(
+                                onClick = {
+                                    selectedDepositCategory = IncomeSource.SALARY
+                                    depositToCategorize = detectedDeposit
+                                },
+                                modifier = Modifier.weight(1.3f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF15803D),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Accept Deposit",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("Accept & Categorize", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             }
                         }
                     }
@@ -898,6 +1057,145 @@ fun IncomeScreen(
                 onDismiss = { showBreakdownSheet = false }
             )
         }
+    }
+
+    // Accept & Categorize Bank Deposit Dialog
+    if (depositToCategorize != null) {
+        val deposit = depositToCategorize!!
+        AlertDialog(
+            onDismissRequest = { depositToCategorize = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.AccountBalance,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Accept Bank Deposit",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Choose category to confirm this deposit into your official income balance:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = deposit.bankName,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "LKR %,.2f".format(deposit.amountLKR),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF15803D)
+                            )
+                            Text(
+                                text = "Received: ${dateFormatter.format(deposit.date)}${if (!deposit.reference.isNullOrBlank()) " • Ref: ${deposit.reference}" else ""}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "Select Category:",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedDepositCategory == IncomeSource.SALARY,
+                            onClick = { selectedDepositCategory = IncomeSource.SALARY },
+                            label = { Text("Salary", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = selectedDepositCategory == IncomeSource.FREELANCE,
+                            onClick = { selectedDepositCategory = IncomeSource.FREELANCE },
+                            label = { Text("Freelance", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedDepositCategory == IncomeSource.CRYPTO,
+                            onClick = { selectedDepositCategory = IncomeSource.CRYPTO },
+                            label = { Text("Realized Crypto (Profit)", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier.weight(1.3f)
+                        )
+                        FilterChip(
+                            selected = false,
+                            onClick = {
+                                val currentDeposit = deposit
+                                depositToCategorize = null
+                                viewModel.prepareAddOtherFromDeposit(currentDeposit)
+                                onAddIncome()
+                            },
+                            label = { Text("+ Other", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                labelColor = MaterialTheme.colorScheme.primary
+                            ),
+                            modifier = Modifier.weight(0.9f)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.acceptDetectedDeposit(deposit, selectedDepositCategory) {
+                            depositToCategorize = null
+                        }
+                    }
+                ) {
+                    Text("Confirm & Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { depositToCategorize = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
