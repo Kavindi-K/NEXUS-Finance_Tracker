@@ -1,6 +1,12 @@
 package com.nexus.financetracker.ui.income
 
+import android.Manifest
 import android.app.DatePickerDialog
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -69,6 +75,23 @@ fun IncomeScreen(
     var depositToCategorize by remember { mutableStateOf<DetectedBankDeposit?>(null) }
     var selectedDepositCategory by remember { mutableStateOf(IncomeSource.SALARY) }
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
+    var hasSmsPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val smsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val receiveGranted = permissions[Manifest.permission.RECEIVE_SMS] == true
+        val readGranted = permissions[Manifest.permission.READ_SMS] == true
+        hasSmsPermission = receiveGranted || readGranted
+        if (hasSmsPermission) {
+            Toast.makeText(context, "Live Bank SMS Detection Enabled", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val isStreamDetail = uiState.selectedSource != null
 
@@ -254,11 +277,17 @@ fun IncomeScreen(
                 actions = {
                     if (uiState.detectedDeposit == null) {
                         IconButton(
-                            onClick = { viewModel.simulateNewBankDeposit() }
+                            onClick = {
+                                if (!hasSmsPermission) {
+                                    smsPermissionLauncher.launch(arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS))
+                                } else {
+                                    viewModel.simulateNewBankDeposit()
+                                }
+                            }
                         ) {
                             Icon(
-                                imageVector = Icons.Default.AddAlert,
-                                contentDescription = "Simulate Bank Deposit Alert",
+                                imageVector = if (hasSmsPermission) Icons.Default.AddAlert else Icons.Default.NotificationsNone,
+                                contentDescription = if (hasSmsPermission) "Simulate Bank Deposit Alert" else "Enable Live Bank SMS Detection",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }

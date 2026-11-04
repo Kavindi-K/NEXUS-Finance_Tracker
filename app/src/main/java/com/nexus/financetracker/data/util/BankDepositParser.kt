@@ -30,13 +30,17 @@ object BankDepositParser {
 
         // Detect Bank Name
         val bankName = when {
-            upperSender.contains("COMBANK") || upperBody.contains("COMMERCIAL BANK") -> "Commercial Bank"
+            upperSender.contains("COMBANK") || upperBody.contains("COMMERCIAL BANK") || upperBody.contains("COMBANK") -> "Commercial Bank"
             upperSender.contains("SAMPATH") || upperBody.contains("SAMPATH") -> "Sampath Bank"
-            upperSender.contains("HNB") || upperBody.contains("HATTON NATIONAL") -> "Hatton National Bank"
-            upperSender.contains("BOC") || upperBody.contains("BANK OF CEYLON") -> "Bank of Ceylon"
+            upperSender.contains("HNB") || upperBody.contains("HATTON NATIONAL") || upperBody.contains("HNB") -> "Hatton National Bank"
+            upperSender.contains("BOC") || upperBody.contains("BANK OF CEYLON") || upperBody.contains("BOC") -> "Bank of Ceylon"
+            upperSender.contains("SEYLAN") || upperBody.contains("SEYLAN") -> "Seylan Bank"
             upperSender.contains("NDB") || upperBody.contains("NDB") -> "NDB Bank"
             upperSender.contains("NTB") || upperBody.contains("NATIONS TRUST") -> "Nations Trust Bank"
-            else -> "Commercial Bank" // Default representative bank
+            upperSender.contains("DFCC") || upperBody.contains("DFCC") -> "DFCC Bank"
+            upperSender.contains("PAN ASIA") || upperBody.contains("PABC") -> "Pan Asia Bank"
+            upperSender.contains("HSBC") || upperBody.contains("HSBC") -> "HSBC"
+            else -> "Bank Deposit"
         }
 
         // Extract Amount: e.g. "LKR 135,000.00" or "Rs. 135,000" or "LKR 135000"
