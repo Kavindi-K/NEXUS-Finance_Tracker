@@ -29,11 +29,19 @@ data class GeminiAiResult(
     val actionCard: ChatActionCard? = null
 )
 
+sealed class GeminiAiOutcome {
+    data class Success(val result: GeminiAiResult) : GeminiAiOutcome()
+    data class ApiKeyMissing(val message: String) : GeminiAiOutcome()
+    data class ApiKeyInvalid(val code: Int, val message: String) : GeminiAiOutcome()
+    data class NetworkError(val error: String) : GeminiAiOutcome()
+}
+
 @Singleton
 class GeminiAiService @Inject constructor() {
 
     companion object {
         private const val TAG = "GeminiAiService"
+        // Project Firebase key is used only as fallback attempt; custom keys take precedence
         private const val DEFAULT_API_KEY = "AIzaSyAnLrjOzxTjBuYyDpDCxm1Y8QCkZwLmmqg"
         private const val GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
     }
@@ -53,9 +61,11 @@ class GeminiAiService @Inject constructor() {
         recurringItems: List<RecurringItem>,
         configuredApiKey: String?,
         isSinhala: Boolean
-    ): GeminiAiResult? = withContext(Dispatchers.IO) {
-        val apiKey = configuredApiKey?.takeIf { it.isNotBlank() } ?: DEFAULT_API_KEY
-        if (apiKey.isBlank()) return@withContext null
+    ): GeminiAiOutcome = withContext(Dispatchers.IO) {
+        val apiKey = configuredApiKey?.trim()?.takeIf { it.isNotBlank() } ?: DEFAULT_API_KEY
+        if (apiKey.isBlank()) {
+            return@withContext GeminiAiOutcome.ApiKeyMissing("No Gemini API key provided")
+        }
 
         try {
             val systemContext = buildFinancialContext(
@@ -64,11 +74,10 @@ class GeminiAiService @Inject constructor() {
                 expenses = expenses,
                 goals = goals,
                 categories = categories,
-                recurringItems = recurringItems,
-                isSinhala = isSinhala
+                recurringItems = recurringItems
             )
 
-            val fullPrompt = "$systemContext\n\nUser Message: \"$userMessage\""
+            val fullPrompt = "$systemContext\n\nUser Question/Request: \"$userMessage\""
 
             val jsonBody = JSONObject().apply {
                 val contents = JSONArray().apply {
@@ -97,28 +106,96 @@ class GeminiAiService @Inject constructor() {
                 .build()
 
             val response = client.newCall(request).execute()
+            val responseBody = response.body?.string().orEmpty()
+
             if (!response.isSuccessful) {
-                Log.w(TAG, "Gemini call unsuccessful: ${response.code} ${response.message}")
-                return@withContext null
+                Log.w(TAG, "Gemini call unsuccessful: ${response.code} $responseBody")
+                val isKeyIssue = response.code == 400 || response.code == 403
+                val errorMsg = try {
+                    JSONObject(responseBody).optJSONObject("error")?.optString("message") ?: response.message
+                } catch (_: Exception) {
+                    response.message
+                }
+                return@withContext if (isKeyIssue) {
+                    GeminiAiOutcome.ApiKeyInvalid(response.code, errorMsg)
+                } else {
+                    GeminiAiOutcome.NetworkError("HTTP ${response.code}: $errorMsg")
+                }
             }
 
-            val responseBody = response.body?.string() ?: return@withContext null
             val root = JSONObject(responseBody)
-            val candidates = root.optJSONArray("candidates") ?: return@withContext null
-            if (candidates.length() == 0) return@withContext null
+            val candidates = root.optJSONArray("candidates")
+                ?: return@withContext GeminiAiOutcome.NetworkError("No candidates in Gemini response")
+            if (candidates.length() == 0) {
+                return@withContext GeminiAiOutcome.NetworkError("Empty candidates list")
+            }
 
             val firstCandidate = candidates.getJSONObject(0)
-            val content = firstCandidate.optJSONObject("content") ?: return@withContext null
-            val parts = content.optJSONArray("parts") ?: return@withContext null
-            if (parts.length() == 0) return@withContext null
+            val content = firstCandidate.optJSONObject("content")
+                ?: return@withContext GeminiAiOutcome.NetworkError("No content object")
+            val parts = content.optJSONArray("parts")
+                ?: return@withContext GeminiAiOutcome.NetworkError("No parts object")
+            if (parts.length() == 0) {
+                return@withContext GeminiAiOutcome.NetworkError("Empty parts in content")
+            }
 
             val rawReply = parts.getJSONObject(0).optString("text", "").trim()
-            if (rawReply.isBlank()) return@withContext null
+            if (rawReply.isBlank()) {
+                return@withContext GeminiAiOutcome.NetworkError("Blank text returned from Gemini")
+            }
 
-            parseGeminiOutput(rawReply, isSinhala, categories)
+            val parsed = parseGeminiOutput(rawReply, isSinhala, categories)
+            GeminiAiOutcome.Success(parsed)
         } catch (e: Exception) {
-            Log.e(TAG, "Gemini API execution failed, falling back to local engine", e)
-            null
+            Log.e(TAG, "Gemini API execution failed", e)
+            GeminiAiOutcome.NetworkError(e.message ?: "Network error connecting to Gemini")
+        }
+    }
+
+    suspend fun testApiKey(apiKey: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        val trimmed = apiKey.trim()
+        if (trimmed.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("API Key cannot be blank"))
+        }
+
+        try {
+            val jsonBody = JSONObject().apply {
+                val contents = JSONArray().apply {
+                    val partObj = JSONObject().apply {
+                        val parts = JSONArray().apply {
+                            put(JSONObject().apply { put("text", "ping") })
+                        }
+                        put("parts", parts)
+                    }
+                    put(partObj)
+                }
+                put("contents", contents)
+                val generationConfig = JSONObject().apply {
+                    put("maxOutputTokens", 5)
+                }
+                put("generationConfig", generationConfig)
+            }
+
+            val request = Request.Builder()
+                .url("$GEMINI_ENDPOINT?key=$trimmed")
+                .post(jsonBody.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
+                .build()
+
+            val response = client.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
+
+            if (response.isSuccessful) {
+                Result.success(true)
+            } else {
+                val errorMsg = try {
+                    JSONObject(body).optJSONObject("error")?.optString("message") ?: response.message
+                } catch (_: Exception) {
+                    response.message
+                }
+                Result.failure(Exception("HTTP ${response.code}: $errorMsg"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -128,46 +205,73 @@ class GeminiAiService @Inject constructor() {
         expenses: List<Expense>,
         goals: List<Goal>,
         categories: List<Category>,
-        recurringItems: List<RecurringItem>,
-        isSinhala: Boolean
+        recurringItems: List<RecurringItem>
     ): String {
-        val totalIncome = incomes.filter { it.status == IncomeStatus.CONFIRMED }.sumOf { it.amountLKR }
+        val confirmedIncomes = incomes.filter { it.status == IncomeStatus.CONFIRMED }
+        val totalIncome = confirmedIncomes.sumOf { it.amountLKR }
         val totalExpenses = expenses.sumOf { it.amountLKR }
         val netBalance = totalIncome - totalExpenses
         val savingsRate = if (totalIncome > 0) ((netBalance / totalIncome) * 100.0).coerceAtLeast(0.0) else 0.0
         val runwayMonths = if (totalExpenses > 0) (netBalance / totalExpenses).coerceAtLeast(0.0) else 0.0
+        val runwayDays = (runwayMonths * 30).toInt()
 
-        val goalsSummary = goals.filter { it.isActive }.take(3).joinToString("; ") {
-            "${it.title} (Target: LKR ${it.targetAmountLKR.toInt()})"
-        }.ifBlank { "None" }
+        val goalsSummary = goals.filter { it.isActive }.take(4).joinToString("; ") {
+            "${it.title} (Target: LKR ${it.targetAmountLKR.toInt()}, Days remaining: ${it.daysRemaining})"
+        }.ifBlank { "None active" }
 
-        val categoriesSummary = categories.take(6).joinToString(", ") { it.name }
-        val billsSummary = recurringItems.filter { it.isActive }.take(3).joinToString("; ") {
-            "${it.title} (LKR ${it.amountLKR.toInt()})"
-        }.ifBlank { "None" }
+        val billsSummary = recurringItems.filter { it.isActive }.take(4).joinToString("; ") {
+            "${it.title} (LKR ${it.amountLKR.toInt()} ${it.frequency})"
+        }.ifBlank { "None active" }
+
+        val categorySpending: List<Pair<String, Double>> = expenses.groupBy { exp ->
+            categories.find { it.id == exp.categoryId }?.name ?: "Other"
+        }.mapValues { entry -> entry.value.sumOf { it.amountLKR } }
+            .toList()
+            .sortedByDescending { it.second }
+
+        val topCategorySummary = if (categorySpending.isEmpty()) "No expense records yet"
+        else categorySpending.take(5).joinToString("\n") { (name, amount) ->
+            val pct = if (totalExpenses > 0) (amount / totalExpenses) * 100.0 else 0.0
+            "- $name: LKR %,.2f (%.1f%% of all spending)".format(amount, pct)
+        }
+
+        val recentExpensesSummary = if (expenses.isEmpty()) "No recent expenses"
+        else expenses.sortedByDescending { it.date }.take(8).joinToString("\n") { exp ->
+            val catName = categories.find { it.id == exp.categoryId }?.name ?: "Other"
+            val noteStr = if (!exp.note.isNullOrBlank()) " (${exp.note})" else ""
+            "- %s: LKR %,.2f [%s, %s]%s".format(catName, exp.amountLKR, exp.account, exp.classification, noteStr)
+        }
+
+        val incomeSourcesSummary = if (confirmedIncomes.isEmpty()) "None recorded"
+        else confirmedIncomes.groupBy { it.source }.mapValues { it.value.sumOf { inc -> inc.amountLKR } }
+            .toList().joinToString(", ") { (src, amt) ->
+                "${IncomeSource.getDisplayName(src)}: LKR %,.0f".format(amt)
+            }
 
         return """
-You are NEXUS AI, an elite, empathetic, and exceptionally intelligent personal financial copilot integrated inside the NEXUS Finance Tracker app.
-You are having a conversation with $userFirstName.
+You are NEXUS AI, an elite, empathetic, and exceptionally intelligent personal financial copilot inside the NEXUS Finance Tracker app.
+You are having a direct, engaging conversation with $userFirstName.
 
-Live Financial Ledger Context for $userFirstName:
-- Total Confirmed Income: LKR %,.2f
-- Total Recorded Expenses: LKR %,.2f
-- Net Available Balance: LKR %,.2f
-- Active Savings Retention Rate: %.1f%%
-- Emergency Living Runway: %.1f months
-- Active Savings Goals: $goalsSummary
-- Expense Categories: $categoriesSummary
-- Scheduled Recurring Bills: $billsSummary
+Live Financial Ledger for $userFirstName:
+• Confirmed Total Income: LKR %,.2f (Breakdown: $incomeSourcesSummary)
+• Total Living Expenses: LKR %,.2f
+• Current Net Capital Surplus: LKR %,.2f
+• Savings Retention Rate: %.1f%%
+• Survival Emergency Runway: %.1f months (~$runwayDays days)
+• Active Savings Goals: $goalsSummary
+• Scheduled Recurring Commitments: $billsSummary
 
-Rules:
-1. Act like a true, top-tier personal AI financial consultant. Do NOT use canned or repetitive templates. Analyze whatever the user specifically asked with depth, clarity, and personalized calculations.
-2. Language: If the user communicates in English, reply in natural, engaging, professional English. If the user writes in Sinhala or Singlish, reply naturally and fluently in Sinhala!
-3. Action Recognition: If the user asks or intends to perform an app task, you MUST append an action block at the very end of your response formatted exactly as:
-```nexus_action
-{"action":"ADD_EXPENSE","amount":2500,"category":"Groceries","account":"cash","note":"Dinner with friends"}
-```
-Supported actions:
+Top Spending Breakdown:
+$topCategorySummary
+
+Recent Transactions:
+$recentExpensesSummary
+
+System Directives:
+1. True AI Reasoning: Carefully analyze the user's specific inquiry. NEVER give canned, hardcoded, or repetitive answers. Deeply incorporate their live figures (income, expenses, surplus, top spending categories, and runway).
+2. Language: If the user asks in English, answer in polished, encouraging, highly analytical English. If the user writes in Sinhala or Singlish, answer fluently, warmly, and naturally in Sinhala!
+3. Mathematical Precision: Calculate real percentages and savings potentials based on their numbers above.
+4. App Actions: If the user wants to take an action (record expense/income, add goal, add category, recurring bill, clear alerts, navigate), append the ```nexus_action JSON block at the very end of your message. Supported actions:
 - ADD_EXPENSE: "amount" (number), "category" (string), "account" ("cash"|"card"|"secondary"), "note" (string)
 - ADD_INCOME: "amount" (number), "source" ("salary"|"freelance"|"crypto"|"adsense"|"other"), "note" (string)
 - ADD_GOAL: "amount" (number), "title" (string)
@@ -176,7 +280,7 @@ Supported actions:
 - CLEAR_ALERTS: {}
 - NAVIGATE: "route" ("dashboard"|"expenses"|"income"|"goals"|"reports"|"alerts"|"settings"|"profile"|"categories")
 
-If the user is just chatting, asking advice, checking health, asking about runway, or asking any general question, do NOT append a nexus_action block.
+If the user is asking advice, chatting, asking about wealth, or checking health, do NOT output any action block.
 """.trimIndent().format(totalIncome, totalExpenses, netBalance, savingsRate, runwayMonths)
     }
 

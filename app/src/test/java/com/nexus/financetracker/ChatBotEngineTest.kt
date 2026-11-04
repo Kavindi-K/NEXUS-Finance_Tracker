@@ -328,4 +328,39 @@ class ChatBotEngineTest {
         assertTrue(reply.contains("Elite Wealth-Building"))
         assertTrue(reply.contains("Deploy Surplus Capital"))
     }
+
+    @Test
+    fun advisorEngine_whereIsMoneyGoing_returnsExpenseBreakdown() {
+        val now = Date()
+        val incomes = listOf(
+            Income(id = "inc1", userId = "u1", amountLKR = 150000.0, status = IncomeStatus.CONFIRMED, dateReceived = now)
+        )
+        val expenses = listOf(
+            Expense(id = "exp1", userId = "u1", amountLKR = 25000.0, categoryId = "cat_food", date = now),
+            Expense(id = "exp2", userId = "u1", amountLKR = 10000.0, categoryId = "cat_transport", date = now)
+        )
+
+        val replyEng = advisorEngine.provideGeneralConsultation(
+            "Where is my money going?",
+            incomes,
+            expenses,
+            emptyList(),
+            testCategories,
+            isSinhala = false
+        )
+        assertTrue(replyEng.contains("Expense Breakdown"))
+        assertTrue(replyEng.contains("Food & Dining"))
+        assertTrue(replyEng.contains("25,000.00"))
+
+        val replySin = advisorEngine.provideGeneralConsultation(
+            "මගේ වියදම් ගියේ කොහෙද?",
+            incomes,
+            expenses,
+            emptyList(),
+            testCategories,
+            isSinhala = true
+        )
+        assertTrue(replySin.contains("වියදම් විශ්ලේෂණය"))
+        assertTrue(replySin.contains("Food & Dining"))
+    }
 }

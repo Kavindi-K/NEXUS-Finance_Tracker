@@ -30,6 +30,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexus.financetracker.ui.theme.NexusNavyPrimary
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -50,6 +54,12 @@ fun ChatBotScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var inputText by remember { mutableStateOf("") }
+    var showApiKeyDialog by remember { mutableStateOf(false) }
+    var apiKeyInput by remember { mutableStateOf("") }
+    var isVerifyingKey by remember { mutableStateOf(false) }
+    var keyErrorMessage by remember { mutableStateOf<String?>(null) }
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
     val listState = rememberLazyListState()
 
     // Auto-scroll to latest message
@@ -57,6 +67,123 @@ fun ChatBotScreen(
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size - 1)
         }
+    }
+
+    if (showApiKeyDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!isVerifyingKey) showApiKeyDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.SmartToy,
+                    contentDescription = null,
+                    tint = Color(0xFF3B82F6),
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Google Gemini AI Settings",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Connect Google Gemini 1.5 Flash Cloud LLM to enable real-time financial reasoning, personalized wealth blueprints, and deep data analysis.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = apiKeyInput,
+                        onValueChange = {
+                            apiKeyInput = it
+                            keyErrorMessage = null
+                        },
+                        label = { Text("Gemini API Key") },
+                        placeholder = { Text("Paste AIzaSy... here") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            IconButton(onClick = {
+                                clipboardManager.getText()?.text?.let { apiKeyInput = it.trim() }
+                            }) {
+                                Icon(Icons.Default.ContentPaste, contentDescription = "Paste")
+                            }
+                        }
+                    )
+                    if (keyErrorMessage != null) {
+                        Text(
+                            text = keyErrorMessage ?: "",
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey"))
+                            context.startActivity(intent)
+                        }) {
+                            Text("Get Free Key ↗", fontSize = 12.sp)
+                        }
+                        if (uiState.hasGeminiApiKey) {
+                            TextButton(onClick = {
+                                viewModel.removeGeminiApiKey()
+                                apiKeyInput = ""
+                                showApiKeyDialog = false
+                            }) {
+                                Text("Remove Key", color = Color(0xFFEF4444), fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val trimmed = apiKeyInput.trim()
+                        if (trimmed.isBlank()) {
+                            viewModel.removeGeminiApiKey()
+                            showApiKeyDialog = false
+                            return@Button
+                        }
+                        isVerifyingKey = true
+                        keyErrorMessage = null
+                        viewModel.saveGeminiApiKey(trimmed) { success, err ->
+                            isVerifyingKey = false
+                            if (success) {
+                                showApiKeyDialog = false
+                            } else {
+                                keyErrorMessage = err ?: "Failed to verify key with Gemini API"
+                            }
+                        }
+                    },
+                    enabled = !isVerifyingKey
+                ) {
+                    if (isVerifyingKey) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = Color.White
+                        )
+                    } else {
+                        Text("Save & Connect")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showApiKeyDialog = false },
+                    enabled = !isVerifyingKey
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -88,21 +215,29 @@ fun ChatBotScreen(
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (uiState.hasGeminiApiKey) Color(0xFF064E3B) else Color(0xFF451A03),
+                                modifier = Modifier.clickable { showApiKeyDialog = true }
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(7.dp)
-                                        .clip(CircleShape)
-                                        .background(if (uiState.isOnline) ChatEmerald else Color(0xFFF59E0B))
-                                )
-                                Text(
-                                    text = if (uiState.isOnline) "Smart Assistant Active" else "Offline Engine",
-                                    color = Color(0xFF94A3B8),
-                                    fontSize = 11.sp
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .clip(CircleShape)
+                                            .background(if (uiState.hasGeminiApiKey) ChatEmerald else Color(0xFFF59E0B))
+                                    )
+                                    Text(
+                                        text = if (uiState.hasGeminiApiKey) "Gemini 1.5 Flash ⚡" else "Setup Gemini Key 🔑",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                             }
                         }
                     }
@@ -117,6 +252,13 @@ fun ChatBotScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showApiKeyDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.VpnKey,
+                            contentDescription = "Gemini Key",
+                            tint = if (uiState.hasGeminiApiKey) Color(0xFF34D399) else Color(0xFFFBBF24)
+                        )
+                    }
                     IconButton(onClick = { viewModel.clearChat() }) {
                         Icon(
                             imageVector = Icons.Default.DeleteSweep,

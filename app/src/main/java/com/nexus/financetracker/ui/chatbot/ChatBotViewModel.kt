@@ -83,7 +83,19 @@ class ChatBotViewModel @Inject constructor(
                 "• ⚙️ **App Actions & Workflows:** *'Enable dark mode'*, *'Clear alerts'*, *'Go to reports'*\n\n" +
                 "I respond in English by default, but if you message me in සිංහල or Singlish, I will gladly answer in සිංහල!"
         )
-        _uiState.value = _uiState.value.copy(messages = listOf(welcomeMsg))
+        _uiState.value = _uiState.value.copy(
+            messages = listOf(welcomeMsg),
+            hasGeminiApiKey = appSettingsManager.settings.value.geminiApiKey.isNotBlank()
+        )
+
+        // Observe settings for live Gemini API Key changes
+        viewModelScope.launch {
+            appSettingsManager.settings.collect { settings ->
+                _uiState.value = _uiState.value.copy(
+                    hasGeminiApiKey = settings.geminiApiKey.isNotBlank()
+                )
+            }
+        }
 
         // Observe reactive user data strictly isolated by authenticated userId
         combine(
@@ -122,8 +134,47 @@ class ChatBotViewModel @Inject constructor(
         viewModelScope.launch {
             val isSinhala = isSinhalaLanguage(text)
 
+            // Direct in-chat Gemini API Key detection and activation
+            val apiKeyPattern = "(?:AIza[0-9A-Za-z_-]{35})".toRegex()
+            val keyMatch = apiKeyPattern.find(text)
+            if (keyMatch != null && (text.length <= 60 || text.contains("key", ignoreCase = true) || text.contains("api", ignoreCase = true) || text.contains("gemini", ignoreCase = true))) {
+                val extractedKey = keyMatch.value
+                val testResult = geminiAiService.testApiKey(extractedKey)
+                if (testResult.isSuccess) {
+                    appSettingsManager.setGeminiApiKey(extractedKey)
+                    val successReply = if (isSinhala) {
+                        "✨ **Google Gemini AI සාර්ථකව සම්බන්ධ විය! (Connected)**\n\n" +
+                            "ඔබගේ Gemini API Key එක සාර්ථකව තහවුරු කර තැන්පත් කරන ලදී.\n" +
+                            "දැන් ඔබ අසන ඕනෑම ප්‍රශ්නයක් Google Gemini 1.5 Flash Cloud AI මඟින් ඔබගේ සැබෑ ආදායම් සහ වියදම් වාර්තා ගැඹුරින් විශ්ලේෂණය කර dynamic ලෙස පිළිතුරු සපයනු ඇත. ඕනෑම දෙයක් අසන්න!"
+                    } else {
+                        "✨ **Google Gemini AI Connected Successfully!**\n\n" +
+                            "Your Gemini API Key has been verified and securely saved.\n" +
+                            "All your questions, financial advice, and spending analyses will now be dynamically powered by Google Gemini 1.5 Flash Cloud LLM. Ask me anything!"
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        messages = _uiState.value.messages + ChatMessage(sender = MessageSender.BOT, text = successReply),
+                        isTyping = false,
+                        hasGeminiApiKey = true
+                    )
+                    return@launch
+                } else {
+                    val errorMsg = testResult.exceptionOrNull()?.message ?: "Verification failed"
+                    val failReply = if (isSinhala) {
+                        "⚠️ **Gemini API Key දෝෂයක් පවතී:**\n$errorMsg\n\nකරුණාකර https://aistudio.google.com/app/apikey වෙතින් නොමිලේ ලබාගත් නිවැරදි Gemini API Key එකක් ඇතුළත් කරන්න."
+                    } else {
+                        "⚠️ **Gemini API Key Verification Error:**\n$errorMsg\n\nPlease ensure the key was generated at https://aistudio.google.com/app/apikey and retry."
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        messages = _uiState.value.messages + ChatMessage(sender = MessageSender.BOT, text = failReply),
+                        isTyping = false
+                    )
+                    return@launch
+                }
+            }
+
             // 1. Query Real Cloud AI (Gemini) with full financial context
-            val geminiResult = geminiAiService.queryGemini(
+            val currentApiKey = appSettingsManager.settings.value.geminiApiKey
+            val outcome = geminiAiService.queryGemini(
                 userMessage = text,
                 userFirstName = _uiState.value.userFirstName,
                 incomes = currentIncomes,
@@ -131,20 +182,44 @@ class ChatBotViewModel @Inject constructor(
                 goals = currentGoals,
                 categories = currentCategories,
                 recurringItems = currentRecurringItems,
-                configuredApiKey = appSettingsManager.settings.value.geminiApiKey,
+                configuredApiKey = currentApiKey,
                 isSinhala = isSinhala
             )
 
-            val botResponse = if (geminiResult != null && geminiResult.replyText.isNotBlank()) {
-                ChatMessage(
-                    sender = MessageSender.BOT,
-                    text = geminiResult.replyText,
-                    actionCard = geminiResult.actionCard
-                )
-            } else {
-                // 2. Hybrid Fallback: Use on-device dynamic engine
-                val intent = nlpParser.parse(text, currentCategories)
-                processIntent(intent, isSinhala)
+            val botResponse = when (outcome) {
+                is GeminiAiOutcome.Success -> {
+                    ChatMessage(
+                        sender = MessageSender.BOT,
+                        text = outcome.result.replyText,
+                        actionCard = outcome.result.actionCard
+                    )
+                }
+                is GeminiAiOutcome.ApiKeyInvalid -> {
+                    // Fallback to local on-device advisor and gently explain key issue
+                    val intent = nlpParser.parse(text, currentCategories)
+                    val localMsg = processIntent(intent, isSinhala)
+                    val note = if (isSinhala) {
+                        "\n\n---\n⚠️ *Google Gemini Key දෝෂයක් පවතී (${outcome.code}): කරුණාකර Settings වෙතින් නිවැරදි Gemini API Key එකක් ඇතුළත් කරන්න.*"
+                    } else {
+                        "\n\n---\n⚠️ *Google Gemini API Key Issue (${outcome.code}): Please update your key via Settings.*"
+                    }
+                    localMsg.copy(text = localMsg.text + note)
+                }
+                is GeminiAiOutcome.ApiKeyMissing, is GeminiAiOutcome.NetworkError -> {
+                    // Hybrid Fallback: Use on-device dynamic engine
+                    val intent = nlpParser.parse(text, currentCategories)
+                    val localMsg = processIntent(intent, isSinhala)
+                    if (currentApiKey.isBlank() && (text.contains("gemini", ignoreCase = true) || text.contains("ai", ignoreCase = true) || text.contains("hardcode", ignoreCase = true) || text.contains("rich", ignoreCase = true))) {
+                        val note = if (isSinhala) {
+                            "\n\n---\n💡 *සැබෑ Google Gemini 1.5 Flash Cloud AI සක්‍රීය කිරීමට, ඔබගේ නොමිලේ ලබාගත හැකි Gemini API Key එක මෙහි paste කරන්න (හෝ ඉහළ 🔑 icon එක click කරන්න).*"
+                        } else {
+                            "\n\n---\n💡 *To power responses directly with Google Gemini 1.5 Flash Cloud LLM, paste your free Gemini API key here or tap the 🔑 icon at the top.*"
+                        }
+                        localMsg.copy(text = localMsg.text + note)
+                    } else {
+                        localMsg
+                    }
+                }
             }
 
             _uiState.value = _uiState.value.copy(
@@ -152,6 +227,25 @@ class ChatBotViewModel @Inject constructor(
                 isTyping = false
             )
         }
+    }
+
+    fun saveGeminiApiKey(key: String, onComplete: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            val trimmed = key.trim()
+            val testResult = geminiAiService.testApiKey(trimmed)
+            if (testResult.isSuccess) {
+                appSettingsManager.setGeminiApiKey(trimmed)
+                _uiState.value = _uiState.value.copy(hasGeminiApiKey = true)
+                onComplete(true, null)
+            } else {
+                onComplete(false, testResult.exceptionOrNull()?.message ?: "API Key verification failed")
+            }
+        }
+    }
+
+    fun removeGeminiApiKey() {
+        appSettingsManager.setGeminiApiKey("")
+        _uiState.value = _uiState.value.copy(hasGeminiApiKey = false)
     }
 
     private fun isSinhalaLanguage(text: String): Boolean {

@@ -941,6 +941,12 @@ class FinancialAdvisorEngine @Inject constructor() {
         val formattedRunway = "%.1f".format(runwayMonths)
         val daysCount = (runwayMonths * 30).toInt()
 
+        val topCategoryList: List<Pair<String, Double>> = expenses.groupBy { exp ->
+            categories.find { it.id == exp.categoryId }?.name ?: "Other"
+        }.mapValues { entry -> entry.value.sumOf { it.amountLKR } }
+            .toList()
+            .sortedByDescending { it.second }
+
         val lower = query.lowercase().trim()
 
         val sb = StringBuilder()
@@ -963,7 +969,29 @@ class FinancialAdvisorEngine @Inject constructor() {
                     sb.append("3. **Multiple Income Streams:** ඔබේ වත්මන් ආදායමට අමතරව තවත් Passive Income මාර්ග ගොඩනගන්න.")
                 }
 
-                // 2. Savings & Expense Cutting
+                // 2. Spending Breakdown & Categories ("where", "spending", "වියදම්", "කොහෙද", "ගියේ")
+                lower.contains("where") || lower.contains("spending") || lower.contains("expense") ||
+                    lower.contains("වියදම්") || lower.contains("කොහෙද") || lower.contains("ගියේ") || lower.contains("මොනවටද") -> {
+                    sb.append("📊 **වියදම් විශ්ලේෂණය සහ ප්‍රධාන කාණ්ඩ:**\n\n")
+                    if (topCategoryList.isEmpty()) {
+                        sb.append("දැනට කිසිදු වියදමක් වාර්තා වී නොමැත. මුළු වියදම: $formattedSpent\n")
+                    } else {
+                        sb.append("ඔබගේ මුළු වියදම **$formattedSpent** වන අතර ප්‍රධාන කාණ්ඩ මෙසේය:\n")
+                        topCategoryList.take(3).forEachIndexed { idx, (catName, amt) ->
+                            val pct = if (totalSpent > 0) (amt / totalSpent) * 100.0 else 0.0
+                            val formattedAmt = "LKR %,.2f".format(amt)
+                            val formattedPct = "%.1f%%".format(pct)
+                            sb.append("${idx + 1}. **$catName:** $formattedAmt ($formattedPct)\n")
+                        }
+                        val top1 = topCategoryList.first()
+                        val top1Pct = if (totalSpent > 0) (top1.second / totalSpent) * 100.0 else 0.0
+                        val potentialSaving = top1.second * 0.15
+                        val formattedSaving = "LKR %,.2f".format(potentialSaving)
+                        sb.append("\n💡 **Optimization Tip:** ඔබේ වැඩිම වියදම සිදුවන්නේ **${top1.first}** (${"%.1f%%".format(top1Pct)}) සඳහායි. මෙය 15% කින් අඩු කරගතහොත් ඔබට මසකට තවත් **$formattedSaving** ක මුදලක් ඉතිරි කරගත හැක!")
+                    }
+                }
+
+                // 3. Savings & Expense Cutting
                 lower.contains("save") || lower.contains("saving") || lower.contains("cut") || lower.contains("ඉතිරි") || lower.contains("අඩු කරන්න") -> {
                     sb.append("💡 **ඉතිරිකිරීම් ඉහළ නැංවීමේ උපායමාර්ග:**\n\n")
                     sb.append("• ඔබ මේ වන විටත් ඔබේ ආදායමෙන් **$formattedRate** ක් ඉතිරි කරමින් සිටියි ($formattedSavings).\n\n")
@@ -1027,7 +1055,29 @@ class FinancialAdvisorEngine @Inject constructor() {
                     sb.append("3. **Diversify & Automate:** Set automated monthly transfers into your Savings Goals right after salary arrival.")
                 }
 
-                // 2. Savings & Expense Cutting
+                // 2. Spending Breakdown & Categories ("where", "spending", "breakdown", "category")
+                lower.contains("where") || lower.contains("breakdown") || lower.contains("category") ||
+                    lower.contains("categories") || lower.contains("spent") -> {
+                    sb.append("📊 **Expense Breakdown & Category Intelligence:**\n\n")
+                    if (topCategoryList.isEmpty()) {
+                        sb.append("No expenses have been recorded yet. Total burn: $formattedSpent\n")
+                    } else {
+                        sb.append("Your total recorded burn is **$formattedSpent**. Primary allocation:\n")
+                        topCategoryList.take(3).forEachIndexed { idx, (catName, amt) ->
+                            val pct = if (totalSpent > 0) (amt / totalSpent) * 100.0 else 0.0
+                            val formattedAmt = "LKR %,.2f".format(amt)
+                            val formattedPct = "%.1f%%".format(pct)
+                            sb.append("${idx + 1}. **$catName:** $formattedAmt ($formattedPct)\n")
+                        }
+                        val top1 = topCategoryList.first()
+                        val top1Pct = if (totalSpent > 0) (top1.second / totalSpent) * 100.0 else 0.0
+                        val potentialSaving = top1.second * 0.15
+                        val formattedSaving = "LKR %,.2f".format(potentialSaving)
+                        sb.append("\n💡 **Actionable Optimization:** Your largest expense stream is **${top1.first}** (${"%.1f%%".format(top1Pct)}). Trimming this discretionary drain by just 15% captures **$formattedSaving** directly into your savings every month!")
+                    }
+                }
+
+                // 3. Savings & Expense Cutting
                 lower.contains("save") || lower.contains("saving") || lower.contains("cut") || lower.contains("reduce") || lower.contains("spending") -> {
                     sb.append("💡 **Strategic Wealth Optimization Blueprint:**\n\n")
                     sb.append("• Your current active savings retention rate is **$formattedRate** (Surplus: $formattedSavings).\n\n")
