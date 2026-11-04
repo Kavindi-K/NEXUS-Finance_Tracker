@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import com.nexus.financetracker.ui.common.DiscretionaryEstimationVsActualLineChart
 import androidx.compose.material3.*
@@ -227,6 +229,21 @@ fun ReportsScreen(
                         )
                     }
                 },
+                actions = {
+                    val context = LocalContext.current
+                    IconButton(
+                        onClick = {
+                            val selected = uiState.selectedMonthLabel.ifBlank { "All Time" }
+                            viewModel.downloadMonthlyReport(context, selected)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Download Monthly Report",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -356,6 +373,8 @@ fun ReportsScreen(
                         }
                     }
 
+
+
                     Spacer(modifier = Modifier.height(14.dp))
 
                     val incomeAmount = currentReport?.totalIncomeLKR ?: 0.0
@@ -484,6 +503,8 @@ fun ReportsScreen(
                             )
                         }
                     }
+
+
 
                     Spacer(modifier = Modifier.height(14.dp))
 
@@ -811,6 +832,8 @@ fun ReportsScreen(
                         }
                     }
 
+
+
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val sources = currentReport?.incomeSources.orEmpty()
@@ -926,6 +949,8 @@ fun ReportsScreen(
                             )
                         }
                     }
+
+
 
                     Spacer(modifier = Modifier.height(16.dp))
 

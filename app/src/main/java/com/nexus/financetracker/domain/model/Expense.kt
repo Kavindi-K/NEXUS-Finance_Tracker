@@ -55,6 +55,63 @@ data class Expense(
         if (classification !in ExpenseClassification.ALL) return "Invalid classification: $classification"
         return null
     }
+
+    @get:Exclude
+    val isRecurring: Boolean
+        get() = recurringItemId?.startsWith("rec:") == true
+
+    @get:Exclude
+    val recurringFrequency: String?
+        get() = recurringItemId?.takeIf { it.startsWith("rec:") }?.split(":")?.getOrNull(1)
+
+    @get:Exclude
+    val recurringDuration: Int?
+        get() = recurringItemId?.takeIf { it.startsWith("rec:") }?.split(":")?.getOrNull(2)?.toIntOrNull()?.takeIf { it > 0 }
+
+    @get:Exclude
+    val recurringDurationUnit: String?
+        get() = recurringItemId?.takeIf { it.startsWith("rec:") }?.split(":")?.getOrNull(3)
+
+    @get:Exclude
+    val recurrenceIndex: Int?
+        get() = recurringItemId?.takeIf { it.startsWith("rec:") }?.split(":")?.getOrNull(4)?.toIntOrNull()
+
+    @get:Exclude
+    val recurringSeriesId: String?
+        get() = recurringItemId?.takeIf { it.startsWith("rec:") }?.split(":")?.getOrNull(5)
+
+    @Exclude
+    fun getRecurringProgressText(): String? {
+        if (!isRecurring) return null
+        val freq = recurringFrequency?.replaceFirstChar { it.uppercase() } ?: "Monthly"
+        val dur = recurringDuration
+        val idx = recurrenceIndex ?: 1
+        return if (dur != null && dur > 0) {
+            val left = (dur - idx).coerceAtLeast(0)
+            if (left > 0) {
+                "Recurring ($idx of $dur · $left left)"
+            } else {
+                "Recurring (Final · $idx of $dur)"
+            }
+        } else {
+            "Recurring ($freq · Ongoing)"
+        }
+    }
+
+    companion object {
+        fun buildRecurringItemId(
+            frequency: String,
+            duration: Int?,
+            unit: String?,
+            index: Int,
+            seriesId: String
+        ): String {
+            val freqClean = frequency.lowercase()
+            val durPart = duration?.takeIf { it > 0 }?.toString() ?: "0"
+            val unitClean = (unit ?: "months").lowercase()
+            return "rec:$freqClean:$durPart:$unitClean:$index:$seriesId"
+        }
+    }
 }
 
 object ExpenseAccount {

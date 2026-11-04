@@ -330,10 +330,14 @@ fun ExpenseScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     DetailRow(label = "Date & Time", value = fullDateTimeFormatter.format(expense.date))
                     val isBackdated = remember(expense) {
-                        val calDate = Calendar.getInstance().apply { time = expense.date }
-                        val calCreated = Calendar.getInstance().apply { time = expense.createdAt }
-                        calDate.get(Calendar.YEAR) != calCreated.get(Calendar.YEAR) ||
-                            calDate.get(Calendar.DAY_OF_YEAR) != calCreated.get(Calendar.DAY_OF_YEAR)
+                        !expense.isRecurring && run {
+                            val calDate = Calendar.getInstance().apply { time = expense.date }
+                            val calCreated = Calendar.getInstance().apply { time = expense.createdAt }
+                            calDate.before(calCreated) && (
+                                calDate.get(Calendar.YEAR) != calCreated.get(Calendar.YEAR) ||
+                                calDate.get(Calendar.DAY_OF_YEAR) != calCreated.get(Calendar.DAY_OF_YEAR)
+                            )
+                        }
                     }
                     if (isBackdated) {
                         DetailRow(
@@ -346,7 +350,12 @@ fun ExpenseScreen(
                     if (!expense.note.isNullOrBlank()) {
                         DetailRow(label = "Note", value = expense.note)
                     }
-                    if (!expense.recurringItemId.isNullOrBlank()) {
+                    if (expense.isRecurring) {
+                        DetailRow(
+                            label = "Recurring Commitment",
+                            value = expense.getRecurringProgressText() ?: "Recurring schedule"
+                        )
+                    } else if (!expense.recurringItemId.isNullOrBlank()) {
                         DetailRow(label = "Recurring Schedule", value = "Linked to recurring schedule")
                     }
                 }
@@ -401,27 +410,75 @@ fun ExpenseScreen(
     expenseToDelete?.let { expense ->
         val catName = resolveCategoryName(expense.categoryId, uiState.categoriesMap)
 
-        AlertDialog(
-            onDismissRequest = { expenseToDelete = null },
-            title = { Text("Delete Expense") },
-            text = { Text("Are you sure you want to delete this expense of LKR %,.2f for $catName? This will be removed from your records.".format(expense.amountLKR)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteExpense(expense.id)
-                        expenseToDelete = null
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Delete", fontWeight = FontWeight.Bold)
+        if (expense.isRecurring) {
+            AlertDialog(
+                onDismissRequest = { expenseToDelete = null },
+                title = { Text("Delete Recurring Expense") },
+                text = {
+                    Text(
+                        "This expense is part of an active recurring series (${expense.getRecurringProgressText()}).\n\nWould you like to cancel all remaining future occurrences or only delete this single entry?"
+                    )
+                },
+                confirmButton = {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.deleteRecurringSeries(expense, deleteFutureOnly = true)
+                                expenseToDelete = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Cancel Remaining Series", fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.deleteExpense(expense.id)
+                                expenseToDelete = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Delete This Month Only")
+                        }
+
+                        TextButton(
+                            onClick = { expenseToDelete = null },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Keep Expense")
+                        }
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { expenseToDelete = null }) {
-                    Text("Cancel")
+            )
+        } else {
+            AlertDialog(
+                onDismissRequest = { expenseToDelete = null },
+                title = { Text("Delete Expense") },
+                text = { Text("Are you sure you want to delete this expense of LKR %,.2f for $catName? This will be removed from your records.".format(expense.amountLKR)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.deleteExpense(expense.id)
+                            expenseToDelete = null
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Delete", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { expenseToDelete = null }) {
+                        Text("Cancel")
+                    }
                 }
-            }
-        )
+            )
+        }
     }
 
     // Category Management Sheet
@@ -1595,13 +1652,6 @@ private fun ExpenseItemRow(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val isBackdated = remember(expense) {
-        val calDate = Calendar.getInstance().apply { time = expense.date }
-        val calCreated = Calendar.getInstance().apply { time = expense.createdAt }
-        calDate.get(Calendar.YEAR) != calCreated.get(Calendar.YEAR) ||
-            calDate.get(Calendar.DAY_OF_YEAR) != calCreated.get(Calendar.DAY_OF_YEAR)
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1631,40 +1681,15 @@ private fun ExpenseItemRow(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Category Name + Backdated Badge (Side-by-side)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = categoryName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-
-                if (isBackdated) {
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
-                    ) {
-                        Text(
-                            text = "Backdated",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
-                        )
-                    }
-                }
-            }
+            // Category Name
+            Text(
+                text = categoryName,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
 
             if (!expense.note.isNullOrBlank()) {
                 Text(
@@ -1715,18 +1740,36 @@ private fun ExpenseItemRow(
                 }
 
                 if (expense.classification == ExpenseClassification.COMMITTED) {
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFFFEF3C7)
-                    ) {
-                        Text(
-                            text = "Fixed",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF92400E),
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                    val recurringText = expense.getRecurringProgressText()
+                    if (recurringText != null) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFEFF6FF),
+                            border = BorderStroke(0.5.dp, Color(0xFFBFDBFE))
+                        ) {
+                            Text(
+                                text = recurringText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF1D4ED8),
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFFEF3C7)
+                        ) {
+                            Text(
+                                text = "Fixed",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF92400E),
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
             }
