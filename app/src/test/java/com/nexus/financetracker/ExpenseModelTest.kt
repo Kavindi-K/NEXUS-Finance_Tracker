@@ -159,6 +159,93 @@ class ExpenseModelTest {
         assertEquals("Secondary Account", ExpenseAccount.getDisplayName(ExpenseAccount.SECONDARY))
 
         assertEquals("Committed (Fixed)", ExpenseClassification.getDisplayName(ExpenseClassification.COMMITTED))
-        assertEquals("Discretionary (Flexible)", ExpenseClassification.getDisplayName(ExpenseClassification.DISCRETIONARY))
+        assertEquals("Discretionary (Flexible)", ExpenseClassification.DISCRETIONARY.let { ExpenseClassification.getDisplayName(it) })
+    }
+
+    @Test
+    fun category_durationHelper_formatsAndParsesCorrectly() {
+        val durString = com.nexus.financetracker.domain.model.Category.buildDurationString(6, "months")
+        assertEquals("dur:6:months", durString)
+
+        val cat = com.nexus.financetracker.domain.model.Category(
+            id = "cat_netflix",
+            userId = testUserId,
+            name = "Netflix",
+            classification = ExpenseClassification.COMMITTED,
+            recurringFrequency = "monthly",
+            mergingInto = durString
+        )
+        assertEquals(6, cat.recurringDuration)
+        assertEquals("months", cat.recurringDurationUnit)
+        assertEquals("6 Months", cat.recurringDurationText)
+
+        val map = cat.toFirestoreMap()
+        assertEquals("dur:6:months", map["mergingInto"])
+        assertEquals("monthly", map["recurringFrequency"])
+    }
+
+    @Test
+    fun expense_recurringMetadata_formatsAndParsesProgressCorrectly() {
+        val recurringId = Expense.buildRecurringItemId(
+            frequency = "monthly",
+            duration = 6,
+            unit = "months",
+            index = 2,
+            seriesId = "ser_abc123"
+        )
+        assertEquals("rec:monthly:6:months:2:ser_abc123", recurringId)
+
+        val expense = Expense(
+            id = "exp_002",
+            userId = testUserId,
+            amountLKR = 1500.0,
+            categoryId = "cat_netflix",
+            account = ExpenseAccount.CARD,
+            classification = ExpenseClassification.COMMITTED,
+            date = Date(),
+            recurringItemId = recurringId
+        )
+
+        assertTrue(expense.isRecurring)
+        assertEquals("monthly", expense.recurringFrequency)
+        assertEquals(6, expense.recurringDuration)
+        assertEquals("months", expense.recurringDurationUnit)
+        assertEquals(2, expense.recurrenceIndex)
+        assertEquals("ser_abc123", expense.recurringSeriesId)
+        assertEquals("Recurring (2 of 6 · 4 left)", expense.getRecurringProgressText())
+
+        // Verify Firestore map conforms to validExpense whitelist
+        val map = expense.toFirestoreMap()
+        assertEquals(recurringId, map["recurringItemId"])
+        val allowedKeys = setOf(
+            "userId", "amountLKR", "categoryId", "account",
+            "classification", "note", "date", "createdAt", "recurringItemId"
+        )
+        assertTrue(allowedKeys.containsAll(map.keys))
+    }
+
+    @Test
+    fun expense_ongoingRecurring_formatsProgressCorrectly() {
+        val recurringId = Expense.buildRecurringItemId(
+            frequency = "monthly",
+            duration = null,
+            unit = "months",
+            index = 1,
+            seriesId = "ser_ongoing_1"
+        )
+        val expense = Expense(
+            id = "exp_ongoing",
+            userId = testUserId,
+            amountLKR = 5000.0,
+            categoryId = "cat_rent",
+            account = ExpenseAccount.CARD,
+            classification = ExpenseClassification.COMMITTED,
+            date = Date(),
+            recurringItemId = recurringId
+        )
+
+        assertTrue(expense.isRecurring)
+        assertNull(expense.recurringDuration)
+        assertEquals("Recurring (Monthly · Ongoing)", expense.getRecurringProgressText())
     }
 }

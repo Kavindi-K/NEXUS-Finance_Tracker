@@ -322,7 +322,7 @@ class GoalCalculationTest {
         assertEquals(0.0, calculation.requiredMonthlySavingsLKR, 0.0)
         assertTrue(calculation.isCompleted)
         assertEquals(1.0f, calculation.progressFraction)
-        assertTrue(calculation.progressPercentage >= 100.0)
+        assertEquals(100.0, calculation.progressPercentage, 0.001)
     }
 
     @Test

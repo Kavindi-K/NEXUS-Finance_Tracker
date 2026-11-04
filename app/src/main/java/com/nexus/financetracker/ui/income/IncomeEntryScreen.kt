@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CurrencyBitcoin
 import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,6 +60,14 @@ fun IncomeEntryScreen(
         }
     }
 
+    // Auto-fetch live market exchange rate whenever AdSense (USD) is chosen
+    val isAdSense = formState.source == IncomeSource.ADSENSE
+    LaunchedEffect(isAdSense) {
+        if (isAdSense && !formState.isEditMode) {
+            viewModel.fetchLiveExchangeRate("USD", formState.dateReceived)
+        }
+    }
+
     val calendar = remember { Calendar.getInstance() }
 
     fun showDatePicker(initialDate: Date, onDateSelected: (Date) -> Unit) {
@@ -76,7 +85,6 @@ fun IncomeEntryScreen(
         ).show()
     }
 
-    val isAdSense = formState.source == IncomeSource.ADSENSE
     val isSalary = formState.source == IncomeSource.SALARY
     val isFreelance = formState.source == IncomeSource.FREELANCE
     val isCrypto = formState.source == IncomeSource.CRYPTO
@@ -321,7 +329,7 @@ fun IncomeEntryScreen(
                             )
                         }
                         Text(
-                            text = "AdSense is paid in USD and converted to LKR at transfer. The original USD amount and rate are stored so history never shifts.",
+                            text = "Earnings are received in USD and converted to LKR. The exchange rate is locked to your transfer date for accurate financial records.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -331,9 +339,35 @@ fun IncomeEntryScreen(
                             onValueChange = viewModel::onExchangeRateChanged,
                             label = { Text("Exchange Rate to LKR") },
                             leadingIcon = { Icon(Icons.Default.CurrencyExchange, contentDescription = null) },
+                            trailingIcon = {
+                                if (formState.isFetchingRate) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    IconButton(onClick = { viewModel.fetchLiveExchangeRate(formState.currency, formState.dateReceived) }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = "Refresh rate for selected date",
+                                            tint = if (formState.isRateLive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.fillMaxWidth(),
-                            supportingText = { Text("1 USD = ${formState.exchangeRate} LKR") }
+                            supportingText = {
+                                if (formState.isFetchingRate) {
+                                    Text("Fetching rate for ${dateFormatter.format(formState.dateReceived)}...", color = MaterialTheme.colorScheme.primary)
+                                } else if (formState.isRateLive) {
+                                    Text("Auto-fetched for ${dateFormatter.format(formState.dateReceived)} (1 USD = ${formState.exchangeRate} LKR)", color = Color(0xFF15803D))
+                                } else {
+                                    Text("1 USD = ${formState.exchangeRate} LKR (editable)")
+                                }
+                            }
                         )
                     }
                 }
@@ -439,14 +473,14 @@ fun IncomeEntryScreen(
                     .onFocusChanged { focusState ->
                         if (isAmountFocused && !focusState.isFocused) {
                             formState.amountOriginal.toDoubleOrNull()?.let { num ->
-                                viewModel.onAmountOriginalChanged(String.format(Locale.US, "%.2f", num))
+                                viewModel.onAmountOriginalChanged(String.format(Locale.US, "%.2f", kotlin.math.abs(num)))
                             }
                         }
                         isAmountFocused = focusState.isFocused
                     },
                 label = { Text(amountLabel) },
-                prefix = { Text(if (isAdSense) "$ " else "LKR ") },
-                placeholder = { Text(if (isCrypto && formState.isCryptoLoss) "-0.00" else "0.00") },
+                prefix = { Text(if (isAdSense) "$ " else if (isCrypto && formState.isCryptoLoss) "- LKR " else "LKR ") },
+                placeholder = { Text("0.00") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 supportingText = {
                     formState.computedLkrAmount?.let { lkr ->

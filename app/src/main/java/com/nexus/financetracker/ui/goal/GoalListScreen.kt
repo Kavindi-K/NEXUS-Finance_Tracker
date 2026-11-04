@@ -14,7 +14,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
@@ -206,11 +210,11 @@ fun GoalListScreen(
                         Card(
                             onClick = { showPrioritySheet = true },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
+                            shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = NavyCardBg),
                             border = BorderStroke(1.dp, NavyCardBorder)
                         ) {
-                            Column(modifier = Modifier.padding(18.dp)) {
+                            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -223,7 +227,8 @@ fun GoalListScreen(
                                         Icon(
                                             imageVector = Icons.Default.Savings,
                                             contentDescription = null,
-                                            tint = GoalNavyTextSubtle
+                                            tint = GoalNavyTextSubtle,
+                                            modifier = Modifier.size(20.dp)
                                         )
                                         Text(
                                             text = "Savings Goals",
@@ -253,7 +258,7 @@ fun GoalListScreen(
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
 
                                 Text(
                                     text = "${uiState.goals.size} ${if (uiState.goals.size == 1) "Goal" else "Goals"}",
@@ -261,51 +266,6 @@ fun GoalListScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                // In small display: how many high, medium, and low priority ones (tap to filter)
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    val isHighSelected = uiState.selectedPriority.equals(GoalPriority.HIGH, ignoreCase = true)
-                                    PriorityPill(
-                                        count = uiState.highPriorityCount,
-                                        label = "High",
-                                        dotColor = Color(0xFFEF4444),
-                                        containerColor = if (isHighSelected) Color(0x66EF4444) else Color(0x26EF4444),
-                                        borderColor = if (isHighSelected) Color(0xFFEF4444) else Color(0x4DE57373),
-                                        onClick = {
-                                            viewModel.onPrioritySelected(if (isHighSelected) null else GoalPriority.HIGH)
-                                        }
-                                    )
-
-                                    val isMedSelected = uiState.selectedPriority.equals(GoalPriority.MEDIUM, ignoreCase = true)
-                                    PriorityPill(
-                                        count = uiState.mediumPriorityCount,
-                                        label = "Medium",
-                                        dotColor = Color(0xFFF59E0B),
-                                        containerColor = if (isMedSelected) Color(0x66F59E0B) else Color(0x26F59E0B),
-                                        borderColor = if (isMedSelected) Color(0xFFF59E0B) else Color(0x4DFB8C00),
-                                        onClick = {
-                                            viewModel.onPrioritySelected(if (isMedSelected) null else GoalPriority.MEDIUM)
-                                        }
-                                    )
-
-                                    val isLowSelected = uiState.selectedPriority.equals(GoalPriority.LOW, ignoreCase = true)
-                                    PriorityPill(
-                                        count = uiState.lowPriorityCount,
-                                        label = "Low",
-                                        dotColor = Color(0xFF94A3B8),
-                                        containerColor = if (isLowSelected) Color(0x6694A3B8) else Color(0x2694A3B8),
-                                        borderColor = if (isLowSelected) Color(0xFF94A3B8) else Color(0x4D94A3B8),
-                                        onClick = {
-                                            viewModel.onPrioritySelected(if (isLowSelected) null else GoalPriority.LOW)
-                                        }
-                                    )
-                                }
                             }
                         }
 
@@ -377,6 +337,128 @@ fun GoalListScreen(
                                         selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
                                 )
+                            }
+                        }
+
+                        // Modern Sleek Sort Control Bar (Matching Expenses and Income Dashboard)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Sort,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Sort by",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val isDateActive = uiState.selectedSortOrder == GoalSortOrder.DATE_DESC || uiState.selectedSortOrder == GoalSortOrder.DATE_ASC
+                                val isDateDesc = uiState.selectedSortOrder == GoalSortOrder.DATE_DESC
+
+                                Surface(
+                                    onClick = {
+                                        if (isDateActive) {
+                                            viewModel.onSortOrderSelected(if (isDateDesc) GoalSortOrder.DATE_ASC else GoalSortOrder.DATE_DESC)
+                                        } else {
+                                            viewModel.onSortOrderSelected(GoalSortOrder.DATE_DESC)
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, if (isDateActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.outlineVariant)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CalendarToday,
+                                            contentDescription = null,
+                                            tint = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Text(
+                                            text = if (isDateActive) {
+                                                if (isDateDesc) "Date (Newest)" else "Date (Oldest)"
+                                            } else "Date",
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isDateActive) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isDateActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        if (isDateActive) {
+                                            Icon(
+                                                imageVector = if (isDateDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                val isPriorityActive = uiState.selectedSortOrder == GoalSortOrder.PRIORITY_DESC || uiState.selectedSortOrder == GoalSortOrder.PRIORITY_ASC
+                                val isPriorityDesc = uiState.selectedSortOrder == GoalSortOrder.PRIORITY_DESC
+
+                                Surface(
+                                    onClick = {
+                                        if (isPriorityActive) {
+                                            viewModel.onSortOrderSelected(if (isPriorityDesc) GoalSortOrder.PRIORITY_ASC else GoalSortOrder.PRIORITY_DESC)
+                                        } else {
+                                            viewModel.onSortOrderSelected(GoalSortOrder.PRIORITY_DESC)
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = if (isPriorityActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, if (isPriorityActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.outlineVariant)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Flag,
+                                            contentDescription = null,
+                                            tint = if (isPriorityActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Text(
+                                            text = if (isPriorityActive) {
+                                                if (isPriorityDesc) "Priority (High)" else "Priority (Low)"
+                                            } else "Priority",
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isPriorityActive) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isPriorityActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        if (isPriorityActive) {
+                                            Icon(
+                                                imageVector = if (isPriorityDesc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -844,15 +926,20 @@ private fun GoalCard(
                 }
             }
 
-            // 2. Financial Summary: Target Amount & Estimated Current Savings (FR15)
+            // 2. Financial Summary: Target Amount & Achieved Amount (FR15)
             val currentSavings = calculation?.estimatedCurrentSavingsLKR ?: goal.openingSavingsLKR
+            val achievedAmount = if (calculation?.isCompleted == true || currentSavings >= goal.targetAmountLKR) {
+                goal.targetAmountLKR
+            } else {
+                maxOf(0.0, currentSavings)
+            }
             val remaining = calculation?.remainingAmountLKR ?: maxOf(0.0, goal.targetAmountLKR - goal.openingSavingsLKR)
             val progressFraction = calculation?.progressFraction ?: if (goal.targetAmountLKR > 0) {
                 (goal.openingSavingsLKR / goal.targetAmountLKR).toFloat().coerceIn(0f, 1f)
             } else 0f
-            val progressPercent = calculation?.progressPercentage ?: if (goal.targetAmountLKR > 0) {
-                ((goal.openingSavingsLKR / goal.targetAmountLKR) * 100.0).coerceAtLeast(0.0)
-            } else 0.0
+            val progressPercent = (calculation?.progressPercentage ?: if (goal.targetAmountLKR > 0) {
+                ((goal.openingSavingsLKR / goal.targetAmountLKR) * 100.0)
+            } else 0.0).coerceIn(0.0, 100.0)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -876,14 +963,14 @@ private fun GoalCard(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "Estimated Savings",
+                        text = "Achieved Amount",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "LKR ${currencyFormat.format(currentSavings)}",
+                        text = "LKR ${currencyFormat.format(achievedAmount)}",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -916,8 +1003,15 @@ private fun GoalCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val progressPercentText = if (progressPercent >= 100.0 || calculation?.isCompleted == true) {
+                        "100% Complete"
+                    } else if (progressPercent % 1.0 == 0.0) {
+                        "${progressPercent.toInt()}% Complete"
+                    } else {
+                        "%.1f%% Complete".format(progressPercent)
+                    }
                     Text(
-                        text = "%.1f%% Complete".format(progressPercent),
+                        text = progressPercentText,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface

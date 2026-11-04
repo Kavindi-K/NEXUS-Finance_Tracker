@@ -75,3 +75,4 @@ val SavingsBlue = NexusNavyPrimary
 val SavingsBlueContainer = NexusNavyContainer
 val PendingAmber = StatusPending
 val PendingAmberContainer = StatusPendingContainer
+val TextMutedSlate = Color(0xFF64748B)

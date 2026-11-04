@@ -54,4 +54,33 @@ data class Category(
         if (name.trim().length > 40) return "Category name cannot exceed 40 characters"
         return null
     }
+
+    @get:Exclude
+    val recurringDuration: Int?
+        get() = mergingInto?.takeIf { it.startsWith("dur:") }?.split(":")?.getOrNull(1)?.toIntOrNull()
+
+    @get:Exclude
+    val recurringDurationUnit: String?
+        get() = mergingInto?.takeIf { it.startsWith("dur:") }?.split(":")?.getOrNull(2)
+
+    @get:Exclude
+    val recurringDurationText: String?
+        get() {
+            val dur = recurringDuration ?: return null
+            val unit = recurringDurationUnit ?: "months"
+            val unitLabel = when (unit.lowercase()) {
+                "weeks" -> if (dur == 1) "Week" else "Weeks"
+                "years" -> if (dur == 1) "Year" else "Years"
+                else -> if (dur == 1) "Month" else "Months"
+            }
+            return "$dur $unitLabel"
+        }
+
+    companion object {
+        fun buildDurationString(duration: Int?, unit: String?): String? {
+            if (duration == null || duration <= 0) return null
+            val cleanUnit = (unit ?: "months").lowercase()
+            return "dur:$duration:$cleanUnit"
+        }
+    }
 }

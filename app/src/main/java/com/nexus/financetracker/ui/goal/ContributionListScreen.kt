@@ -7,11 +7,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Flag
@@ -31,6 +36,9 @@ import com.nexus.financetracker.domain.model.Contribution
 import com.nexus.financetracker.domain.model.Goal
 import com.nexus.financetracker.domain.model.GoalPriority
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 /**
@@ -54,6 +62,36 @@ fun ContributionListScreen(
     var contributionToDelete by remember { mutableStateOf<Contribution?>(null) }
     var contributionForAllocation by remember { mutableStateOf<Contribution?>(null) }
 
+    val monthLabelFormat = remember { SimpleDateFormat("MMMM yyyy", Locale.US) }
+    val currentMonthLabel = remember { monthLabelFormat.format(Date()) }
+    var selectedMonthLabel by remember { mutableStateOf(currentMonthLabel) }
+    var isPeriodAllTime by remember { mutableStateOf(true) }
+    var showMonthDialog by remember { mutableStateOf(false) }
+
+    val rollingMonths = remember {
+        (0 downTo -23).map { offset ->
+            val c = Calendar.getInstance().apply { add(Calendar.MONTH, offset) }
+            monthLabelFormat.format(c.time)
+        }
+    }
+
+    val contributionMonths = remember(contributions) {
+        contributions.mapNotNull { item ->
+            val label = item.monthLabel.trim().ifBlank { monthLabelFormat.format(item.createdAt) }
+            label.takeIf { it.isNotBlank() }
+        }
+    }
+
+    val availableMonths = remember(rollingMonths, contributionMonths) {
+        (rollingMonths + contributionMonths).distinct().sortedByDescending { label ->
+            try {
+                monthLabelFormat.parse(label)?.time ?: 0L
+            } catch (e: Exception) {
+                0L
+            }
+        }
+    }
+
     val currencyFormat = remember {
         NumberFormat.getNumberInstance(Locale.US).apply {
             minimumFractionDigits = 2
@@ -61,19 +99,215 @@ fun ContributionListScreen(
         }
     }
 
-    val availableContributions = contributions.filter { !it.isAllocated }
-    val totalAvailableLKR = availableContributions.sumOf { it.amountLKR }
-    val totalAllocatedLKR = contributions.filter { it.isAllocated }.sumOf { it.amountLKR }
+    // Robust month matching: checks exact label, createdAt date, or parsed month & year
+    fun matchesContributionMonth(contribution: Contribution, targetMonth: String): Boolean {
+        val raw = contribution.monthLabel.trim()
+        if (raw.equals(targetMonth, ignoreCase = true)) return true
 
-    // Active goals sorted by Priority Level: High -> Medium -> Low
-    val activeGoals = remember(uiState.goals) {
+        val createdLabel = monthLabelFormat.format(contribution.createdAt)
+        if (createdLabel.equals(targetMonth, ignoreCase = true)) return true
+
+        return try {
+            val targetDate = monthLabelFormat.parse(targetMonth) ?: return false
+            val calTarget = Calendar.getInstance().apply { time = targetDate }
+
+            val parsedDate = listOf(
+                monthLabelFormat,
+                SimpleDateFormat("MMMM yyyy", Locale.getDefault()),
+                SimpleDateFormat("MMM yyyy", Locale.US),
+                SimpleDateFormat("MMM yyyy", Locale.getDefault())
+            ).firstNotNullOfOrNull { fmt ->
+                try { fmt.parse(raw) } catch (_: Exception) { null }
+            } ?: contribution.createdAt
+
+            val calItem = Calendar.getInstance().apply { time = parsedDate }
+            calItem.get(Calendar.YEAR) == calTarget.get(Calendar.YEAR) &&
+                calItem.get(Calendar.MONTH) == calTarget.get(Calendar.MONTH)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    val monthlyContributionTotals = remember(contributions, availableMonths) {
+        availableMonths.associateWith { month ->
+            val matched = contributions.filter { item ->
+                matchesContributionMonth(item, month)
+            }
+            Pair(matched.sumOf { it.amountLKR }, matched.size)
+        }
+    }
+
+    val filteredContributions = remember(contributions, isPeriodAllTime, selectedMonthLabel) {
+        if (isPeriodAllTime) {
+            contributions
+        } else {
+            contributions.filter { item ->
+                matchesContributionMonth(item, selectedMonthLabel)
+            }
+        }
+    }
+
+    val availableContributions = filteredContributions.filter { !it.isAllocated }
+    val totalAvailableLKR = availableContributions.sumOf { it.amountLKR }
+    val totalAllocatedLKR = filteredContributions.filter { it.isAllocated }.sumOf { it.amountLKR }
+
+    // Month Selector Dialog (Matching Income and Expense Screens)
+    if (showMonthDialog) {
+        AlertDialog(
+            onDismissRequest = { showMonthDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Select Month",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 380.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    // Option 1: "All Time"
+                    val isAllTimeSelected = isPeriodAllTime
+                    Surface(
+                        onClick = {
+                            isPeriodAllTime = true
+                            showMonthDialog = false
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isAllTimeSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 3.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "All Time",
+                                    fontSize = 15.sp,
+                                    fontWeight = if (isAllTimeSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isAllTimeSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                                val allTimeSum = contributions.sumOf { it.amountLKR }
+                                Text(
+                                    text = "Total: LKR ${currencyFormat.format(allTimeSum)} • ${contributions.size} item${if (contributions.size == 1) "" else "s"}",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+                            if (isAllTimeSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Option 2: Available Months
+                    availableMonths.forEach { month ->
+                        val isSelected = !isPeriodAllTime && month == selectedMonthLabel
+                        val (monthTotal, monthCount) = monthlyContributionTotals[month] ?: Pair(0.0, 0)
+
+                        Surface(
+                            onClick = {
+                                selectedMonthLabel = month
+                                isPeriodAllTime = false
+                                showMonthDialog = false
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 3.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = month,
+                                        fontSize = 15.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (monthCount > 0) {
+                                        Text(
+                                            text = "Total: LKR ${currencyFormat.format(monthTotal)} • $monthCount item${if (monthCount == 1) "" else "s"}",
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                    }
+                                }
+
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showMonthDialog = false }) {
+                    Text("Close", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    // Ongoing goals only (active, not achieved, not overdue) sorted by Priority Level: High -> Medium -> Low
+    val ongoingGoals = remember(uiState.goals, uiState.calculations) {
         val priorityRank = mapOf(
             GoalPriority.HIGH to 1,
             GoalPriority.MEDIUM to 2,
             GoalPriority.LOW to 3
         )
         uiState.goals
-            .filter { it.isActive }
+            .filter { goal ->
+                val calc = uiState.calculations[goal.id]
+                val currentSavings = calc?.estimatedCurrentSavingsLKR ?: goal.openingSavingsLKR
+                val isAchieved = (calc?.isCompleted == true) ||
+                    ((calc?.remainingAmountLKR ?: (goal.targetAmountLKR - goal.openingSavingsLKR)) <= 0.0) ||
+                    (currentSavings >= goal.targetAmountLKR)
+                val isOverdue = (calc?.isOverdue == true && (calc.daysRemaining < 0L)) ||
+                    (java.util.Date().after(goal.targetDate) && !isAchieved)
+                goal.isActive && !isAchieved && !isOverdue
+            }
             .sortedWith(compareBy({ priorityRank[it.priority.lowercase()] ?: 4 }, { it.title.lowercase() }))
     }
 
@@ -108,11 +342,79 @@ fun ContributionListScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // Month Selector Filter Card (Matching Income and Expense screens)
+            Card(
+                onClick = { showMonthDialog = true },
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarMonth,
+                                contentDescription = "Month Filter",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Text(
+                            text = if (isPeriodAllTime) "All Time" else selectedMonthLabel.ifBlank { "All Time" },
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(
+                                text = "Choose",
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
             // Stats Summary Card
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.primaryContainer
             ) {
@@ -147,7 +449,7 @@ fun ContributionListScreen(
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f)
                         ) {
                             Text(
-                                text = "${contributions.size} Total",
+                                text = "${filteredContributions.size} Total",
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -192,7 +494,7 @@ fun ContributionListScreen(
             }
 
             // List of Contributions
-            if (contributions.isEmpty()) {
+            if (filteredContributions.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -218,13 +520,17 @@ fun ContributionListScreen(
                             }
                         }
                         Text(
-                            text = "No Contributions Yet",
+                            text = if (isPeriodAllTime || contributions.isEmpty()) "No Contributions Yet" else "No Contributions in $selectedMonthLabel",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "At the end of each month, any unspent surplus from your estimated expense categories can be reviewed and added here to fund your goals.",
+                            text = if (isPeriodAllTime || contributions.isEmpty()) {
+                                "At the end of each month, any unspent surplus from your estimated expense categories can be reviewed and added here to fund your goals."
+                            } else {
+                                "No goal contributions were saved for $selectedMonthLabel. Choose another month or select 'All Time' from the month filter above."
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -238,7 +544,7 @@ fun ContributionListScreen(
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(contributions, key = { it.id }) { item ->
+                    items(filteredContributions, key = { it.id }) { item ->
                         ContributionCardItem(
                             contribution = item,
                             currencyFormat = currencyFormat,
@@ -277,8 +583,9 @@ fun ContributionListScreen(
                 )
             },
             text = {
+                val catDisplayName = if (item.categoryName.startsWith("Monthly Savings Surplus", ignoreCase = true)) "Monthly Savings Surplus" else item.categoryName
                 Text(
-                    text = "Are you sure you want to delete this contribution of LKR ${currencyFormat.format(item.amountLKR)} from ${item.categoryName}? This action cannot be undone.",
+                    text = "Are you sure you want to delete this contribution of LKR ${currencyFormat.format(item.amountLKR)} from $catDisplayName? This action cannot be undone.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
@@ -315,15 +622,16 @@ fun ContributionListScreen(
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 18.sp
                     )
+                    val allocCatName = if (item.categoryName.startsWith("Monthly Savings Surplus", ignoreCase = true)) "Monthly Savings Surplus" else item.categoryName
                     Text(
-                        text = "Choose an active goal for LKR ${currencyFormat.format(item.amountLKR)} (${item.categoryName})",
+                        text = "Choose an active goal for LKR ${currencyFormat.format(item.amountLKR)} ($allocCatName)",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                 }
             },
             text = {
-                if (activeGoals.isEmpty()) {
+                if (ongoingGoals.isEmpty()) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -332,14 +640,15 @@ fun ContributionListScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "No active savings goals found.",
+                            text = "No ongoing savings goals found.",
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Please create an active goal first from the Goals screen.",
+                            text = "Achieved and expired goals cannot receive contributions. Create a new goal or check your goals on the Goals screen.",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
                 } else {
@@ -349,9 +658,10 @@ fun ContributionListScreen(
                             .heightIn(max = 400.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(activeGoals, key = { it.id }) { goal ->
+                        items(ongoingGoals, key = { it.id }) { goal ->
                             GoalPriorityAllocationCard(
                                 goal = goal,
+                                calculation = uiState.calculations[goal.id],
                                 contributionAmount = item.amountLKR,
                                 currencyFormat = currencyFormat,
                                 onSelect = {
@@ -424,16 +734,24 @@ private fun ContributionCardItem(
                     }
 
                     Column {
+                        val displayCategoryName = if (contribution.categoryName.startsWith("Monthly Savings Surplus", ignoreCase = true)) {
+                            "Monthly Savings Surplus"
+                        } else {
+                            contribution.categoryName
+                        }
                         Text(
-                            text = contribution.categoryName,
+                            text = displayCategoryName,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        val itemMonth = contribution.monthLabel.trim().ifBlank {
+                            SimpleDateFormat("MMMM yyyy", Locale.US).format(contribution.createdAt)
+                        }
                         Text(
-                            text = contribution.monthLabel.ifBlank { "Monthly Surplus" },
+                            text = itemMonth,
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -535,6 +853,7 @@ private fun ContributionCardItem(
 @Composable
 private fun GoalPriorityAllocationCard(
     goal: Goal,
+    calculation: com.nexus.financetracker.domain.model.GoalCalculation? = null,
     contributionAmount: Double,
     currencyFormat: NumberFormat,
     onSelect: () -> Unit
@@ -602,13 +921,15 @@ private fun GoalPriorityAllocationCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                val currentSaved = calculation?.let { minOf(goal.targetAmountLKR, maxOf(0.0, it.estimatedCurrentSavingsLKR)) } ?: goal.openingSavingsLKR
+                val daysText = calculation?.daysRemainingText ?: goal.daysRemainingText
                 Text(
-                    text = "Saved: LKR ${currencyFormat.format(goal.openingSavingsLKR)} / ${currencyFormat.format(goal.targetAmountLKR)}",
+                    text = "Saved: LKR ${currencyFormat.format(currentSaved)} / ${currencyFormat.format(goal.targetAmountLKR)}",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = goal.daysRemainingText,
+                    text = daysText,
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

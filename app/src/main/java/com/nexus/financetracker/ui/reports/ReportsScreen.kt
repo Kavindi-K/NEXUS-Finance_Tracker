@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import com.nexus.financetracker.ui.common.DiscretionaryEstimationVsActualLineChart
 import androidx.compose.material3.*
@@ -227,6 +229,21 @@ fun ReportsScreen(
                         )
                     }
                 },
+                actions = {
+                    val context = LocalContext.current
+                    IconButton(
+                        onClick = {
+                            val selected = uiState.selectedMonthLabel.ifBlank { "All Time" }
+                            viewModel.downloadMonthlyReport(context, selected)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Download Monthly Report",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -355,6 +372,8 @@ fun ReportsScreen(
                             )
                         }
                     }
+
+
 
                     Spacer(modifier = Modifier.height(14.dp))
 
@@ -485,6 +504,8 @@ fun ReportsScreen(
                         }
                     }
 
+
+
                     Spacer(modifier = Modifier.height(14.dp))
 
                     if (goalReports.isEmpty()) {
@@ -614,8 +635,8 @@ fun ReportsScreen(
                                                     color = MaterialTheme.colorScheme.secondaryContainer
                                                 ) {
                                                     Text(
-                                                        text = "${report.overallProgressPercentage.roundToInt()}%",
-                                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                        text = "${minOf(100, report.overallProgressPercentage.coerceIn(0.0, 100.0).roundToInt())}%",
+                                                        color = NavyPrimary,
                                                         fontSize = 12.sp,
                                                         fontWeight = FontWeight.Bold,
                                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -709,9 +730,10 @@ fun ReportsScreen(
                                                     horizontalArrangement = Arrangement.SpaceBetween,
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
+                                                    val progressDisplayStr = if (report.overallProgressPercentage >= 100.0 || report.isCompleted) "100%" else "${"%.0f".format(report.overallProgressPercentage.coerceIn(0.0, 100.0))}%"
                                                     Text(
-                                                        text = "${"%.0f".format(report.overallProgressPercentage)}% complete · Need LKR ${currencyFormat.format(report.remainingAmountLKR)}",
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        text = "$progressDisplayStr complete · Need LKR ${currencyFormat.format(report.remainingAmountLKR)}",
+                                                        color = TextSubtle,
                                                         fontSize = 11.sp,
                                                         fontWeight = FontWeight.Medium
                                                     )
@@ -809,6 +831,8 @@ fun ReportsScreen(
                             )
                         }
                     }
+
+
 
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -925,6 +949,8 @@ fun ReportsScreen(
                             )
                         }
                     }
+
+
 
                     Spacer(modifier = Modifier.height(16.dp))
 
