@@ -94,8 +94,13 @@ data class IncomeFormState(
 
     val computedLkrAmount: Double?
         get() {
-            val amount = amountOriginal.toDoubleOrNull() ?: return null
+            val raw = amountOriginal.toDoubleOrNull() ?: return null
             val rate = exchangeRate.toDoubleOrNull() ?: return null
+            val amount = if (source == IncomeSource.CRYPTO && isCryptoLoss) {
+                -kotlin.math.abs(raw)
+            } else {
+                raw
+            }
             return ((amount * rate) * 100.0).roundToLong() / 100.0
         }
 }
@@ -517,12 +522,17 @@ class IncomeViewModel @Inject constructor(
                     } else {
                         "" to (existing.note ?: "")
                     }
+                    val displayAmount = if (isCrypto && isLoss) {
+                        String.format(java.util.Locale.US, "%.2f", kotlin.math.abs(existing.amountOriginal))
+                    } else {
+                        String.format(java.util.Locale.US, "%.2f", existing.amountOriginal)
+                    }
                     _formState.value = IncomeFormState(
                         editingIncomeId = existing.id,
                         originalCreatedAt = existing.createdAt,
                         source = existing.source,
                         status = existing.status,
-                        amountOriginal = String.format(java.util.Locale.US, "%.2f", existing.amountOriginal),
+                        amountOriginal = displayAmount,
                         currency = existing.currency,
                         exchangeRate = existing.exchangeRate.toString(),
                         isCryptoLoss = isLoss,
@@ -657,29 +667,24 @@ class IncomeViewModel @Inject constructor(
             else _formState.value.isCryptoLoss
         } else false
 
-        val normalizedAmount = if (isCrypto && isLoss && trimmed.isNotBlank() && !trimmed.startsWith("-")) {
-            "-$trimmed"
+        val cleanAmount = if (isCrypto) {
+            trimmed.removePrefix("-")
         } else {
             amount
         }
 
         _formState.value = _formState.value.copy(
-            amountOriginal = normalizedAmount,
+            amountOriginal = cleanAmount,
             isCryptoLoss = isLoss,
             error = null
         )
     }
 
     fun onCryptoLossToggled(isLoss: Boolean) {
-        val current = _formState.value.amountOriginal.trim()
-        val updated = if (isLoss) {
-            if (current.isNotBlank() && !current.startsWith("-")) "-$current" else current
-        } else {
-            if (current.startsWith("-")) current.removePrefix("-") else current
-        }
+        val current = _formState.value.amountOriginal.trim().removePrefix("-")
         _formState.value = _formState.value.copy(
             isCryptoLoss = isLoss,
-            amountOriginal = updated,
+            amountOriginal = current,
             error = null
         )
     }
