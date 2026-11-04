@@ -228,4 +228,57 @@ class ExpenseCategoriesTest {
         val unfiltered = if (clearedFilter.isNullOrBlank()) allExpenses else allExpenses.filter { it.categoryId == clearedFilter }
         assertEquals(4, unfiltered.size)
     }
+
+    @Test
+    fun filterCategories_byClassification_allDiscretionaryAndCommitted() {
+        val categories = listOf(
+            Category(id = "1", name = "Food & Dining", classification = ExpenseClassification.DISCRETIONARY),
+            Category(id = "2", name = "Rent", classification = ExpenseClassification.COMMITTED),
+            Category(id = "3", name = "Transport", classification = ExpenseClassification.DISCRETIONARY),
+            Category(id = "4", name = "Subscriptions", classification = ExpenseClassification.COMMITTED),
+            Category(id = "5", name = "Shopping", classification = ExpenseClassification.DISCRETIONARY)
+        )
+
+        // All: returns all 5
+        val all = categories
+        assertEquals(5, all.size)
+
+        // Discretionary: returns 3
+        val discretionary = categories.filter {
+            !it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+        }
+        assertEquals(3, discretionary.size)
+        assertEquals(listOf("Food & Dining", "Transport", "Shopping"), discretionary.map { it.name })
+
+        // Committed: returns 2
+        val committed = categories.filter {
+            it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+        }
+        assertEquals(2, committed.size)
+        assertEquals(listOf("Rent", "Subscriptions"), committed.map { it.name })
+    }
+
+    @Test
+    fun filterCategories_combinedWithSearchQuery_filtersCorrectly() {
+        val categories = listOf(
+            Category(id = "1", name = "Food & Dining", classification = ExpenseClassification.DISCRETIONARY),
+            Category(id = "2", name = "Fast Food", classification = ExpenseClassification.DISCRETIONARY),
+            Category(id = "3", name = "Food Supply Delivery", classification = ExpenseClassification.COMMITTED),
+            Category(id = "4", name = "Rent", classification = ExpenseClassification.COMMITTED)
+        )
+
+        // Search "food" in Discretionary
+        val discretionary = categories.filter {
+            !it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+        }.filter { it.name.lowercase().contains("food") }
+        assertEquals(2, discretionary.size)
+        assertEquals(listOf("Food & Dining", "Fast Food"), discretionary.map { it.name })
+
+        // Search "food" in Committed
+        val committed = categories.filter {
+            it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+        }.filter { it.name.lowercase().contains("food") }
+        assertEquals(1, committed.size)
+        assertEquals("Food Supply Delivery", committed.first().name)
+    }
 }

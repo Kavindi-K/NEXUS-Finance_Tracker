@@ -60,6 +60,32 @@ private val CardBorderColor = Color(0xFFCBD5E1)
  * Expenses Screen — Conforms to Member 2 Order 3 (feature/expense-list).
  * Features: Expense history, detail sheet, edit, delete, sorting, account filters, and empty view.
  */
+private fun resolveCategoryName(categoryId: String, categoriesMap: Map<String, String>): String {
+    if (categoryId.isBlank()) return "Uncategorized"
+    categoriesMap[categoryId]?.let { return it }
+
+    DEFAULT_EXPENSE_CATEGORIES.find {
+        it.id.equals(categoryId, ignoreCase = true) ||
+        it.name.equals(categoryId, ignoreCase = true) ||
+        it.id.replace("_", "-").equals(categoryId.replace("_", "-"), ignoreCase = true)
+    }?.let { return it.name }
+
+    categoriesMap.entries.find {
+        it.key.equals(categoryId, ignoreCase = true) ||
+        it.value.equals(categoryId, ignoreCase = true) ||
+        it.key.replace("_", "-").equals(categoryId.replace("_", "-"), ignoreCase = true)
+    }?.let { return it.value }
+
+    if (categoryId.startsWith("cat_") || categoryId.startsWith("cat-")) {
+        return categoryId.removePrefix("cat_").removePrefix("cat-")
+            .replace("_", " ").replace("-", " ")
+            .split(" ")
+            .joinToString(" ") { word -> word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } }
+    }
+
+    return categoryId
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpenseScreen(
@@ -238,9 +264,7 @@ fun ExpenseScreen(
 
     // Detail Bottom Sheet
     selectedExpenseForDetail?.let { expense ->
-        val catName = uiState.categoriesMap[expense.categoryId]
-            ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == expense.categoryId }?.name
-            ?: expense.categoryId
+        val catName = resolveCategoryName(expense.categoryId, uiState.categoriesMap)
 
         ModalBottomSheet(
             onDismissRequest = { selectedExpenseForDetail = null },
@@ -375,9 +399,7 @@ fun ExpenseScreen(
 
     // Delete Confirmation Dialog
     expenseToDelete?.let { expense ->
-        val catName = uiState.categoriesMap[expense.categoryId]
-            ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == expense.categoryId }?.name
-            ?: expense.categoryId
+        val catName = resolveCategoryName(expense.categoryId, uiState.categoriesMap)
 
         AlertDialog(
             onDismissRequest = { expenseToDelete = null },
@@ -1351,9 +1373,7 @@ fun ExpenseScreen(
 
                         // Active Category Filter Badge
                         if (uiState.selectedCategoryFilter != null) {
-                            val activeCatName = uiState.categoriesMap[uiState.selectedCategoryFilter]
-                                ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == uiState.selectedCategoryFilter }?.name
-                                ?: uiState.selectedCategoryFilter ?: ""
+                            val activeCatName = resolveCategoryName(uiState.selectedCategoryFilter ?: "", uiState.categoriesMap)
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
                                 color = MaterialTheme.colorScheme.secondaryContainer,
@@ -1491,9 +1511,7 @@ fun ExpenseScreen(
                                 uiState.filteredExpenses.forEachIndexed { index, expense ->
                                     ExpenseItemRow(
                                         expense = expense,
-                                        categoryName = uiState.categoriesMap[expense.categoryId]
-                                            ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == expense.categoryId }?.name
-                                            ?: expense.categoryId,
+                                        categoryName = resolveCategoryName(expense.categoryId, uiState.categoriesMap),
                                         formattedDate = dateFormatter.format(expense.date),
                                         onClick = { selectedExpenseForDetail = expense },
                                         onDelete = { expenseToDelete = expense }
