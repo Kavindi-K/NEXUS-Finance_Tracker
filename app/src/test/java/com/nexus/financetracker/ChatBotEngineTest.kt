@@ -363,4 +363,19 @@ class ChatBotEngineTest {
         assertTrue(replySin.contains("වියදම් විශ්ලේෂණය"))
         assertTrue(replySin.contains("Food & Dining"))
     }
+
+    @Test
+    fun geminiAiService_selectBestModel_prioritizesCorrectly() {
+        val service = com.nexus.financetracker.ui.chatbot.GeminiAiService()
+        val models = listOf("gemini-1.5-pro", "gemini-2.0-flash", "gemini-pro")
+        val best = service.selectBestModel(models)
+        assertEquals("gemini-2.0-flash", best)
+
+        val models2 = listOf("gemini-pro", "gemini-1.5-flash")
+        val best2 = service.selectBestModel(models2)
+        assertEquals("gemini-1.5-flash", best2)
+
+        val custom = service.selectBestModel(models, preferredModel = "gemini-1.5-pro")
+        assertEquals("gemini-1.5-pro", custom)
+    }
 }

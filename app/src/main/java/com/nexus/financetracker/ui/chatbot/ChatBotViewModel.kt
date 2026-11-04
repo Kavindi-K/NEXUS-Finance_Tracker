@@ -85,14 +85,16 @@ class ChatBotViewModel @Inject constructor(
         )
         _uiState.value = _uiState.value.copy(
             messages = listOf(welcomeMsg),
-            hasGeminiApiKey = appSettingsManager.settings.value.geminiApiKey.isNotBlank()
+            hasGeminiApiKey = appSettingsManager.settings.value.geminiApiKey.isNotBlank(),
+            activeGeminiModel = appSettingsManager.settings.value.geminiModel
         )
 
         // Observe settings for live Gemini API Key changes
         viewModelScope.launch {
             appSettingsManager.settings.collect { settings ->
                 _uiState.value = _uiState.value.copy(
-                    hasGeminiApiKey = settings.geminiApiKey.isNotBlank()
+                    hasGeminiApiKey = settings.geminiApiKey.isNotBlank(),
+                    activeGeminiModel = settings.geminiModel
                 )
             }
         }
@@ -141,20 +143,25 @@ class ChatBotViewModel @Inject constructor(
                 val extractedKey = keyMatch.value
                 val testResult = geminiAiService.testApiKey(extractedKey)
                 if (testResult.isSuccess) {
+                    val modelUsed = testResult.getOrNull() ?: "gemini-2.0-flash"
                     appSettingsManager.setGeminiApiKey(extractedKey)
+                    appSettingsManager.setGeminiModel(modelUsed)
                     val successReply = if (isSinhala) {
                         "✨ **Google Gemini AI සාර්ථකව සම්බන්ධ විය! (Connected)**\n\n" +
-                            "ඔබගේ Gemini API Key එක සාර්ථකව තහවුරු කර තැන්පත් කරන ලදී.\n" +
-                            "දැන් ඔබ අසන ඕනෑම ප්‍රශ්නයක් Google Gemini 1.5 Flash Cloud AI මඟින් ඔබගේ සැබෑ ආදායම් සහ වියදම් වාර්තා ගැඹුරින් විශ්ලේෂණය කර dynamic ලෙස පිළිතුරු සපයනු ඇත. ඕනෑම දෙයක් අසන්න!"
+                            "• **Active Model:** $modelUsed\n" +
+                            "• **API Status:** Live & Verified ⚡\n\n" +
+                            "ඔබගේ Gemini API Key එක සාර්ථකව තහවුරු කර තැන්පත් කරන ලදී. දැන් ඔබ අසන ඕනෑම ප්‍රශ්නයක් Google Gemini AI ($modelUsed) මඟින් ඔබගේ සැබෑ ආදායම්, වියදම් සහ ගිණුම් වාර්තා ගැඹුරින් විශ්ලේෂණය කර dynamic ලෙස පිළිතුරු සපයනු ඇත. ඕනෑම දෙයක් අසන්න!"
                     } else {
                         "✨ **Google Gemini AI Connected Successfully!**\n\n" +
-                            "Your Gemini API Key has been verified and securely saved.\n" +
-                            "All your questions, financial advice, and spending analyses will now be dynamically powered by Google Gemini 1.5 Flash Cloud LLM. Ask me anything!"
+                            "• **Active Model:** $modelUsed\n" +
+                            "• **API Status:** Live & Verified ⚡\n\n" +
+                            "Your Gemini API Key has been verified. All inquiries will now be dynamically powered by $modelUsed. Ask me anything!"
                     }
                     _uiState.value = _uiState.value.copy(
                         messages = _uiState.value.messages + ChatMessage(sender = MessageSender.BOT, text = successReply),
                         isTyping = false,
-                        hasGeminiApiKey = true
+                        hasGeminiApiKey = true,
+                        activeGeminiModel = modelUsed
                     )
                     return@launch
                 } else {
@@ -174,6 +181,7 @@ class ChatBotViewModel @Inject constructor(
 
             // 1. Query Real Cloud AI (Gemini) with full financial context
             val currentApiKey = appSettingsManager.settings.value.geminiApiKey
+            val currentModel = appSettingsManager.settings.value.geminiModel
             val outcome = geminiAiService.queryGemini(
                 userMessage = text,
                 userFirstName = _uiState.value.userFirstName,
@@ -183,6 +191,7 @@ class ChatBotViewModel @Inject constructor(
                 categories = currentCategories,
                 recurringItems = currentRecurringItems,
                 configuredApiKey = currentApiKey,
+                configuredModel = currentModel,
                 isSinhala = isSinhala
             )
 
@@ -211,9 +220,9 @@ class ChatBotViewModel @Inject constructor(
                     val localMsg = processIntent(intent, isSinhala)
                     if (currentApiKey.isBlank() && (text.contains("gemini", ignoreCase = true) || text.contains("ai", ignoreCase = true) || text.contains("hardcode", ignoreCase = true) || text.contains("rich", ignoreCase = true))) {
                         val note = if (isSinhala) {
-                            "\n\n---\n💡 *සැබෑ Google Gemini 1.5 Flash Cloud AI සක්‍රීය කිරීමට, ඔබගේ නොමිලේ ලබාගත හැකි Gemini API Key එක මෙහි paste කරන්න (හෝ ඉහළ 🔑 icon එක click කරන්න).*"
+                            "\n\n---\n💡 *සැබෑ Google Gemini Cloud AI සක්‍රීය කිරීමට, ඔබගේ නොමිලේ ලබාගත හැකි Gemini API Key එක මෙහි paste කරන්න (හෝ ඉහළ 🔑 icon එක click කරන්න).*"
                         } else {
-                            "\n\n---\n💡 *To power responses directly with Google Gemini 1.5 Flash Cloud LLM, paste your free Gemini API key here or tap the 🔑 icon at the top.*"
+                            "\n\n---\n💡 *To power responses directly with Google Gemini Cloud LLM, paste your free Gemini API key here or tap the 🔑 icon at the top.*"
                         }
                         localMsg.copy(text = localMsg.text + note)
                     } else {
@@ -229,23 +238,36 @@ class ChatBotViewModel @Inject constructor(
         }
     }
 
-    fun saveGeminiApiKey(key: String, onComplete: (Boolean, String?) -> Unit) {
+    fun saveGeminiApiKey(key: String, preferredModel: String = "auto", onComplete: (Boolean, String?, String?) -> Unit) {
         viewModelScope.launch {
             val trimmed = key.trim()
-            val testResult = geminiAiService.testApiKey(trimmed)
+            val testResult = geminiAiService.testApiKey(trimmed, preferredModel)
             if (testResult.isSuccess) {
+                val workingModel = testResult.getOrNull() ?: "auto"
                 appSettingsManager.setGeminiApiKey(trimmed)
-                _uiState.value = _uiState.value.copy(hasGeminiApiKey = true)
-                onComplete(true, null)
+                appSettingsManager.setGeminiModel(workingModel)
+                _uiState.value = _uiState.value.copy(
+                    hasGeminiApiKey = true,
+                    activeGeminiModel = workingModel
+                )
+                onComplete(true, null, workingModel)
             } else {
-                onComplete(false, testResult.exceptionOrNull()?.message ?: "API Key verification failed")
+                onComplete(false, testResult.exceptionOrNull()?.message ?: "API Key verification failed", null)
             }
         }
     }
 
+    suspend fun discoverAvailableModels(key: String): List<String> {
+        return geminiAiService.listSupportedModels(key)
+    }
+
     fun removeGeminiApiKey() {
         appSettingsManager.setGeminiApiKey("")
-        _uiState.value = _uiState.value.copy(hasGeminiApiKey = false)
+        appSettingsManager.setGeminiModel("auto")
+        _uiState.value = _uiState.value.copy(
+            hasGeminiApiKey = false,
+            activeGeminiModel = "auto"
+        )
     }
 
     private fun isSinhalaLanguage(text: String): Boolean {

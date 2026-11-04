@@ -22,7 +22,8 @@ data class AppSettings(
     val biometricLockEnabled: Boolean = false,
     val baseCurrency: String = "LKR",
     val defaultExpenseAccount: String = ExpenseAccount.CARD,
-    val geminiApiKey: String = ""
+    val geminiApiKey: String = "",
+    val geminiModel: String = "auto"
 )
 
 /**
@@ -42,6 +43,7 @@ class AppSettingsManager @Inject constructor(
         private const val KEY_BASE_CURRENCY = "base_currency"
         private const val KEY_DEFAULT_ACCOUNT = "default_expense_account"
         private const val KEY_GEMINI_API_KEY = "gemini_api_key"
+        private const val KEY_GEMINI_MODEL = "gemini_model"
     }
 
     private val _settings = MutableStateFlow(loadSettings())
@@ -61,7 +63,8 @@ class AppSettingsManager @Inject constructor(
             biometricLockEnabled = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false),
             baseCurrency = prefs.getString(KEY_BASE_CURRENCY, "LKR") ?: "LKR",
             defaultExpenseAccount = prefs.getString(KEY_DEFAULT_ACCOUNT, ExpenseAccount.CARD) ?: ExpenseAccount.CARD,
-            geminiApiKey = prefs.getString(KEY_GEMINI_API_KEY, "") ?: ""
+            geminiApiKey = prefs.getString(KEY_GEMINI_API_KEY, "") ?: "",
+            geminiModel = prefs.getString(KEY_GEMINI_MODEL, "auto") ?: "auto"
         )
     }
 
@@ -98,6 +101,11 @@ class AppSettingsManager @Inject constructor(
     fun setGeminiApiKey(apiKey: String) {
         prefs.edit().putString(KEY_GEMINI_API_KEY, apiKey.trim()).apply()
         _settings.value = _settings.value.copy(geminiApiKey = apiKey.trim())
+    }
+
+    fun setGeminiModel(model: String) {
+        prefs.edit().putString(KEY_GEMINI_MODEL, model.trim()).apply()
+        _settings.value = _settings.value.copy(geminiModel = model.trim())
     }
 }
 

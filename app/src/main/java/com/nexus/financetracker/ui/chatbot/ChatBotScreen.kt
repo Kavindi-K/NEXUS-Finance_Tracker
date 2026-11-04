@@ -90,7 +90,7 @@ fun ChatBotScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Connect Google Gemini 1.5 Flash Cloud LLM to enable real-time financial reasoning, personalized wealth blueprints, and deep data analysis.",
+                        text = "Connect Google Gemini Cloud LLM (Supports Gemini 2.0 Flash, 1.5 Flash, Pro, or any available model) for real-time financial reasoning and deep data analysis.",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -153,7 +153,7 @@ fun ChatBotScreen(
                         }
                         isVerifyingKey = true
                         keyErrorMessage = null
-                        viewModel.saveGeminiApiKey(trimmed) { success, err ->
+                        viewModel.saveGeminiApiKey(trimmed, preferredModel = "auto") { success, err, modelUsed ->
                             isVerifyingKey = false
                             if (success) {
                                 showApiKeyDialog = false
@@ -232,7 +232,12 @@ fun ChatBotScreen(
                                             .background(if (uiState.hasGeminiApiKey) ChatEmerald else Color(0xFFF59E0B))
                                     )
                                     Text(
-                                        text = if (uiState.hasGeminiApiKey) "Gemini 1.5 Flash ⚡" else "Setup Gemini Key 🔑",
+                                        text = if (uiState.hasGeminiApiKey) {
+                                            val label = if (uiState.activeGeminiModel != "auto" && uiState.activeGeminiModel.isNotBlank()) {
+                                                uiState.activeGeminiModel
+                                            } else "Gemini AI"
+                                            "$label ⚡"
+                                        } else "Setup Gemini Key 🔑",
                                         color = Color.White,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.SemiBold

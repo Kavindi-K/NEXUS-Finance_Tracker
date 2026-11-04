@@ -78,6 +78,7 @@ data class ChatBotUiState(
     val userFirstName: String = "User",
     val isOnline: Boolean = true,
     val hasGeminiApiKey: Boolean = false,
+    val activeGeminiModel: String = "auto",
     val errorMessage: String? = null
 )
 
