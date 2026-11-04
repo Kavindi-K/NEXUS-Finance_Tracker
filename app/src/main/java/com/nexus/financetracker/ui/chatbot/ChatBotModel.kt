@@ -67,8 +67,8 @@ data class ChatBotUiState(
     val messages: List<ChatMessage> = emptyList(),
     val isTyping: Boolean = false,
     val quickPrompts: List<String> = listOf(
-        "📅 ඊයේ මම කොච්චර වියදම් කළාද?",
-        "💰 මට කොච්චර income එකක් ඇවිත් තියෙනවද?",
+        "📅 How much did I spend yesterday?",
+        "💰 How much income did I receive?",
         "📊 Recent expenses breakdown",
         "🛡️ Emergency runway check",
         "💸 Can I afford 50,000?",
