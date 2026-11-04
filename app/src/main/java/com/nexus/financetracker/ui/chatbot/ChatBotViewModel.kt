@@ -244,10 +244,15 @@ class ChatBotViewModel @Inject constructor(
                     val intent = nlpParser.parse(text, currentCategories)
                     val localMsg = processIntent(intent, isSinhala)
                     if (currentApiKey.isNotBlank()) {
-                        val note = if (isSinhala) {
-                            "\n\n---\n⚠️ *Gemini Cloud AI Error: ${outcome.error} (On-device advisor මඟින් පිළිතුරු සපයන ලදී)*"
+                        val friendlyError = if (outcome.error.contains("timeout", ignoreCase = true)) {
+                            if (isSinhala) "සම්බන්ධතාවය ප්‍රමාද විය (Network Timeout)" else "Connection timed out"
                         } else {
-                            "\n\n---\n⚠️ *Gemini Cloud AI Error: ${outcome.error} (Answered via on-device advisor)*"
+                            outcome.error
+                        }
+                        val note = if (isSinhala) {
+                            "\n\n---\n⚠️ *Gemini Cloud AI: $friendlyError (On-device advisor මඟින් පිළිතුරු සපයන ලදී)*"
+                        } else {
+                            "\n\n---\n⚠️ *Gemini Cloud AI: $friendlyError (Answered via on-device advisor)*"
                         }
                         localMsg.copy(text = localMsg.text + note)
                     } else {

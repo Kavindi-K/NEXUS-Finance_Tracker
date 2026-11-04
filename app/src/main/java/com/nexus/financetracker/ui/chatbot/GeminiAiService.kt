@@ -55,8 +55,11 @@ class GeminiAiService @Inject constructor() {
     }
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(12, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .callTimeout(75, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
         .build()
 
     @Volatile
@@ -258,7 +261,7 @@ class GeminiAiService @Inject constructor() {
                     put("temperature", 0.7)
                     put("topK", 40)
                     put("topP", 0.95)
-                    put("maxOutputTokens", 1024)
+                    put("maxOutputTokens", 800)
                 }
                 put("generationConfig", generationConfig)
             }
@@ -276,64 +279,68 @@ class GeminiAiService @Inject constructor() {
 
             for (model in distinctModels) {
                 for (apiVersion in listOf(cachedApiVersion, if (cachedApiVersion == "v1beta") "v1" else "v1beta")) {
-                    val cleanModel = model.removePrefix("models/").removePrefix("/")
-                    val url = "https://generativelanguage.googleapis.com/$apiVersion/models/$cleanModel:generateContent?key=$apiKey"
+                    try {
+                        val cleanModel = model.removePrefix("models/").removePrefix("/")
+                        val url = "https://generativelanguage.googleapis.com/$apiVersion/models/$cleanModel:generateContent?key=$apiKey"
 
-                    val request = Request.Builder()
-                        .url(url)
-                        .post(jsonBody.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
-                        .build()
+                        val request = Request.Builder()
+                            .url(url)
+                            .post(jsonBody.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
+                            .build()
 
-                    val response = client.newCall(request).execute()
-                    val responseBody = response.body?.string().orEmpty()
+                        val response = client.newCall(request).execute()
+                        val responseBody = response.body?.string().orEmpty()
 
-                    if (response.isSuccessful) {
-                        cachedWorkingModel = cleanModel
-                        cachedApiVersion = apiVersion
+                        if (response.isSuccessful) {
+                            cachedWorkingModel = cleanModel
+                            cachedApiVersion = apiVersion
 
-                        val root = JSONObject(responseBody)
-                        val candidates = root.optJSONArray("candidates")
-                            ?: return@withContext GeminiAiOutcome.NetworkError("No candidates in Gemini response")
-                        if (candidates.length() == 0) {
-                            return@withContext GeminiAiOutcome.NetworkError("Empty candidates list")
+                            val root = JSONObject(responseBody)
+                            val candidates = root.optJSONArray("candidates")
+                                ?: continue
+                            if (candidates.length() == 0) continue
+
+                            val firstCandidate = candidates.getJSONObject(0)
+                            val content = firstCandidate.optJSONObject("content")
+                                ?: continue
+                            val parts = content.optJSONArray("parts")
+                                ?: continue
+                            if (parts.length() == 0) continue
+
+                            val rawReply = parts.getJSONObject(0).optString("text", "").trim()
+                            if (rawReply.isBlank()) continue
+
+                            val parsed = parseGeminiOutput(rawReply, isSinhala, categories, cleanModel)
+                            return@withContext GeminiAiOutcome.Success(parsed)
+                        } else {
+                            Log.w(TAG, "Gemini model $cleanModel on $apiVersion returned: ${response.code}")
+                            val isKeyIssue = response.code == 400 || response.code == 403
+                            val errorMsg = try {
+                                JSONObject(responseBody).optJSONObject("error")?.optString("message") ?: response.message
+                            } catch (_: Exception) {
+                                response.message
+                            }
+
+                            // If 404 (model not found), continue trying the next model!
+                            if (response.code == 404) {
+                                continue
+                            }
+
+                            // If 400 with invalid key or 403 permission denied, break early
+                            if (isKeyIssue && (errorMsg.contains("API key not valid", ignoreCase = true) || errorMsg.contains("SERVICE_DISABLED", ignoreCase = true))) {
+                                return@withContext GeminiAiOutcome.ApiKeyInvalid(response.code, errorMsg)
+                            }
+
+                            lastErrorOutcome = GeminiAiOutcome.NetworkError("HTTP ${response.code}: $errorMsg")
                         }
-
-                        val firstCandidate = candidates.getJSONObject(0)
-                        val content = firstCandidate.optJSONObject("content")
-                            ?: return@withContext GeminiAiOutcome.NetworkError("No content object")
-                        val parts = content.optJSONArray("parts")
-                            ?: return@withContext GeminiAiOutcome.NetworkError("No parts object")
-                        if (parts.length() == 0) {
-                            return@withContext GeminiAiOutcome.NetworkError("Empty parts in content")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Attempt with model $model on $apiVersion failed: ${e.message}")
+                        val friendlyMsg = if (e.message?.contains("timeout", ignoreCase = true) == true) {
+                            "Connection timed out while reaching Gemini servers"
+                        } else {
+                            e.message ?: "Network error"
                         }
-
-                        val rawReply = parts.getJSONObject(0).optString("text", "").trim()
-                        if (rawReply.isBlank()) {
-                            return@withContext GeminiAiOutcome.NetworkError("Blank text returned from Gemini")
-                        }
-
-                        val parsed = parseGeminiOutput(rawReply, isSinhala, categories, cleanModel)
-                        return@withContext GeminiAiOutcome.Success(parsed)
-                    } else {
-                        Log.w(TAG, "Gemini model $cleanModel on $apiVersion returned: ${response.code}")
-                        val isKeyIssue = response.code == 400 || response.code == 403
-                        val errorMsg = try {
-                            JSONObject(responseBody).optJSONObject("error")?.optString("message") ?: response.message
-                        } catch (_: Exception) {
-                            response.message
-                        }
-
-                        // If 404 (model not found), continue trying the next model!
-                        if (response.code == 404) {
-                            continue
-                        }
-
-                        // If 400 with invalid key or 403 permission denied, break early
-                        if (isKeyIssue && (errorMsg.contains("API key not valid", ignoreCase = true) || errorMsg.contains("SERVICE_DISABLED", ignoreCase = true))) {
-                            return@withContext GeminiAiOutcome.ApiKeyInvalid(response.code, errorMsg)
-                        }
-
-                        lastErrorOutcome = GeminiAiOutcome.NetworkError("HTTP ${response.code}: $errorMsg")
+                        lastErrorOutcome = GeminiAiOutcome.NetworkError(friendlyMsg)
                     }
                 }
             }
@@ -431,6 +438,7 @@ System Directives:
 - ADD_RECURRING_BILL: "title" (string), "amount" (number), "frequency" ("monthly"|"weekly"|"yearly")
 - CLEAR_ALERTS: {}
 - NAVIGATE: "route" ("dashboard"|"expenses"|"income"|"goals"|"reports"|"alerts"|"settings"|"profile"|"categories")
+5. Speed & Conciseness: Deliver immediate, high-value financial insight. Keep answers within 2-3 focused paragraphs or bullet points without unnecessarily verbose filler.
 
 If the user is asking advice, chatting, asking about wealth, or checking health, do NOT output any action block.
 """.trimIndent()
