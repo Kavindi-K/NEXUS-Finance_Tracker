@@ -593,13 +593,6 @@ fun IncomeScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    if (!detectedDeposit.reference.isNullOrBlank()) {
-                                        Text(
-                                            text = "Ref: ${detectedDeposit.reference}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                                        )
-                                    }
                                 }
 
                                 Text(
@@ -1108,7 +1101,7 @@ fun IncomeScreen(
                                 color = Color(0xFF15803D)
                             )
                             Text(
-                                text = "Received: ${dateFormatter.format(deposit.date)}${if (!deposit.reference.isNullOrBlank()) " • Ref: ${deposit.reference}" else ""}",
+                                text = "Received: ${dateFormatter.format(deposit.date)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

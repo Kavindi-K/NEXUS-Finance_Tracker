@@ -956,7 +956,7 @@ class IncomeViewModel @Inject constructor(
             amountLKR = deposit.amountLKR,
             dateReceived = deposit.date,
             expectedDate = null,
-            note = "${deposit.bankName} Deposit (${deposit.reference ?: "auto-detected"})",
+            note = "${deposit.bankName} Deposit",
             createdAt = Date(),
             updatedAt = null
         )
