@@ -26,8 +26,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -48,6 +50,30 @@ private val ChatBackground = Color(0xFFF1F5F9)
 private val ChatEmerald = Color(0xFF10B981)
 private val ChatRose = Color(0xFFEF4444)
 private val ChatCardBorder = Color(0xFFE2E8F0)
+private val ChatFloatingBorder = Color(0xFF38BDF8)
+
+@Composable
+private fun NexusAiAvatar(
+    modifier: Modifier = Modifier,
+    size: Dp = 34.dp,
+    borderWidth: Dp = 1.5.dp
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(ChatNavyDark)
+            .border(BorderStroke(borderWidth, ChatFloatingBorder), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.nexus_icon_mark),
+            contentDescription = "NEXUS AI Copilot",
+            modifier = Modifier.size(size * 0.65f),
+            contentScale = ContentScale.Fit
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,21 +104,7 @@ fun ChatBotScreen(
         AlertDialog(
             onDismissRequest = { if (!isVerifyingKey) showApiKeyDialog = false },
             icon = {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .border(BorderStroke(1.dp, Color(0xFFE2E8F0)), CircleShape)
-                        .padding(4.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.nexus_icon_mark),
-                        contentDescription = "NEXUS AI",
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+                NexusAiAvatar(size = 52.dp, borderWidth = 2.dp)
             },
             title = {
                 Text(
@@ -264,22 +276,7 @@ fun ChatBotScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(Color.White)
-                                .padding(2.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.nexus_icon_mark),
-                                contentDescription = "NEXUS AI",
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(CircleShape)
-                            )
-                        }
+                        NexusAiAvatar(size = 38.dp, borderWidth = 1.5.dp)
                         Column {
                             Text(
                                 text = "NEXUS AI Copilot",
@@ -506,23 +503,7 @@ private fun ChatMessageBubble(
             modifier = Modifier.fillMaxWidth(0.92f)
         ) {
             if (!isUser) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .border(BorderStroke(1.dp, Color(0xFFCBD5E1)), CircleShape)
-                        .padding(2.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.nexus_icon_mark),
-                        contentDescription = "NEXUS AI",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape)
-                    )
-                }
+                NexusAiAvatar(size = 32.dp, borderWidth = 1.5.dp)
                 Spacer(modifier = Modifier.width(8.dp))
             }
 
@@ -739,23 +720,7 @@ private fun TypingIndicatorBubble() {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start
     ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(Color.White)
-                .border(BorderStroke(1.dp, Color(0xFFCBD5E1)), CircleShape)
-                .padding(2.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.nexus_icon_mark),
-                contentDescription = "NEXUS AI",
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape)
-            )
-        }
+        NexusAiAvatar(size = 32.dp, borderWidth = 1.5.dp)
         Spacer(modifier = Modifier.width(8.dp))
         Surface(
             shape = RoundedCornerShape(14.dp),
