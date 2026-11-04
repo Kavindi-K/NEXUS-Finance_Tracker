@@ -45,10 +45,10 @@ class GeminiAiService @Inject constructor() {
 
         // Default candidate models to test in priority order if ListModels is unavailable
         val FALLBACK_CANDIDATE_MODELS = listOf(
+            "gemini-2.5-flash",
             "gemini-2.0-flash",
             "gemini-1.5-flash",
-            "gemini-1.5-flash-latest",
-            "gemini-2.0-flash-exp",
+            "gemini-2.5-pro",
             "gemini-1.5-pro",
             "gemini-pro"
         )
@@ -89,11 +89,20 @@ class GeminiAiService @Inject constructor() {
                         val m = modelsArray.getJSONObject(i)
                         val name = m.optString("name", "") // e.g. "models/gemini-2.0-flash"
                         val methods = m.optJSONArray("supportedGenerationMethods")
-                        val supportsGenerate = if (methods != null) {
-                            (0 until methods.length()).any { methods.getString(it) == "generateContent" }
-                        } else true
-                        if (supportsGenerate && name.isNotBlank()) {
-                            result.add(name.removePrefix("models/"))
+                        // STRICT check: must explicitly support generateContent
+                        val supportsGenerate = methods != null && (0 until methods.length()).any {
+                            methods.optString(it) == "generateContent"
+                        }
+                        val cleanName = name.removePrefix("models/").trim()
+                        val isTrueGeminiModel = cleanName.contains("gemini", ignoreCase = true) && !cleanName.contains("gemma", ignoreCase = true)
+                        val isNotSpecialized = !cleanName.contains("embedding", ignoreCase = true) &&
+                            !cleanName.contains("aqa", ignoreCase = true) &&
+                            !cleanName.contains("vision", ignoreCase = true) &&
+                            !cleanName.contains("learnlm", ignoreCase = true)
+                        val isNotGenericAlias = !cleanName.endsWith("-latest") && !cleanName.endsWith("-exp")
+
+                        if (supportsGenerate && isTrueGeminiModel && isNotSpecialized && isNotGenericAlias) {
+                            result.add(cleanName)
                         }
                     }
                     if (result.isNotEmpty()) {
@@ -109,34 +118,35 @@ class GeminiAiService @Inject constructor() {
     }
 
     fun selectBestModel(availableModels: List<String>, preferredModel: String? = null): String {
-        if (!preferredModel.isNullOrBlank() && preferredModel != "auto") {
-            val directMatch = availableModels.find { it.equals(preferredModel, ignoreCase = true) }
+        val geminiOnly = availableModels.filter {
+            it.contains("gemini", ignoreCase = true) && !it.contains("gemma", ignoreCase = true)
+        }
+        val pool = if (geminiOnly.isNotEmpty()) geminiOnly else FALLBACK_CANDIDATE_MODELS
+
+        if (!preferredModel.isNullOrBlank() && preferredModel != "auto" && !preferredModel.contains("gemma", ignoreCase = true)) {
+            val directMatch = pool.find { it.equals(preferredModel, ignoreCase = true) }
             if (directMatch != null) return directMatch
-            val partialMatch = availableModels.find { it.contains(preferredModel, ignoreCase = true) }
+            val partialMatch = pool.find { it.contains(preferredModel, ignoreCase = true) }
             if (partialMatch != null) return partialMatch
         }
 
         // Priority ranking
         val priorityList = listOf(
+            "gemini-2.5-flash",
             "gemini-2.0-flash",
-            "gemini-2.0-flash-exp",
             "gemini-1.5-flash",
-            "gemini-1.5-flash-latest",
-            "gemini-1.5-flash-8b",
-            "gemini-2.0",
+            "gemini-2.5-pro",
             "gemini-1.5-pro",
-            "gemini-1.5-pro-latest",
             "gemini-pro"
         )
 
         for (target in priorityList) {
-            val found = availableModels.find { it.equals(target, ignoreCase = true) }
-                ?: availableModels.find { it.contains(target, ignoreCase = true) }
+            val found = pool.find { it.equals(target, ignoreCase = true) }
+                ?: pool.find { it.contains(target, ignoreCase = true) }
             if (found != null) return found
         }
 
-        return availableModels.firstOrNull { it.contains("gemini", ignoreCase = true) }
-            ?: availableModels.firstOrNull()
+        return pool.firstOrNull { it.contains("gemini", ignoreCase = true) }
             ?: "gemini-2.0-flash"
     }
 
@@ -148,16 +158,17 @@ class GeminiAiService @Inject constructor() {
 
         // 1. Discover models available for this specific key
         val available = listSupportedModels(trimmed)
-        val candidateModels = if (available.isNotEmpty()) {
-            val best = selectBestModel(available, preferredModel)
-            listOf(best) + available.filter { it != best }
+        val validAvailable = available.filter { !it.endsWith("-latest") && !it.endsWith("-exp") && !it.contains("gemma", ignoreCase = true) }
+        val candidateModels = if (validAvailable.isNotEmpty()) {
+            val best = selectBestModel(validAvailable, preferredModel)
+            listOf(best) + validAvailable.filter { it != best }
         } else {
             FALLBACK_CANDIDATE_MODELS
         }
 
         var lastError: Exception = Exception("Unable to verify Gemini API connection")
 
-        for (model in candidateModels.take(6)) {
+        for (model in candidateModels.take(8)) {
             for (apiVersion in listOf("v1beta", "v1")) {
                 try {
                     val cleanModel = model.removePrefix("models/").removePrefix("/")
@@ -166,8 +177,9 @@ class GeminiAiService @Inject constructor() {
                     val jsonBody = JSONObject().apply {
                         val contents = JSONArray().apply {
                             val partObj = JSONObject().apply {
+                                put("role", "user")
                                 val parts = JSONArray().apply {
-                                    put(JSONObject().apply { put("text", "ping") })
+                                    put(JSONObject().apply { put("text", "Hello") })
                                 }
                                 put("parts", parts)
                             }
@@ -213,7 +225,12 @@ class GeminiAiService @Inject constructor() {
             }
         }
 
-        Result.failure(lastError)
+        val finalError = if (lastError.message?.contains("is not found", ignoreCase = true) == true) {
+            Exception("Gemini models not accessible with this key. Please make sure the Gemini API is enabled in your Google AI Studio project.")
+        } else {
+            lastError
+        }
+        Result.failure(finalError)
     }
 
     suspend fun queryGemini(
@@ -248,6 +265,7 @@ class GeminiAiService @Inject constructor() {
             val jsonBody = JSONObject().apply {
                 val contents = JSONArray().apply {
                     val partObj = JSONObject().apply {
+                        put("role", "user")
                         val parts = JSONArray().apply {
                             put(JSONObject().apply { put("text", fullPrompt) })
                         }
@@ -266,12 +284,12 @@ class GeminiAiService @Inject constructor() {
                 put("generationConfig", generationConfig)
             }
 
-            // Determine models to attempt
+            // Determine models to attempt (strictly genuine Gemini models)
             val candidateModels = mutableListOf<String>()
-            if (!configuredModel.isNullOrBlank() && configuredModel != "auto") {
+            if (!configuredModel.isNullOrBlank() && configuredModel != "auto" && !configuredModel.contains("gemma", ignoreCase = true)) {
                 candidateModels.add(configuredModel.removePrefix("models/"))
             }
-            cachedWorkingModel?.let { candidateModels.add(it) }
+            cachedWorkingModel?.takeIf { !it.contains("gemma", ignoreCase = true) }?.let { candidateModels.add(it) }
             candidateModels.addAll(FALLBACK_CANDIDATE_MODELS)
             val distinctModels = candidateModels.distinct()
 
@@ -321,17 +339,13 @@ class GeminiAiService @Inject constructor() {
                                 response.message
                             }
 
-                            // If 404 (model not found), continue trying the next model!
-                            if (response.code == 404) {
-                                continue
-                            }
-
                             // If 400 with invalid key or 403 permission denied, break early
                             if (isKeyIssue && (errorMsg.contains("API key not valid", ignoreCase = true) || errorMsg.contains("SERVICE_DISABLED", ignoreCase = true))) {
                                 return@withContext GeminiAiOutcome.ApiKeyInvalid(response.code, errorMsg)
                             }
 
                             lastErrorOutcome = GeminiAiOutcome.NetworkError("HTTP ${response.code}: $errorMsg")
+                            continue
                         }
                     } catch (e: Exception) {
                         Log.w(TAG, "Attempt with model $model on $apiVersion failed: ${e.message}")

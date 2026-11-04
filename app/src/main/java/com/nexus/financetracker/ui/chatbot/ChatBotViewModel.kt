@@ -103,9 +103,14 @@ class ChatBotViewModel @Inject constructor(
         // Observe settings for live Gemini API Key changes
         viewModelScope.launch {
             appSettingsManager.settings.collect { settings ->
+                val safeModel = if (settings.geminiModel.contains("gemma", ignoreCase = true) || settings.geminiModel.isBlank()) {
+                    "gemini-2.0-flash"
+                } else {
+                    settings.geminiModel
+                }
                 _uiState.value = _uiState.value.copy(
                     hasGeminiApiKey = settings.geminiApiKey.isNotBlank(),
-                    activeGeminiModel = settings.geminiModel
+                    activeGeminiModel = safeModel
                 )
             }
         }
@@ -161,7 +166,8 @@ class ChatBotViewModel @Inject constructor(
                 val extractedKey = keyMatch.value
                 val testResult = geminiAiService.testApiKey(extractedKey)
                 if (testResult.isSuccess) {
-                    val modelUsed = testResult.getOrNull() ?: "gemini-2.0-flash"
+                    val rawModel = testResult.getOrNull() ?: "gemini-2.0-flash"
+                    val modelUsed = if (rawModel.contains("gemma", ignoreCase = true)) "gemini-2.0-flash" else rawModel
                     appSettingsManager.setGeminiApiKey(extractedKey)
                     appSettingsManager.setGeminiModel(modelUsed)
                     val successReply = if (isSinhala) {
@@ -223,6 +229,11 @@ class ChatBotViewModel @Inject constructor(
 
             val botResponse = when (outcome) {
                 is GeminiAiOutcome.Success -> {
+                    val actualModel = outcome.result.modelUsed.ifBlank { "gemini-2.0-flash" }
+                    if (_uiState.value.activeGeminiModel != actualModel) {
+                        _uiState.value = _uiState.value.copy(activeGeminiModel = actualModel)
+                        appSettingsManager.setGeminiModel(actualModel)
+                    }
                     ChatMessage(
                         sender = MessageSender.BOT,
                         text = outcome.result.replyText,
