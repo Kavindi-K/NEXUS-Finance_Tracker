@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Required to listen for incoming bank credit/deposit SMS alerts -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <!-- Required on Android 13+ to post local notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Required for WorkManager periodic tasks -->
@@ -42,6 +44,15 @@
                 android:value="androidx.startup"
                 tools:node="remove" />
         </provider>
+            <!-- Bank SMS Alert Receiver for Inbound Income Detection -->
+        <receiver
+            android:name=".data.receiver.BankSmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter android:priority="999">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
