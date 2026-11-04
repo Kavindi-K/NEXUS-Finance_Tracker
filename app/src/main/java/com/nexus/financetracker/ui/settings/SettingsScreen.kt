@@ -592,7 +592,11 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 12.dp)
+                        ) {
                             Text(
                                 text = "Cached Records",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -612,6 +616,7 @@ fun SettingsScreen(
                             ),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
                             shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             enabled = !uiState.isClearingCache && uiState.cachedExpensesCount > 0
                         ) {
                             Icon(
@@ -620,7 +625,12 @@ fun SettingsScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(Modifier.width(6.dp))
-                            Text("Clear Cache", fontSize = 12.sp)
+                            Text(
+                                text = "Clear Cache",
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                softWrap = false
+                            )
                         }
                     }
                 }

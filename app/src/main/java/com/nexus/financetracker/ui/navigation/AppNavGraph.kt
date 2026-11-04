@@ -139,14 +139,14 @@ fun AppNavGraph(
         lastInteractionTime = System.currentTimeMillis()
     }
 
-    // 30-second idle reminder timer
+    // 1-minute idle reminder timer
     LaunchedEffect(isEligibleForIdleReminder, showIdleReminder) {
         if (!isEligibleForIdleReminder || showIdleReminder) return@LaunchedEffect
         lastInteractionTime = System.currentTimeMillis()
         while (true) {
             delay(1000L)
             val idleDuration = System.currentTimeMillis() - lastInteractionTime
-            if (idleDuration >= 30_000L) {
+            if (idleDuration >= 60_000L) {
                 showIdleReminder = true
                 break
             }
@@ -639,7 +639,7 @@ fun AppNavGraph(
                 },
                 text = {
                     Text(
-                        text = "You've been inactive for 30 seconds. Would you like to record today's transactions, or secure your app?",
+                        text = "You've been inactive for 1 minute. Would you like to record today's transactions, or secure your app?",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 },
