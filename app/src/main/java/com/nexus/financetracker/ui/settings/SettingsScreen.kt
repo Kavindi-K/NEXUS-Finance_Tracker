@@ -55,6 +55,7 @@ fun SettingsScreen(
     var showCurrencyDialog by remember { mutableStateOf(false) }
     var showAccountDialog by remember { mutableStateOf(false) }
     var showPinDialog by remember { mutableStateOf(false) }
+    var showGeminiDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -355,6 +356,70 @@ fun SettingsScreen(
         )
     }
 
+    var apiKeyInput by remember(uiState.geminiApiKey) { mutableStateOf(uiState.geminiApiKey) }
+    if (showGeminiDialog) {
+        AlertDialog(
+            onDismissRequest = { showGeminiDialog = false },
+            title = {
+                Text(
+                    "NEXUS AI (Gemini Cloud)",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "NEXUS AI is powered by Google Gemini. A pre-configured cloud key is active by default. You can also paste your own Google AI Studio API key below.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    OutlinedTextField(
+                        value = apiKeyInput,
+                        onValueChange = { apiKeyInput = it },
+                        label = { Text("Gemini API Key (Optional)") },
+                        placeholder = { Text("AIzaSy...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        text = "Leave empty to use the built-in default cloud intelligence.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.setGeminiApiKey(apiKeyInput.trim())
+                        showGeminiDialog = false
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Save Key")
+                }
+            },
+            dismissButton = {
+                Row {
+                    if (uiState.geminiApiKey.isNotBlank()) {
+                        TextButton(
+                            onClick = {
+                                apiKeyInput = ""
+                                viewModel.setGeminiApiKey("")
+                                showGeminiDialog = false
+                            }
+                        ) {
+                            Text("Reset Default", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    TextButton(onClick = { showGeminiDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            },
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -558,6 +623,17 @@ fun SettingsScreen(
                         subtitle = "Pre-selected payment account for rapid logging",
                         badgeValue = ExpenseAccount.getDisplayName(uiState.defaultExpenseAccount),
                         onClick = { showAccountDialog = true }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                    // NEXUS AI (Gemini Cloud)
+                    SettingClickableRow(
+                        icon = Icons.Outlined.Psychology,
+                        title = "NEXUS AI Copilot",
+                        subtitle = if (uiState.geminiApiKey.isNotBlank()) "Google Gemini (Custom Key Active)" else "Google Gemini Cloud Active",
+                        badgeValue = if (uiState.geminiApiKey.isNotBlank()) "Custom Key" else "Active",
+                        onClick = { showGeminiDialog = true }
                     )
                 }
             }

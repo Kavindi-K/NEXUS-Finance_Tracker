@@ -141,11 +141,12 @@ fun CategoryDashboardScreen(
                 it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
             }
         }
+        val distinctClassified = classified.distinctBy { it.id.ifBlank { it.name } }
         if (searchQuery.isBlank()) {
-            classified
+            distinctClassified
         } else {
             val query = searchQuery.trim().lowercase()
-            classified.filter { it.name.lowercase().contains(query) }
+            distinctClassified.filter { it.name.lowercase().contains(query) }
         }
     }
 
@@ -764,8 +765,14 @@ private fun CategoryRowCard(
                     // Line 2: Estimation & Spent details (or recurring frequency for committed)
                     if (isCommitted) {
                         val frequency = category.recurringFrequency?.replaceFirstChar { it.uppercase() } ?: "Monthly"
+                        val durText = category.recurringDurationText
+                        val displayInfo = if (!durText.isNullOrBlank()) {
+                            "$frequency • $durText"
+                        } else {
+                            "$frequency • Ongoing"
+                        }
                         Text(
-                            text = frequency,
+                            text = displayInfo,
                             color = TextMutedSlate,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
