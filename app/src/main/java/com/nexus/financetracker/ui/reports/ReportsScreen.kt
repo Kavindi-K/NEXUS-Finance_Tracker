@@ -464,7 +464,7 @@ fun ReportsScreen(
             // Graph 2: Goal Assigned Graph Card (bound to selected month)
             val goalReports = currentReport?.goalReports.orEmpty()
             var expandedGoalId by remember(selectedLabel, goalReports) {
-                mutableStateOf(goalReports.firstOrNull()?.goalId)
+                mutableStateOf<String?>(null)
             }
 
             Card(
@@ -544,10 +544,7 @@ fun ReportsScreen(
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .clickable {
-                                            expandedGoalId = if (isExpanded) null else report.goalId
-                                        },
+                                        .clip(RoundedCornerShape(12.dp)),
                                     shape = RoundedCornerShape(12.dp),
                                     color = MaterialTheme.colorScheme.surface,
                                     border = BorderStroke(
@@ -560,9 +557,14 @@ fun ReportsScreen(
                                             .fillMaxWidth()
                                             .padding(14.dp)
                                     ) {
-                                        // Header Row: Goal Title, Priority Badge, Target, Progress % & Toggle Icon
+                                        // Header Row: Goal Title, Priority Badge, Target, Progress % & Toggle Icon (Click to expand detail view)
                                         Row(
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable {
+                                                    expandedGoalId = if (isExpanded) null else report.goalId
+                                                },
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
@@ -837,6 +839,12 @@ fun ReportsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val sources = currentReport?.incomeSources.orEmpty()
+                    var isIncomeDetailsExpanded by remember(selectedLabel) { mutableStateOf(false) }
+                    val incomeDetailsArrowRotation by animateFloatAsState(
+                        targetValue = if (isIncomeDetailsExpanded) 180f else 0f,
+                        label = "incomeDetailsArrowRotation"
+                    )
+
                     if (sources.isEmpty()) {
                         Column(
                             modifier = Modifier
@@ -871,18 +879,16 @@ fun ReportsScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.8.dp)
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        // Source details table
-                        Text(
-                            text = "Breakdown Details",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        sources.forEach { sourceItem ->
+                        // Expandable Breakdown Details Header with Drop Arrow
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { isIncomeDetailsExpanded = !isIncomeDetailsExpanded },
+                            color = Color.Transparent
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -890,18 +896,76 @@ fun ReportsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = sourceItem.source,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "LKR ${currencyFormat.format(sourceItem.amountLKR)}",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Breakdown Details",
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "(${sources.size})",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = if (isIncomeDetailsExpanded) "Hide" else "Show Details",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = if (isIncomeDetailsExpanded) "Collapse details" else "Expand details",
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .rotate(incomeDetailsArrowRotation)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Detail rows: displayed only when drop arrow is clicked to show detail
+                        AnimatedVisibility(visible = isIncomeDetailsExpanded) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                sources.forEach { sourceItem ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = sourceItem.source,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = "LKR ${currencyFormat.format(sourceItem.amountLKR)}",
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -955,6 +1019,12 @@ fun ReportsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val categories = currentReport?.categorySpendings.orEmpty()
+                    var isExpenseDetailsExpanded by remember(selectedLabel) { mutableStateOf(false) }
+                    val expenseDetailsArrowRotation by animateFloatAsState(
+                        targetValue = if (isExpenseDetailsExpanded) 180f else 0f,
+                        label = "expenseDetailsArrowRotation"
+                    )
+
                     if (categories.isEmpty()) {
                         Column(
                             modifier = Modifier
@@ -989,18 +1059,16 @@ fun ReportsScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.8.dp)
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        // Category details table
-                        Text(
-                            text = "Breakdown Details",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        categories.forEach { catItem ->
+                        // Expandable Breakdown Details Header with Drop Arrow
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { isExpenseDetailsExpanded = !isExpenseDetailsExpanded },
+                            color = Color.Transparent
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1008,18 +1076,76 @@ fun ReportsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = catItem.name,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "LKR ${currencyFormat.format(catItem.amountLKR)}",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Breakdown Details",
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "(${categories.size})",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = if (isExpenseDetailsExpanded) "Hide" else "Show Details",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = if (isExpenseDetailsExpanded) "Collapse details" else "Expand details",
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .rotate(expenseDetailsArrowRotation)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Detail rows: displayed only when drop arrow is clicked to show detail
+                        AnimatedVisibility(visible = isExpenseDetailsExpanded) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                categories.forEach { catItem ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = catItem.name,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = "LKR ${currencyFormat.format(catItem.amountLKR)}",
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -1028,7 +1154,7 @@ fun ReportsScreen(
 
             // Graph 5: Discretionary Categories: Estimation vs Actual Expense Line Graph Card
             val comparisons = currentReport?.discretionaryComparisons.orEmpty()
-            var isDetailsExpanded by remember { mutableStateOf(false) }
+            var isDetailsExpanded by remember(selectedLabel) { mutableStateOf(false) }
             val detailsArrowRotation by animateFloatAsState(
                 targetValue = if (isDetailsExpanded) 180f else 0f,
                 label = "discretionaryDetailsArrowRotation"
