@@ -43,7 +43,8 @@ class ChatBotViewModel @Inject constructor(
     private val appSettingsManager: AppSettingsManager,
     private val advisorEngine: FinancialAdvisorEngine,
     private val nlpParser: ChatBotNlpParser,
-    private val geminiAiService: GeminiAiService
+    private val geminiAiService: GeminiAiService,
+    private val chatHistoryRepository: ChatHistoryRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatBotUiState())
@@ -71,23 +72,33 @@ class ChatBotViewModel @Inject constructor(
         val firstName = user.displayName?.split(" ")?.firstOrNull()?.takeIf { it.isNotBlank() } ?: "Friend"
         _uiState.value = _uiState.value.copy(userFirstName = firstName)
 
-        // Welcoming message with intelligent interactive workflow capabilities
-        val welcomeMsg = ChatMessage(
-            sender = MessageSender.BOT,
-            text = "Hello $firstName! I am your personal NEXUS AI Financial Copilot.\n\n" +
-                "I am directly connected to your live financial records and ready to assist you:\n" +
-                "• 💸 **Log Expenses & Incomes:** *'Petrol 2500 cash'*, *'Salary 150000'*\n" +
-                "• 🏷️ **Manage Categories & Bills:** *'Add category Gym 5000'*, *'Add recurring bill Netflix 2200'*\n" +
-                "• 🔍 **Inquire about Spending:** *'How much did I spend on food?'*, *'Recent expenses'*\n" +
-                "• 🛡️ **Runway & Affordability:** *'Emergency runway'*, *'Can I afford 50000?'*\n" +
-                "• ⚙️ **App Actions & Workflows:** *'Enable dark mode'*, *'Clear alerts'*, *'Go to reports'*\n\n" +
-                "I respond in English by default, but if you message me in සිංහල or Singlish, I will gladly answer in සිංහල!"
-        )
-        _uiState.value = _uiState.value.copy(
-            messages = listOf(welcomeMsg),
-            hasGeminiApiKey = appSettingsManager.settings.value.geminiApiKey.isNotBlank(),
-            activeGeminiModel = appSettingsManager.settings.value.geminiModel
-        )
+        // Load persisted conversation history so returning to chat preserves all messages
+        viewModelScope.launch {
+            val saved = chatHistoryRepository.getMessages(user.uid)
+            val initialMessages = if (saved.isNotEmpty()) {
+                saved
+            } else {
+                val welcomeMsg = ChatMessage(
+                    sender = MessageSender.BOT,
+                    text = "Hello $firstName! I am your personal NEXUS AI Financial Copilot.\n\n" +
+                        "I am directly connected to your live financial records and ready to assist you:\n" +
+                        "• 💸 **Log Expenses & Incomes:** *'Petrol 2500 cash'*, *'Salary 150000'*\n" +
+                        "• 🏷️ **Manage Categories & Bills:** *'Add category Gym 5000'*, *'Add recurring bill Netflix 2200'*\n" +
+                        "• 🔍 **Inquire about Spending:** *'How much did I spend on food?'*, *'Recent expenses'*\n" +
+                        "• 🛡️ **Runway & Affordability:** *'Emergency runway'*, *'Can I afford 50000?'*\n" +
+                        "• ⚙️ **App Actions & Workflows:** *'Enable dark mode'*, *'Clear alerts'*, *'Go to reports'*\n\n" +
+                        "I respond in English by default, but if you message me in සිංහල or Singlish, I will gladly answer in සිංහල!"
+                )
+                chatHistoryRepository.saveMessages(user.uid, listOf(welcomeMsg))
+                listOf(welcomeMsg)
+            }
+
+            _uiState.value = _uiState.value.copy(
+                messages = initialMessages,
+                hasGeminiApiKey = appSettingsManager.settings.value.geminiApiKey.isNotBlank(),
+                activeGeminiModel = appSettingsManager.settings.value.geminiModel
+            )
+        }
 
         // Observe settings for live Gemini API Key changes
         viewModelScope.launch {
@@ -133,6 +144,13 @@ class ChatBotViewModel @Inject constructor(
             isTyping = true
         )
 
+        val currentUserId = auth.currentUser?.uid.orEmpty()
+        if (currentUserId.isNotBlank()) {
+            viewModelScope.launch {
+                chatHistoryRepository.appendMessage(currentUserId, userMessage)
+            }
+        }
+
         viewModelScope.launch {
             val isSinhala = isSinhalaLanguage(text)
 
@@ -157,12 +175,16 @@ class ChatBotViewModel @Inject constructor(
                             "• **API Status:** Live & Verified ⚡\n\n" +
                             "Your Gemini API Key has been verified. All inquiries will now be dynamically powered by $modelUsed. Ask me anything!"
                     }
+                    val replyMessage = ChatMessage(sender = MessageSender.BOT, text = successReply)
                     _uiState.value = _uiState.value.copy(
-                        messages = _uiState.value.messages + ChatMessage(sender = MessageSender.BOT, text = successReply),
+                        messages = _uiState.value.messages + replyMessage,
                         isTyping = false,
                         hasGeminiApiKey = true,
                         activeGeminiModel = modelUsed
                     )
+                    if (currentUserId.isNotBlank()) {
+                        chatHistoryRepository.appendMessage(currentUserId, replyMessage)
+                    }
                     return@launch
                 } else {
                     val errorMsg = testResult.exceptionOrNull()?.message ?: "Verification failed"
@@ -171,10 +193,14 @@ class ChatBotViewModel @Inject constructor(
                     } else {
                         "⚠️ **Gemini API Key Verification Error:**\n$errorMsg\n\nPlease ensure the key was generated at https://aistudio.google.com/app/apikey and retry."
                     }
+                    val replyMessage = ChatMessage(sender = MessageSender.BOT, text = failReply)
                     _uiState.value = _uiState.value.copy(
-                        messages = _uiState.value.messages + ChatMessage(sender = MessageSender.BOT, text = failReply),
+                        messages = _uiState.value.messages + replyMessage,
                         isTyping = false
                     )
+                    if (currentUserId.isNotBlank()) {
+                        chatHistoryRepository.appendMessage(currentUserId, replyMessage)
+                    }
                     return@launch
                 }
             }
@@ -249,6 +275,9 @@ class ChatBotViewModel @Inject constructor(
                 messages = _uiState.value.messages + botResponse,
                 isTyping = false
             )
+            if (currentUserId.isNotBlank()) {
+                chatHistoryRepository.appendMessage(currentUserId, botResponse)
+            }
         }
     }
 
@@ -829,6 +858,9 @@ class ChatBotViewModel @Inject constructor(
             }
 
             _uiState.value = _uiState.value.copy(messages = updatedMessages)
+            if (userId.isNotBlank()) {
+                chatHistoryRepository.saveMessages(userId, updatedMessages)
+            }
         }
     }
 
@@ -853,15 +885,27 @@ class ChatBotViewModel @Inject constructor(
         updatedMessages.add(ChatMessage(sender = MessageSender.BOT, text = text))
 
         _uiState.value = _uiState.value.copy(messages = updatedMessages)
+        val userId = auth.currentUser?.uid.orEmpty()
+        if (userId.isNotBlank()) {
+            viewModelScope.launch {
+                chatHistoryRepository.saveMessages(userId, updatedMessages)
+            }
+        }
     }
 
     fun clearChat() {
+        val user = auth.currentUser
         val firstName = _uiState.value.userFirstName
         val welcomeMsg = ChatMessage(
             sender = MessageSender.BOT,
             text = "Hello $firstName! How else can I assist you with your finances today?"
         )
         _uiState.value = _uiState.value.copy(messages = listOf(welcomeMsg))
+        if (user != null) {
+            viewModelScope.launch {
+                chatHistoryRepository.saveMessages(user.uid, listOf(welcomeMsg))
+            }
+        }
     }
 
     fun clearError() {
