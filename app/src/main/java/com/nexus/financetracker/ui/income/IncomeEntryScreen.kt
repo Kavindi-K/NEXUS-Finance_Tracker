@@ -56,7 +56,10 @@ fun IncomeEntryScreen(
         if (!incomeId.isNullOrBlank()) {
             viewModel.loadIncomeForEdit(incomeId)
         } else {
-            viewModel.resetForm()
+            val applied = viewModel.checkAndApplyStagedDepositForOther()
+            if (!applied && !viewModel.formState.value.isPrefilledFromDeposit) {
+                viewModel.resetForm()
+            }
         }
     }
 

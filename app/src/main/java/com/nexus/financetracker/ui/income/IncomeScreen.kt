@@ -27,8 +27,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nexus.financetracker.domain.model.DetectedBankDeposit
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
@@ -64,6 +66,8 @@ fun IncomeScreen(
     var incomeToConfirm by remember { mutableStateOf<Income?>(null) }
     var incomeToDelete by remember { mutableStateOf<Income?>(null) }
     var showBreakdownSheet by remember { mutableStateOf(false) }
+    var depositToCategorize by remember { mutableStateOf<DetectedBankDeposit?>(null) }
+    var selectedDepositCategory by remember { mutableStateOf(IncomeSource.SALARY) }
     val scrollState = rememberScrollState()
 
     val isStreamDetail = uiState.selectedSource != null
@@ -247,6 +251,19 @@ fun IncomeScreen(
                         )
                     }
                 },
+                actions = {
+                    if (uiState.detectedDeposit == null) {
+                        IconButton(
+                            onClick = { viewModel.simulateNewBankDeposit() }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AddAlert,
+                                contentDescription = "Simulate Bank Deposit Alert",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -275,7 +292,7 @@ fun IncomeScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Offline Indicator Banner
             if (uiState.isOffline) {
@@ -501,36 +518,159 @@ fun IncomeScreen(
                 }
             }
 
-            // 2. Filter Chips (Pinned at the top) - Hidden in Base Salary Month view
-            if (!isSalaryMonthView) {
-                Row(
+            // Auto-detected Bank Deposit Review Banner (Accept / Reject) - Compact Design
+            val detectedDeposit = uiState.detectedDeposit
+            if (detectedDeposit != null && !isSalaryMonthView) {
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
                 ) {
-                    IncomeFilter.values().forEach { filter ->
-                        val isSelected = uiState.selectedFilter == filter
-                        val label = when (filter) {
-                            IncomeFilter.ALL -> "All (${uiState.incomes.size})"
-                            IncomeFilter.CONFIRMED -> "Confirmed (${uiState.incomes.count { it.status == IncomeStatus.CONFIRMED }})"
-                            IncomeFilter.PENDING -> "Pending (${uiState.incomes.count { it.status == IncomeStatus.PENDING }})"
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.NotificationsActive,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                                Column {
+                                    Text(
+                                        text = detectedDeposit.bankName,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = dateFormatter.format(detectedDeposit.date),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = "LKR %,.2f".format(detectedDeposit.amountLKR),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF15803D)
+                            )
                         }
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { viewModel.onFilterSelected(filter) },
-                            label = { Text(label) },
-                            shape = RoundedCornerShape(20.dp)
-                        )
+
+                        Spacer(Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { viewModel.rejectDetectedDeposit(detectedDeposit) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(34.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Reject",
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("Reject", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+
+                            Button(
+                                onClick = {
+                                    selectedDepositCategory = IncomeSource.SALARY
+                                    depositToCategorize = detectedDeposit
+                                },
+                                modifier = Modifier
+                                    .weight(1.3f)
+                                    .height(34.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF15803D),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Accept",
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("Accept & Categorize", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
                     }
                 }
+            }
 
-                // Modern Sleek Sort Control Bar (Matching Expenses Dashboard)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            // 2. Filter Chips & Sort Controls (Compact grouping) - Hidden in Base Salary Month view
+            if (!isSalaryMonthView) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
+                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            IncomeFilter.values().forEach { filter ->
+                                val isSelected = uiState.selectedFilter == filter
+                                val label = when (filter) {
+                                    IncomeFilter.ALL -> "All (${uiState.incomes.size})"
+                                    IncomeFilter.CONFIRMED -> "Confirmed (${uiState.incomes.count { it.status == IncomeStatus.CONFIRMED }})"
+                                    IncomeFilter.PENDING -> "Pending (${uiState.incomes.count { it.status == IncomeStatus.PENDING }})"
+                                }
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { viewModel.onFilterSelected(filter) },
+                                    label = { Text(label, fontSize = 12.sp) },
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.height(28.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Modern Sleek Sort Control Bar (Matching Expenses Dashboard)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -639,6 +779,7 @@ fun IncomeScreen(
                     }
                 }
             }
+        }
 
             // 3. Scrollable List of Income Items (Hidden in Base Salary Month view because salary has 1 entry represented above)
             if (!isSalaryMonthView) {
@@ -898,6 +1039,145 @@ fun IncomeScreen(
                 onDismiss = { showBreakdownSheet = false }
             )
         }
+    }
+
+    // Accept & Categorize Bank Deposit Dialog
+    if (depositToCategorize != null) {
+        val deposit = depositToCategorize!!
+        AlertDialog(
+            onDismissRequest = { depositToCategorize = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.AccountBalance,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Accept Bank Deposit",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Choose category to confirm this deposit into your official income balance:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = deposit.bankName,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "LKR %,.2f".format(deposit.amountLKR),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF15803D)
+                            )
+                            Text(
+                                text = "Received: ${dateFormatter.format(deposit.date)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "Select Category:",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedDepositCategory == IncomeSource.SALARY,
+                            onClick = { selectedDepositCategory = IncomeSource.SALARY },
+                            label = { Text("Salary", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = selectedDepositCategory == IncomeSource.FREELANCE,
+                            onClick = { selectedDepositCategory = IncomeSource.FREELANCE },
+                            label = { Text("Freelance", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedDepositCategory == IncomeSource.CRYPTO,
+                            onClick = { selectedDepositCategory = IncomeSource.CRYPTO },
+                            label = { Text("Realized Crypto (Profit)", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier.weight(1.3f)
+                        )
+                        FilterChip(
+                            selected = false,
+                            onClick = {
+                                val currentDeposit = deposit
+                                depositToCategorize = null
+                                viewModel.prepareAddOtherFromDeposit(currentDeposit)
+                                onAddIncome()
+                            },
+                            label = { Text("+ Other", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                labelColor = MaterialTheme.colorScheme.primary
+                            ),
+                            modifier = Modifier.weight(0.9f)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.acceptDetectedDeposit(deposit, selectedDepositCategory) {
+                            depositToCategorize = null
+                        }
+                    }
+                ) {
+                    Text("Confirm & Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { depositToCategorize = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

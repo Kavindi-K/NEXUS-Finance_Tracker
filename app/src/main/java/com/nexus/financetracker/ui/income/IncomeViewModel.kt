@@ -8,6 +8,8 @@ import com.nexus.financetracker.data.repository.IncomeRepository
 import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
+import com.nexus.financetracker.data.local.BankDepositManager
+import com.nexus.financetracker.domain.model.DetectedBankDeposit
 import com.nexus.financetracker.domain.model.IncomeStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -87,7 +89,9 @@ data class IncomeFormState(
     val note: String = "",
     val isLoading: Boolean = false,
     val isSubmitting: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val pendingDepositIdToDismiss: String? = null,
+    val isPrefilledFromDeposit: Boolean = false
 ) {
     val isEditMode: Boolean
         get() = editingIncomeId != null
@@ -123,7 +127,8 @@ data class IncomeUiState(
     val reconciliation: MonthlyReconciliation? = null,
     val isOffline: Boolean = false,
     val isLoading: Boolean = true,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val detectedDeposit: DetectedBankDeposit? = null
 )
 
 @HiltViewModel
@@ -131,7 +136,8 @@ class IncomeViewModel @Inject constructor(
     private val incomeRepository: IncomeRepository,
     private val auth: FirebaseAuth,
     private val networkMonitor: NetworkMonitor,
-    private val exchangeRateRepository: ExchangeRateRepository
+    private val exchangeRateRepository: ExchangeRateRepository,
+    private val bankDepositManager: BankDepositManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(IncomeUiState())
@@ -149,7 +155,19 @@ class IncomeViewModel @Inject constructor(
     init {
         loadIncomes()
         observeNetworkStatus()
+        observeBankDeposits()
         fetchLiveExchangeRate("USD", _formState.value.dateReceived)
+        checkAndApplyStagedDepositForOther()
+    }
+
+    private fun observeBankDeposits() {
+        viewModelScope.launch {
+            bankDepositManager.pendingDeposits.collect { deposits ->
+                _uiState.value = _uiState.value.copy(
+                    detectedDeposit = deposits.firstOrNull()
+                )
+            }
+        }
     }
 
     private fun observeNetworkStatus() {
@@ -825,6 +843,9 @@ class IncomeViewModel @Inject constructor(
                 } else {
                     incomeRepository.addIncome(income)
                 }
+                state.pendingDepositIdToDismiss?.let { depId ->
+                    bankDepositManager.dismissDeposit(depId)
+                }
                 _formState.value = _formState.value.copy(isSubmitting = false)
                 resetForm()
                 onSuccess()
@@ -871,5 +892,89 @@ class IncomeViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    // --- Detected Bank Deposits for Income Staging (Accept / Reject) ---
+
+    fun checkAndApplyStagedDepositForOther(): Boolean {
+        val deposit = bankDepositManager.consumeStagedDepositForOther() ?: return false
+        _formState.value = IncomeFormState(
+            editingIncomeId = null,
+            originalCreatedAt = null,
+            source = IncomeSource.OTHER,
+            status = IncomeStatus.CONFIRMED,
+            amountOriginal = String.format(java.util.Locale.US, "%.2f", deposit.amountLKR),
+            currency = "LKR",
+            exchangeRate = "1.0",
+            isCryptoLoss = false,
+            dateReceived = deposit.date,
+            customSourceTitle = "",
+            note = "",
+            pendingDepositIdToDismiss = deposit.id,
+            isPrefilledFromDeposit = true
+        )
+        return true
+    }
+
+    fun prepareAddOtherFromDeposit(deposit: DetectedBankDeposit) {
+        bankDepositManager.stageForOtherRecord(deposit)
+        _formState.value = IncomeFormState(
+            editingIncomeId = null,
+            originalCreatedAt = null,
+            source = IncomeSource.OTHER,
+            status = IncomeStatus.CONFIRMED,
+            amountOriginal = String.format(java.util.Locale.US, "%.2f", deposit.amountLKR),
+            currency = "LKR",
+            exchangeRate = "1.0",
+            isCryptoLoss = false,
+            dateReceived = deposit.date,
+            customSourceTitle = "",
+            note = "",
+            pendingDepositIdToDismiss = deposit.id,
+            isPrefilledFromDeposit = true
+        )
+    }
+
+    fun rejectDetectedDeposit(deposit: DetectedBankDeposit) {
+        bankDepositManager.dismissDeposit(deposit.id)
+    }
+
+    fun acceptDetectedDeposit(
+        deposit: DetectedBankDeposit,
+        chosenSource: String = deposit.suggestedSource,
+        onSuccess: () -> Unit = {}
+    ) {
+        val userId = currentUserId ?: return
+        val income = Income(
+            id = "",
+            userId = userId,
+            source = chosenSource,
+            status = IncomeStatus.CONFIRMED,
+            amountOriginal = deposit.amountLKR,
+            currency = "LKR",
+            exchangeRate = 1.0,
+            amountLKR = deposit.amountLKR,
+            dateReceived = deposit.date,
+            expectedDate = null,
+            note = "${deposit.bankName} Deposit",
+            createdAt = Date(),
+            updatedAt = null
+        )
+
+        viewModelScope.launch {
+            try {
+                incomeRepository.addIncome(income)
+                bankDepositManager.dismissDeposit(deposit.id)
+                onSuccess()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = e.localizedMessage ?: "Failed to add accepted deposit"
+                )
+            }
+        }
+    }
+
+    fun simulateNewBankDeposit() {
+        bankDepositManager.simulateCommercialBankSalary()
     }
 }
