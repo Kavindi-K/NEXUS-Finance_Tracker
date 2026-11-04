@@ -95,11 +95,12 @@ class BillReminderWorker @AssistedInject constructor(
                     // 1 week before deadline reminder
                     calc.daysRemaining in 1L..7L -> {
                         val daysText = if (calc.daysRemaining == 1L) "1 day" else "${calc.daysRemaining} days"
+                        val formattedTarget = "LKR %,.0f".format(goal.targetAmountLKR)
                         NotificationHelper.postGoalReminder(
                             context = context,
                             notificationId = ("goal_deadline_" + goal.id).hashCode(),
                             title = "🎯 $priorityName Priority: ${goal.title}",
-                            message = "You have $daysText left to achieve your target (LKR %,.0f).".format(goal.targetAmountLKR)
+                            message = "You have $daysText left to achieve your target ($formattedTarget)."
                         )
                     }
                     // Pace alert (behind pace)

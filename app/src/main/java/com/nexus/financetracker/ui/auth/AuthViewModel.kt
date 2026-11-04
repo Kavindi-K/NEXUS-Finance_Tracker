@@ -13,6 +13,7 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.nexus.financetracker.data.local.database.AppDatabase
 import com.nexus.financetracker.data.repository.AuthRepository
 import com.nexus.financetracker.domain.model.UserProfile
+import com.nexus.financetracker.ui.chatbot.ChatHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -25,7 +26,8 @@ import javax.inject.Inject
 class AuthViewModel @Inject constructor(
     private val auth: FirebaseAuth,
     private val authRepository: AuthRepository,
-    private val appDatabase: AppDatabase
+    private val appDatabase: AppDatabase,
+    private val chatHistoryRepository: ChatHistoryRepository
 ) : ViewModel() {
 
     var uiState by mutableStateOf(AuthUiState())
@@ -132,6 +134,7 @@ class AuthViewModel @Inject constructor(
                     appDatabase.goalDao().deleteAllForUser(uid)
                     appDatabase.categoryDao().deleteAllForUser(uid)
                     appDatabase.transactionDao().deleteAllForUser(uid)
+                    chatHistoryRepository.clearHistory(uid)
                 } catch (_: Exception) {}
             }
         }

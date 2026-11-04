@@ -90,6 +90,7 @@ private fun resolveCategoryName(categoryId: String, categoriesMap: Map<String, S
 @Composable
 fun ExpenseScreen(
     onAddExpense: () -> Unit,
+    onManageCategories: () -> Unit = {},
     onEditExpense: (String) -> Unit = {},
     onBack: () -> Unit = {},
     viewModel: ExpenseViewModel = hiltViewModel()
@@ -483,8 +484,10 @@ fun ExpenseScreen(
 
     // Category Management Sheet
     if (showCategoryManagementSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { showCategoryManagementSheet = false },
+            sheetState = sheetState,
             containerColor = Color.White,
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
         ) {
@@ -501,7 +504,7 @@ fun ExpenseScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Expense Categories",
                             style = MaterialTheme.typography.titleLarge,
@@ -514,8 +517,18 @@ fun ExpenseScreen(
                             color = TextSubtle
                         )
                     }
-                    IconButton(onClick = { showCategoryManagementSheet = false }) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = NavyPrimary)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(
+                            onClick = {
+                                showCategoryManagementSheet = false
+                                onManageCategories()
+                            }
+                        ) {
+                            Text("Full View ›", color = Color(0xFF2563EB), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        IconButton(onClick = { showCategoryManagementSheet = false }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = NavyPrimary)
+                        }
                     }
                 }
 
@@ -605,24 +618,32 @@ fun ExpenseScreen(
 
                 HorizontalDivider(color = Color(0xFFE2E8F0))
 
+                val standardIds = remember { DEFAULT_EXPENSE_CATEGORIES.map { it.id.lowercase().trim() }.toSet() }
+                val customCats = remember(uiState.customCategories) {
+                    uiState.customCategories
+                        .filter { it.id.isNotBlank() && it.id.lowercase().trim() !in standardIds }
+                        .distinctBy { it.id }
+                }
+
                 // Scrollable Categories List
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f, fill = false),
+                        .weight(1f, fill = false)
+                        .heightIn(max = 420.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (uiState.customCategories.isNotEmpty()) {
-                        item {
+                    if (customCats.isNotEmpty()) {
+                        item(key = "header_custom_cats") {
                             Text(
-                                text = "Your Custom Categories (${uiState.customCategories.size})",
+                                text = "Your Custom Categories (${customCats.size})",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = NavyPrimary
                             )
                         }
 
-                        items(uiState.customCategories, key = { it.id }) { cat ->
+                        items(customCats, key = { "custom_${it.id}" }) { cat ->
                             val count = uiState.expenses.count { it.categoryId == cat.id }
                             val isSelectedCategory = uiState.selectedCategoryFilter == cat.id
                             Surface(
@@ -719,7 +740,7 @@ fun ExpenseScreen(
                     }
 
                     // Standard Default Categories
-                    item {
+                    item(key = "header_standard_cats") {
                         Spacer(Modifier.height(8.dp))
                         Text(
                             text = "Standard Categories (${DEFAULT_EXPENSE_CATEGORIES.size})",
@@ -729,7 +750,7 @@ fun ExpenseScreen(
                         )
                     }
 
-                    items(DEFAULT_EXPENSE_CATEGORIES, key = { it.id }) { cat ->
+                    items(DEFAULT_EXPENSE_CATEGORIES, key = { "standard_${it.id}" }) { cat ->
                         val count = uiState.expenses.count { it.categoryId == cat.id }
                         val isSelectedCategory = uiState.selectedCategoryFilter == cat.id
                         Surface(

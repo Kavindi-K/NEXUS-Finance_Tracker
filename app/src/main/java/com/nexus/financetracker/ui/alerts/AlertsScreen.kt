@@ -806,8 +806,9 @@ fun AlertsScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
+                                            val formattedAmount = "LKR %,.0f".format(income.amountLKR)
                                             Text(
-                                                text = "$sourceName payment expected $dueText (LKR %,.0f).".format(income.amountLKR),
+                                                text = "$sourceName payment expected $dueText ($formattedAmount).",
                                                 style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.onSurface,
@@ -929,8 +930,9 @@ fun AlertsScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
+                                            val formattedAmount = "LKR %,.0f".format(item.amountLKR)
                                             Text(
-                                                text = "${item.title} (LKR %,.0f) is due $dueText.".format(item.amountLKR),
+                                                text = "${item.title} ($formattedAmount) is due $dueText.",
                                                 style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.onSurface,
