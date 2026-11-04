@@ -83,10 +83,12 @@ fun IncomeScreen(
     }
 
     val smsPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        hasSmsPermission = isGranted
-        if (isGranted) {
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val receiveGranted = permissions[Manifest.permission.RECEIVE_SMS] == true
+        val readGranted = permissions[Manifest.permission.READ_SMS] == true
+        hasSmsPermission = receiveGranted || readGranted
+        if (hasSmsPermission) {
             Toast.makeText(context, "Live Bank SMS Detection Enabled", Toast.LENGTH_SHORT).show()
         }
     }
@@ -277,7 +279,7 @@ fun IncomeScreen(
                         IconButton(
                             onClick = {
                                 if (!hasSmsPermission) {
-                                    smsPermissionLauncher.launch(Manifest.permission.RECEIVE_SMS)
+                                    smsPermissionLauncher.launch(arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS))
                                 } else {
                                     viewModel.simulateNewBankDeposit()
                                 }
