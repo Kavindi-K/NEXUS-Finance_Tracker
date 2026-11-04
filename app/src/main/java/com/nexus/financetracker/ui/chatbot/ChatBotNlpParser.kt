@@ -277,7 +277,8 @@ class ChatBotNlpParser @Inject constructor() {
     private fun isRecentTransactionsQuery(lower: String): Boolean {
         val keywords = listOf(
             "recent expense", "recent spending", "recent transactions", "last expense",
-            "last spending", "latest expense", "මෑත වියදම්", "අන්තිම වියදම්", "මෑතකදී කළ වියදම්"
+            "last spending", "latest expense", "මෑත වියදම්", "අන්තිම වියදම්", "මෑතකදී කළ වියදම්",
+            "ඊයේ", "yesterday", "කලින් දවසේ", "කලින් දවසෙ", "spending breakdown"
         )
         return keywords.any { lower.contains(it) }
     }
@@ -285,7 +286,9 @@ class ChatBotNlpParser @Inject constructor() {
     private fun isIncomeBreakdownQuery(lower: String): Boolean {
         val keywords = listOf(
             "income breakdown", "income sources", "where did my income come from",
-            "how did i earn", "salary and freelance", "ආදායම් විස්තර", "ආදායම් මාර්ග"
+            "how did i earn", "salary and freelance", "ආදායම් විස්තර", "ආදායම් මාර්ග",
+            "income ekak", "income එකක්", "කොච්චර income", "total income", "my income",
+            "ආදායමක් ඇවිත්", "ආදායම කොච්චර"
         )
         return keywords.any { lower.contains(it) }
     }
