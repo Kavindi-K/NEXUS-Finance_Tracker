@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexus.financetracker.domain.model.DetectedBankDeposit
@@ -291,7 +292,7 @@ fun IncomeScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Offline Indicator Banner
             if (uiState.isOffline) {
@@ -517,115 +518,94 @@ fun IncomeScreen(
                 }
             }
 
-            // Auto-detected Bank Deposit Review Banner (Accept / Reject)
+            // Auto-detected Bank Deposit Review Banner (Accept / Reject) - Compact Design
             val detectedDeposit = uiState.detectedDeposit
             if (detectedDeposit != null && !isSalaryMonthView) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
                     ),
-                    border = BorderStroke(1.2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
                         Row(
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                modifier = Modifier.size(38.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.NotificationsActive,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "1 New Bank Deposit Detected",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Review incoming funds before adding to income balance",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                            modifier = Modifier.fillMaxWidth()
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.NotificationsActive,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                                Column {
                                     Text(
                                         text = detectedDeposit.bankName,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
                                         text = dateFormatter.format(detectedDeposit.date),
-                                        style = MaterialTheme.typography.bodySmall,
+                                        style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-
-                                Text(
-                                    text = "LKR %,.2f".format(detectedDeposit.amountLKR),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF15803D)
-                                )
                             }
+
+                            Text(
+                                text = "LKR %,.2f".format(detectedDeposit.amountLKR),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF15803D)
+                            )
                         }
 
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(8.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedButton(
                                 onClick = { viewModel.rejectDetectedDeposit(detectedDeposit) },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(34.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = MaterialTheme.colorScheme.error
                                 ),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f))
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "Reject Deposit",
-                                    modifier = Modifier.size(16.dp)
+                                    contentDescription = "Reject",
+                                    modifier = Modifier.size(14.dp)
                                 )
-                                Spacer(Modifier.width(6.dp))
-                                Text("Reject", fontWeight = FontWeight.SemiBold)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Reject", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             }
 
                             Button(
@@ -633,8 +613,11 @@ fun IncomeScreen(
                                     selectedDepositCategory = IncomeSource.SALARY
                                     depositToCategorize = detectedDeposit
                                 },
-                                modifier = Modifier.weight(1.3f),
-                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .weight(1.3f)
+                                    .height(34.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF15803D),
                                     contentColor = Color.White
@@ -642,47 +625,52 @@ fun IncomeScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
-                                    contentDescription = "Accept Deposit",
-                                    modifier = Modifier.size(16.dp)
+                                    contentDescription = "Accept",
+                                    modifier = Modifier.size(14.dp)
                                 )
-                                Spacer(Modifier.width(6.dp))
-                                Text("Accept & Categorize", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Spacer(Modifier.width(4.dp))
+                                Text("Accept & Categorize", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
                 }
             }
 
-            // 2. Filter Chips (Pinned at the top) - Hidden in Base Salary Month view
+            // 2. Filter Chips & Sort Controls (Compact grouping) - Hidden in Base Salary Month view
             if (!isSalaryMonthView) {
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    IncomeFilter.values().forEach { filter ->
-                        val isSelected = uiState.selectedFilter == filter
-                        val label = when (filter) {
-                            IncomeFilter.ALL -> "All (${uiState.incomes.size})"
-                            IncomeFilter.CONFIRMED -> "Confirmed (${uiState.incomes.count { it.status == IncomeStatus.CONFIRMED }})"
-                            IncomeFilter.PENDING -> "Pending (${uiState.incomes.count { it.status == IncomeStatus.PENDING }})"
+                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            IncomeFilter.values().forEach { filter ->
+                                val isSelected = uiState.selectedFilter == filter
+                                val label = when (filter) {
+                                    IncomeFilter.ALL -> "All (${uiState.incomes.size})"
+                                    IncomeFilter.CONFIRMED -> "Confirmed (${uiState.incomes.count { it.status == IncomeStatus.CONFIRMED }})"
+                                    IncomeFilter.PENDING -> "Pending (${uiState.incomes.count { it.status == IncomeStatus.PENDING }})"
+                                }
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { viewModel.onFilterSelected(filter) },
+                                    label = { Text(label, fontSize = 12.sp) },
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.height(28.dp)
+                                )
+                            }
                         }
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { viewModel.onFilterSelected(filter) },
-                            label = { Text(label) },
-                            shape = RoundedCornerShape(20.dp)
-                        )
                     }
-                }
 
-                // Modern Sleek Sort Control Bar (Matching Expenses Dashboard)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                    // Modern Sleek Sort Control Bar (Matching Expenses Dashboard)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -791,6 +779,7 @@ fun IncomeScreen(
                     }
                 }
             }
+        }
 
             // 3. Scrollable List of Income Items (Hidden in Base Salary Month view because salary has 1 entry represented above)
             if (!isSalaryMonthView) {
