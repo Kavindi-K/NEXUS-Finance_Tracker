@@ -349,7 +349,7 @@ class ReportsViewModel @Inject constructor(
                     val allCombinedCategories = (categories + com.nexus.financetracker.ui.expense.DEFAULT_EXPENSE_CATEGORIES).distinctBy { it.id }
                     val discretionaryCats = allCombinedCategories.filter {
                         it.classification.equals(com.nexus.financetracker.domain.model.ExpenseClassification.DISCRETIONARY, ignoreCase = true) &&
-                            it.mergingInto.isNullOrBlank()
+                            (it.mergingInto.isNullOrBlank() || it.mergingInto.startsWith("dur:"))
                     }
                     val discretionaryComparisons = discretionaryCats.map { cat ->
                         val spent = monthExpenses.filter { it.categoryId == cat.id }.sumOf { it.amountLKR }
@@ -426,7 +426,7 @@ class ReportsViewModel @Inject constructor(
                     .distinctBy { it.id }
                     .filter {
                         it.classification.equals(com.nexus.financetracker.domain.model.ExpenseClassification.DISCRETIONARY, ignoreCase = true) &&
-                            it.mergingInto.isNullOrBlank()
+                            (it.mergingInto.isNullOrBlank() || it.mergingInto.startsWith("dur:"))
                     }
                     .map { cat ->
                         val spent = expenses.filter { it.categoryId == cat.id }.sumOf { it.amountLKR }

@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface CategoryDao {
 
-    @Query("SELECT * FROM categories WHERE userId = :userId AND (mergingInto IS NULL OR mergingInto = '') ORDER BY name ASC")
+    @Query("SELECT * FROM categories WHERE userId = :userId AND (mergingInto IS NULL OR mergingInto = '' OR mergingInto LIKE 'dur:%') ORDER BY name ASC")
     fun getCategoriesByUser(userId: String): Flow<List<CategoryEntity>>
 
     @Query("SELECT * FROM categories WHERE id = :id LIMIT 1")

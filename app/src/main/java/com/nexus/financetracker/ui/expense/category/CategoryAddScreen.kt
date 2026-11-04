@@ -60,6 +60,26 @@ fun CategoryAddScreen(
     var selectedFrequency by remember {
         mutableStateOf(existingCategory?.recurringFrequency?.lowercase() ?: "monthly")
     }
+    var isOngoing by remember {
+        mutableStateOf(existingCategory?.recurringDuration == null)
+    }
+    var selectedDuration by remember {
+        mutableStateOf(existingCategory?.recurringDuration ?: 1)
+    }
+    var isCustomDuration by remember {
+        mutableStateOf(
+            existingCategory?.recurringDuration != null &&
+            existingCategory.recurringDuration !in listOf(1, 3, 6, 12, 4, 26, 52, 2, 5)
+        )
+    }
+    var customDurationText by remember {
+        mutableStateOf(
+            if (existingCategory?.recurringDuration != null &&
+                existingCategory.recurringDuration !in listOf(1, 3, 6, 12, 4, 26, 52, 2, 5))
+                existingCategory.recurringDuration.toString()
+            else ""
+        )
+    }
 
     LaunchedEffect(existingCategory) {
         existingCategory?.let { cat ->
@@ -74,6 +94,12 @@ fun CategoryAddScreen(
                 if (est % 1.0 == 0.0) est.toLong().toString() else est.toString()
             } else ""
             selectedFrequency = cat.recurringFrequency?.lowercase() ?: "monthly"
+            val dur = cat.recurringDuration
+            isOngoing = dur == null
+            selectedDuration = dur ?: 1
+            val isCustom = dur != null && dur !in listOf(1, 3, 6, 12, 4, 26, 52, 2, 5)
+            isCustomDuration = isCustom
+            customDurationText = if (isCustom) dur.toString() else ""
         }
     }
 
@@ -300,6 +326,141 @@ fun CategoryAddScreen(
                                 fontSize = 12.sp
                             )
                         }
+
+                        // Duration / How long to continue
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Duration (How long to continue)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            val durationPresets = when (selectedFrequency.lowercase()) {
+                                "weekly" -> listOf(4 to "4 Wks", 12 to "12 Wks", 26 to "26 Wks", 52 to "1 Yr")
+                                "yearly" -> listOf(1 to "1 Yr", 2 to "2 Yrs", 3 to "3 Yrs", 5 to "5 Yrs")
+                                else -> listOf(1 to "1 Mo", 3 to "3 Mos", 6 to "6 Mos", 12 to "1 Yr")
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                durationPresets.forEach { (durValue, durLabel) ->
+                                    val isSelected = !isOngoing && !isCustomDuration && selectedDuration == durValue
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            isOngoing = false
+                                            isCustomDuration = false
+                                            selectedDuration = durValue
+                                        },
+                                        label = {
+                                            Text(
+                                                text = durLabel,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            containerColor = MaterialTheme.colorScheme.surface,
+                                            labelColor = MaterialTheme.colorScheme.onSurface
+                                        ),
+                                        border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                    )
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = isCustomDuration,
+                                    onClick = {
+                                        isOngoing = false
+                                        isCustomDuration = true
+                                    },
+                                    label = {
+                                        Text(
+                                            text = "Custom",
+                                            fontWeight = if (isCustomDuration) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        labelColor = MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    border = if (isCustomDuration) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                )
+
+                                FilterChip(
+                                    selected = isOngoing,
+                                    onClick = {
+                                        isOngoing = true
+                                        isCustomDuration = false
+                                    },
+                                    label = {
+                                        Text(
+                                            text = "Ongoing",
+                                            fontWeight = if (isOngoing) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        labelColor = MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    border = if (isOngoing) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                )
+                            }
+
+                            if (isCustomDuration) {
+                                val unitLabel = when (selectedFrequency.lowercase()) {
+                                    "weekly" -> "weeks"
+                                    "yearly" -> "years"
+                                    else -> "months"
+                                }
+                                OutlinedTextField(
+                                    value = customDurationText,
+                                    onValueChange = { input ->
+                                        val filtered = input.filter { it.isDigit() }
+                                        customDurationText = filtered
+                                        filtered.toIntOrNull()?.let { selectedDuration = it }
+                                    },
+                                    placeholder = { Text("e.g. 5") },
+                                    label = { Text("Number of $unitLabel") },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+
+                            Text(
+                                text = if (isOngoing) {
+                                    "Continues indefinitely each ${selectedFrequency.lowercase()} cycle until cancelled"
+                                } else {
+                                    val count = if (isCustomDuration) (customDurationText.toIntOrNull() ?: selectedDuration) else selectedDuration
+                                    val unitLabel = when (selectedFrequency.lowercase()) {
+                                        "weekly" -> if (count == 1) "week" else "weeks"
+                                        "yearly" -> if (count == 1) "year" else "years"
+                                        else -> if (count == 1) "month" else "months"
+                                    }
+                                    "Auto-deducts and displays in dashboard for $count $unitLabel"
+                                },
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
 
                     if (errorMessage != null) {
@@ -327,6 +488,14 @@ fun CategoryAddScreen(
                             val finalFreq = if (isComm) selectedFrequency.lowercase() else null
                             val finalEst = if (!isComm) est else null
 
+                            val durUnit = when (selectedFrequency.lowercase()) {
+                                "weekly" -> "weeks"
+                                "yearly" -> "years"
+                                else -> "months"
+                            }
+                            val effectiveDur = if (isOngoing) null else if (isCustomDuration) (customDurationText.toIntOrNull() ?: selectedDuration) else selectedDuration
+                            val durationString = if (isComm) com.nexus.financetracker.domain.model.Category.buildDurationString(effectiveDur, durUnit) else null
+
                             if (categoryId != null) {
                                 viewModel.updateCategory(
                                     category = com.nexus.financetracker.domain.model.Category(
@@ -336,6 +505,7 @@ fun CategoryAddScreen(
                                         classification = finalClassification,
                                         estimatedAmount = finalEst,
                                         recurringFrequency = finalFreq,
+                                        mergingInto = durationString,
                                         createdAt = existingCategory?.createdAt ?: java.util.Date()
                                     ),
                                     onSuccess = {
@@ -353,6 +523,7 @@ fun CategoryAddScreen(
                                     classification = finalClassification,
                                     estimatedAmount = finalEst,
                                     recurringFrequency = finalFreq,
+                                    mergingInto = durationString,
                                     onSuccess = {
                                         isSubmitting = false
                                         onNavigateBack()
