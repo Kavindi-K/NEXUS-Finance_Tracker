@@ -19,6 +19,7 @@ enum class ThemeMode {
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val notificationsEnabled: Boolean = true,
+    val bankSmsDetectionEnabled: Boolean = true,
     val biometricLockEnabled: Boolean = false,
     val baseCurrency: String = "LKR",
     val defaultExpenseAccount: String = ExpenseAccount.CARD,
@@ -37,13 +38,23 @@ class AppSettingsManager @Inject constructor(
     private val prefs = context.getSharedPreferences("nexus_app_settings", Context.MODE_PRIVATE)
 
     companion object {
+        private const val PREFS_NAME = "nexus_app_settings"
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
+        private const val KEY_BANK_SMS_DETECTION_ENABLED = "bank_sms_detection_enabled"
         private const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
         private const val KEY_BASE_CURRENCY = "base_currency"
         private const val KEY_DEFAULT_ACCOUNT = "default_expense_account"
         private const val KEY_GEMINI_API_KEY = "gemini_api_key"
         private const val KEY_GEMINI_MODEL = "gemini_model"
+
+        /**
+         * Standalone check for background BroadcastReceivers and services without Hilt injection.
+         */
+        fun isBankSmsDetectionEnabled(context: Context): Boolean {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            return prefs.getBoolean(KEY_BANK_SMS_DETECTION_ENABLED, true)
+        }
     }
 
     private val _settings = MutableStateFlow(loadSettings())
@@ -60,6 +71,7 @@ class AppSettingsManager @Inject constructor(
         return AppSettings(
             themeMode = themeMode,
             notificationsEnabled = prefs.getBoolean(KEY_NOTIFICATIONS_ENABLED, true),
+            bankSmsDetectionEnabled = prefs.getBoolean(KEY_BANK_SMS_DETECTION_ENABLED, true),
             biometricLockEnabled = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false),
             baseCurrency = prefs.getString(KEY_BASE_CURRENCY, "LKR") ?: "LKR",
             defaultExpenseAccount = prefs.getString(KEY_DEFAULT_ACCOUNT, ExpenseAccount.CARD) ?: ExpenseAccount.CARD,
@@ -81,6 +93,12 @@ class AppSettingsManager @Inject constructor(
         } else {
             NotificationScheduler.cancelAllReminders(context)
         }
+    }
+
+    fun setBankSmsDetectionEnabled(enabled: Boolean) {
+        // Use commit() to guarantee immediate synchronous disk persistence for background receivers
+        prefs.edit().putBoolean(KEY_BANK_SMS_DETECTION_ENABLED, enabled).commit()
+        _settings.value = _settings.value.copy(bankSmsDetectionEnabled = enabled)
     }
 
     fun setBiometricLockEnabled(enabled: Boolean) {

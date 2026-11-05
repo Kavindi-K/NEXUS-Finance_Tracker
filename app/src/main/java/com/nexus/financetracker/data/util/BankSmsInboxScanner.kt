@@ -29,6 +29,12 @@ object BankSmsInboxScanner {
         context: Context,
         onAlertsFound: () -> Unit = {}
     ) {
+        // Check user setting toggle: if disabled, do not scan inbox
+        if (!com.nexus.financetracker.data.local.AppSettingsManager.isBankSmsDetectionEnabled(context)) {
+            Log.d(TAG, "Bank SMS detection disabled in App Settings; skipping inbox scan.")
+            return
+        }
+
         val hasPermission = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.READ_SMS

@@ -1446,7 +1446,10 @@ fun ExpenseScreen(
                     val pendingCount = uiState.pendingDetectedExpenses.size
                     IconButton(
                         onClick = {
-                            if (!hasSmsPermission) {
+                            val isSmsSettingEnabled = com.nexus.financetracker.data.local.AppSettingsManager.isBankSmsDetectionEnabled(context)
+                            if (!isSmsSettingEnabled && pendingCount == 0) {
+                                Toast.makeText(context, "Bank SMS detection is turned off in Settings", Toast.LENGTH_SHORT).show()
+                            } else if (!hasSmsPermission) {
                                 smsPermissionLauncher.launch(arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS))
                             } else if (pendingCount > 0) {
                                 showPendingAlertsSheet = true
