@@ -20,6 +20,7 @@ class AppSettingsTest {
 
         assertEquals("Default theme must follow system appearance", ThemeMode.SYSTEM, settings.themeMode)
         assertTrue("Notifications must be enabled by default", settings.notificationsEnabled)
+        assertTrue("Bank SMS detection must be enabled by default", settings.bankSmsDetectionEnabled)
         assertFalse("Biometric lock must be disabled by default", settings.biometricLockEnabled)
         assertEquals("Base currency must default to LKR", "LKR", settings.baseCurrency)
         assertEquals("Default expense account must default to Card", ExpenseAccount.CARD, settings.defaultExpenseAccount)
@@ -100,6 +101,21 @@ class AppSettingsTest {
         assertFalse(updated.notificationsEnabled)
         assertEquals(42, updated.cachedExpensesCount)
         assertEquals("Cleared 42 cached local records", updated.message)
+    }
+
+    @Test
+    fun bankSmsDetection_canBeToggled() {
+        val defaultSettings = AppSettings()
+        assertTrue(defaultSettings.bankSmsDetectionEnabled)
+
+        val disabledSettings = defaultSettings.copy(bankSmsDetectionEnabled = false)
+        assertFalse(disabledSettings.bankSmsDetectionEnabled)
+
+        val uiState = SettingsUiState(bankSmsDetectionEnabled = true)
+        assertTrue(uiState.bankSmsDetectionEnabled)
+
+        val toggledUiState = uiState.copy(bankSmsDetectionEnabled = false)
+        assertFalse(toggledUiState.bankSmsDetectionEnabled)
     }
 
     @Test

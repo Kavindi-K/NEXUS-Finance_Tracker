@@ -583,6 +583,17 @@ fun SettingsScreen(
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
+                    // Auto-Detect Bank SMS
+                    SettingToggleRow(
+                        icon = Icons.Outlined.Sms,
+                        title = "Auto-Detect Bank SMS",
+                        subtitle = "Automatically detect bank debit & credit SMS alerts for quick review",
+                        checked = uiState.bankSmsDetectionEnabled,
+                        onCheckedChange = { viewModel.setBankSmsDetectionEnabled(it) }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
                     // Biometric Lock
                     SettingToggleRow(
                         icon = Icons.Outlined.Fingerprint,

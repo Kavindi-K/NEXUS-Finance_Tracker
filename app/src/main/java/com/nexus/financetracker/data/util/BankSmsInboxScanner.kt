@@ -29,6 +29,12 @@ object BankSmsInboxScanner {
         context: Context,
         onAlertsFound: () -> Unit = {}
     ) {
+        // Check user setting toggle: if disabled, do not scan inbox
+        if (!com.nexus.financetracker.data.local.AppSettingsManager.isBankSmsDetectionEnabled(context)) {
+            Log.d(TAG, "Bank SMS detection disabled in App Settings; skipping inbox scan.")
+            return
+        }
+
         val hasPermission = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.READ_SMS
@@ -45,10 +51,12 @@ object BankSmsInboxScanner {
 
             val uri = Uri.parse("content://sms/inbox")
             val projection = arrayOf("_id", "address", "body", "date")
-            // Look back up to 3 days
+            // Look back up to 3 days, but NEVER earlier than the timestamp when SMS detection was enabled by the user
             val threeDaysAgo = System.currentTimeMillis() - (3 * 24 * 60 * 60 * 1000L)
+            val enabledAt = com.nexus.financetracker.data.local.AppSettingsManager.getBankSmsEnabledAt(context)
+            val minTimestamp = if (enabledAt > 0L) maxOf(threeDaysAgo, enabledAt) else threeDaysAgo
             val selection = "date >= ?"
-            val selectionArgs = arrayOf(threeDaysAgo.toString())
+            val selectionArgs = arrayOf(minTimestamp.toString())
             val sortOrder = "date DESC LIMIT 50"
 
             val cursor = context.contentResolver.query(uri, projection, selection, selectionArgs, sortOrder) ?: return
@@ -64,9 +72,15 @@ object BankSmsInboxScanner {
                     val id = if (idCol != -1) c.getString(idCol) else continue
                     if (processedIds.contains(id)) continue
 
+                    val timestamp = if (dateCol != -1) c.getLong(dateCol) else System.currentTimeMillis()
+                    // Discard any SMS that was received while SMS detection was turned off
+                    if (timestamp < minTimestamp) {
+                        processedIds.add(id)
+                        continue
+                    }
+
                     val sender = if (addressCol != -1) c.getString(addressCol) ?: "" else ""
                     val body = if (bodyCol != -1) c.getString(bodyCol) ?: "" else ""
-                    val timestamp = if (dateCol != -1) c.getLong(dateCol) else System.currentTimeMillis()
 
                     // 1. Try parsing as an inbound bank deposit (Income)
                     val deposit = BankDepositParser.parse(sender, body)
