@@ -1,6 +1,8 @@
 # NEXUS — Personal Finance Management System
 
-A problem-first, scenario-driven Android personal finance application built with **Kotlin (100%)**, **Jetpack Compose (Material Design 3)**, **MVVM Architecture**, **Firebase** (Authentication & Cloud Firestore), and **Room Local Cache**, specifically engineered to resolve real-world financial tracking friction based on the scenario of Mr. Kavindu Silva.
+A problem-first, scenario-driven Android personal finance application built with **Kotlin (100%)**, **Jetpack Compose (Material Design 3)**, **MVVM Architecture**, **Firebase** (Authentication & Cloud Firestore), **Room Local Cache**, **Google Gemini AI**, and a **Real-Time Bank SMS Automation Engine**. 
+
+Specifically engineered to resolve real-world financial tracking friction based on the scenario of Mr. Kavindu Silva.
 
 Developed for **SE3092: Platform Based Development (Assignment 01)**  
 Faculty of Computing — Sri Lanka Institute of Information Technology (SLIIT)  
@@ -10,11 +12,11 @@ Year 3, Semester 2 (2026)
 
 ## 👥 Group Members & Scope Division
 
-| Student ID | Student Name | Assigned Module & Scope | Key Responsibilities |
-|---|---|---|---|
-| **IT23619258** | **K A M K Kaluarachchi** | **Member 1**: Authentication & Multi-Source Income System | Firebase Auth setup, security rules, user profile (`users/{uid}`), 4 income streams (Salary, Freelance pending/confirmed, AdSense USD currency conversion, Crypto running net P&L), Income Overview & monthly reconciliation. |
-| **IT23750838** | **G P W Jayasekara** | **Member 2**: Low-Friction Expense & Schedule Management | 3-tap quick-add expense flow, Card/Cash/Secondary accounts, Committed vs. Discretionary classification, dynamic Categories (add, rename, batched merge), Recurring payments schedule (Rent, Gym, Subscriptions), Room offline caching. |
-| **IT23585126** | **I N Hewawitharana** | **Member 3**: Quantified Savings Goal & Real-Time Analytics | App navigation scaffold (Bottom Bar, Top Bar, FAB), MacBook Pro M4 quantified goal tracking, dynamic required monthly savings rate recalculation, trailing pace projection, real-time Material 3 dashboard, and category spending charts. |
+| Student Name & ID | Assigned Module & Scope | Key Responsibilities |
+|---|---|---|
+| **K A M K Kaluarachchi**<br>`IT23619258` | **Member 1**: Authentication, Multi-Source Income System & SMS Automation | • Firebase Authentication setup, security rules & user profile (`users/{uid}`)<br>• Forgot Password recovery workflow<br>• 4-channel income logging (Salary, Freelance pending/confirmed, AdSense USD, Crypto net P&L)<br>• Real-Time Exchange Rate API (Live USD/LKR currency conversion)<br>• Income Overview & monthly reconciliation<br>• Automatic Bank SMS Automation Engine (Debit & Credit SMS regex parsing, background `BroadcastReceiver`, native inbox catch-up scanner `BankSmsInboxScanner`, and unreviewed alerts bottom sheet)<br>• Biometric Security Vault & Screen Privacy (Fingerprint/Face unlock, PIN fallback, background screen obscuring)<br>• Smart Notifications System (Lock-screen heads-up transaction alerts & scheduled reminders) |
+| **G P W Jayasekara**<br>`IT23750838` | **Member 2**: Low-Friction Expense, Schedule Management & AI Integration | • 3-tap quick-add expense flow with pre-filled defaults & keypad<br>• Multi-account recording (Card, Cash, and Secondary accounts)<br>• Committed vs. Discretionary expense classification<br>• Dynamic Categories management (create, custom icon/color, rename, batched merge)<br>• Recurring payments schedule (Rent, Gym, Subscriptions) with user confirmation before posting<br>• Room Database offline-first caching & Firestore synchronization<br>• Google Gemini AI Financial Advisor (Interactive conversational chatbot with custom 3D avatar & financial reasoning)<br>• App Preferences & Personalization Engine (Material 3 Dark/Light/System theme, Base Currency Switcher, Bank SMS Setting Toggle with time-anchoring, Default Account selector, Room cache clearing) |
+| **I N Hewawitharana**<br>`IT23585126` | **Member 3**: Quantified Savings Goal, Real-Time Analytics & Reports | • App navigation scaffold (Bottom Bar, Top Bar, FAB) & theme architecture<br>• MacBook Pro M4 quantified goal tracking (LKR 490,000.00 target, LKR 11,200.00 opening balance)<br>• Dynamic recalculation of required monthly savings rate on every confirmed entry<br>• Trailing pace projection & target deadline miss flagging<br>• Real-time Material 3 home dashboard (Cash flow, committed vs. discretionary ratios, goal progress bar)<br>• Real-time category-wise spending charts & leak identification<br>• Dedicated Monthly Intelligence & Reports Screen (Historical cash flow analysis, visual spending leak radar, category trends)<br>• Goal Contribution Tracking (Monthly surplus rollover & dedicated savings contribution allocations) |
 
 ---
 
@@ -24,37 +26,86 @@ Traditional budgeting applications fail users like Kavindu Silva—a 25-year-old
 
 Four previous tools failed him (Google Sheets, Play Store USD-only apps, Notes app, and Bank summaries) because they were rigid, punished missed days, dropped cash/secondary accounts, and decoupled daily spending from his goal. 
 
-**NEXUS** inverts these assumptions through four core capabilities:
-1. **Multi-Source Income Capture & Reconciliation (FR3–FR8)**: Replaces four-app mental calculations with validated, per-source income events.
-2. **Low-Friction Expense Logging (FR9–FR13)**: 3-tap quick-add flow with aggressive defaults (date, last-used account, category) and committed-versus-discretionary tagging.
-3. **Live Quantified Savings Goal (FR14–FR16)**: Translates the abstract MacBook goal into a live required monthly savings figure (~LKR 39,900/month) with trailing pace projections.
-4. **Week-One Self-Awareness Dashboard (FR17–FR20)**: Real-time visual comparison of confirmed income vs. expenses, committed vs. discretionary ratios, and ranked leak categories (exposing the LKR 24,000 coffee/dining shock).
+**NEXUS** inverts these assumptions through core innovations:
+1. **Live Bank SMS Automation Engine (Zero-Friction Tracking)**: Automatically captures bank debit (expense) and credit (income) SMS alerts from Sri Lankan banks with heads-up lock screen notifications and a 1-tap review sheet.
+2. **Multi-Source Income Capture & Reconciliation (FR3–FR8)**: Replaces four-app mental calculations with validated, per-source income events (Salary, Freelance, AdSense USD, Crypto P&L).
+3. **Low-Friction Expense Logging (FR9–FR13)**: 3-tap quick-add flow with aggressive defaults (date, last-used account, category) and committed-versus-discretionary tagging.
+4. **Live Quantified Savings Goal (FR14–FR16)**: Translates the abstract MacBook goal into a live required monthly savings figure (~LKR 39,900/month) with trailing pace projections.
+5. **AI Financial Assistant (Google Gemini AI)**: Context-aware conversational financial advisor offering spending leak analysis, savings forecasting, and intelligent budgeting recommendations.
+6. **Self-Awareness Dashboard & Monthly Reports (FR17–FR20)**: Real-time visual comparison of confirmed income vs. expenses, committed vs. discretionary ratios, and ranked leak categories.
 
 ---
 
-## 🏛️ MVVM Architecture Overview
+## 🌟 Key Application Capabilities & Innovations
 
-The system strictly adheres to **unidirectional data flow** with four distinct layers: **UI $\rightarrow$ ViewModel $\rightarrow$ Repository $\rightarrow$ Data Sources**, with shared domain models:
+### 📱 1. Real-Time Bank SMS Automation Engine *(Member 1)*
+- **Outbound Expense Capture**: Parses card purchases, POS debits, bill payments, and cash withdrawals from major Sri Lankan banks (**Commercial Bank, Sampath Bank, HNB, BOC, People's Bank, Seylan Bank, NTB/FriMi, DFCC, Cargills, Pan Asia**).
+- **Inbound Income Capture**: Identifies salary credits, freelance transfers (Upwork, Fiverr), CEFT remittances, and general deposits.
+- **Lock Screen & Killed App Resiliency**: Uses an Android `BroadcastReceiver` combined with a native SMS inbox catch-up scanner (`BankSmsInboxScanner`) ensuring alerts arriving while the phone is locked or the app is killed are never lost.
+- **Deterministic Deduplication**: Employs content-based hashing to prevent duplicate alerts between background broadcast delivery and catch-up queries.
+- **Unreviewed Alerts Bottom Sheet**: Displays detected transactions in a clean Material 3 modal sheet with **"Accept & Categorize"** or **"Reject"** actions and badge counts on both Income and Expenses screens.
+- **User Privacy & Control**: Backed by a dedicated **"Auto-Detect Bank SMS"** toggle switch in Settings with timestamp anchoring so SMS received while disabled are never retroactively scanned.
+
+### 🌐 2. Real-Time Exchange Rate API *(Member 1)*
+- Live currency exchange rate fetching for multi-currency incomes (USD, EUR, GBP to LKR).
+- Guarantees historical transactions retain their exact converted rate while new entries reflect real-time market rates.
+
+### 🔒 3. Forgot Password, Biometric Security Vault & Screen Privacy *(Member 1)*
+- **Forgot Password Workflow**: Firebase Auth secure password reset email flow.
+- **Biometric App Lock**: Fingerprint and Face Unlock support via Android `BiometricPrompt` with secure PIN fallback.
+- **Privacy Screen Blurring**: Obscures sensitive financial balances and screen contents whenever the user switches away from the app.
+
+### 🔔 4. Smart Notification System *(Member 1)*
+- Lock-screen heads-up notifications for real-time detected bank transactions.
+- Automated daily and weekly reminders for pending bill schedules and review alerts.
+
+### 🤖 5. Google Gemini AI Financial Advisor *(Member 2)*
+- Floating interactive chatbot with custom 3D robot avatar accessible directly from the home dashboard.
+- Analyzes actual user spending data to identify hidden financial leaks.
+- Answers natural language questions regarding budget feasibility and goal completion.
+- Configurable Gemini API Key and model selection in App Settings.
+
+### 🎨 6. App Preferences & Personalization Engine *(Member 2)*
+- **Material Design 3 Dynamic Theming**: Follows System appearance or user-selected **Dark** / **Light** mode.
+- **Base Currency Selection**: Choose between LKR, USD, EUR, and GBP.
+- **Default Expense Account Preference**: Customize whether the 3-tap quick-add defaults to **Card**, **Cash**, or **Secondary**.
+- **SMS Detection Toggle**: Dedicated switch to enable/disable automated bank SMS detection with time-anchored scanning.
+- **Cache Management**: One-tap Room cache clearing and Firestore resync.
+
+### 📊 7. Dedicated Monthly Intelligence & Reports Screen *(Member 3)*
+- In-depth monthly financial reports with cash flow breakdown and visual spending charts.
+- Historical trend analytics comparing income versus lifestyle expenses.
+- Visual leak radar categorizing discretionary expenses.
+
+### 🎯 8. Goal Contribution Tracking *(Member 3)*
+- Manual and automated contribution allocations toward the MacBook Pro M4 savings fund.
+- Unspent monthly surplus rollover directly credited toward goal milestones.
+
+---
+
+## 🏛️ Architecture Overview
+
+The system strictly follows **MVVM (Model-View-ViewModel)** with **Unidirectional Data Flow (UDF)** and **Clean Architecture**:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
 │                                          UI LAYER                                           │
-│   DashboardScreen │ IncomeOverviewScreen │ QuickAddExpenseScreen │ GoalSetupScreen          │
-│                   CategoriesRecurringScreen │ AuthScreen (Login & Register)                 │
+│   DashboardScreen │ IncomeScreen │ ExpenseScreen │ GoalScreen │ ReportsScreen               │
+│   ChatBotScreen   │ SettingsScreen │ CategoriesScreen │ RecurringScreen │ AuthScreen        │
 └──────────────────────────────────────────────▲──────────────────────────────────────────────┘
                                                │ UI State (StateFlow)
                                                │ User Actions (Events)
 ┌──────────────────────────────────────────────▼─────────────────────────────────────────────┐
 │                                       VIEWMODEL LAYER                                       │
 │   DashboardViewModel │ IncomeViewModel │ ExpenseViewModel │ GoalViewModel                  │
-│                      ManageViewModel   │ AuthViewModel                                      │
-└──────────────────────────────────────────────▲──────────────────────────────────────────────┘
+│   ReportsViewModel   │ SettingsViewModel │ ChatViewModel  │ AuthViewModel                  │
+└──────────────────────────────────────────────▲─────────────────────────────────────────────┘
                                                │ Domain Models (Kotlin Flow)
 ┌──────────────────────────────────────────────▼─────────────────────────────────────────────┐
 │                                      REPOSITORY LAYER                                       │
 │   AuthRepository │ IncomeRepository │ ExpenseRepository │ GoalRepository                    │
-│                  CategoryRepository │ RecurringItemRepository                               │
-└──────────────────────────────────────────────▲──────────────────────────────────────────────┘
+│   CategoryRepository │ RecurringRepository │ BankExpenseManager │ BankDepositManager        │
+└──────────────────────────────────────────────▲─────────────────────────────────────────────┘
                                                │
                        ┌───────────────────────┴───────────────────────┐
                        │                                               │
@@ -65,88 +116,114 @@ The system strictly adheres to **unidirectional data flow** with four distinct l
 └─────────────────────────────────────────────┘ └─────────────────────────────────────────────┘
 ```
 
-### 1. Six UI Screens & ViewModels
-* **`DashboardScreen` (`DashboardViewModel`)**: Combines income, expenses, goal progress, and category names in a single atomic `combine()` flow.
-* **`IncomeOverviewScreen` (`IncomeViewModel`)**: Shows earned vs. pending income, multi-currency conversions, and crypto net P&L.
-* **`QuickAddExpenseScreen` (`ExpenseViewModel`)**: 3-tap rapid input with keypad and pre-filled defaults.
-* **`GoalSetupScreen` (`GoalViewModel`)**: MacBook fund configuration, dynamic required savings, and pace calculations.
-* **`CategoriesRecurringScreen` (`ManageViewModel`)**: Category renaming, batched merging, and subscription payment confirmations.
-* **`AuthScreen` (`AuthViewModel`)**: Clean email/password sign-in and validated 5-field registration (+94 phone normalization).
-
-### 2. Six Domain Models
-* **`UserProfile`**: `uid`, `displayName`, `email`, `phoneNumber`, `createdAt`
-* **`Income`**: `id`, `userId`, `source` (salary/freelance/adsense/crypto), `status` (confirmed/pending), `amountOriginal`, `currency`, `exchangeRate`, `amountLKR`, `dateReceived`, `expectedDate`, `note`, `createdAt`, `updatedAt`
-* **`Expense`**: `id`, `userId`, `amountLKR`, `categoryId`, `account` (card/cash/secondary), `classification` (committed/discretionary), `note`, `date`, `recurringItemId`, `createdAt`
-* **`Goal`**: `id`, `userId`, `title`, `targetAmountLKR`, `openingSavingsLKR`, `startDate`, `targetDate`, `isActive`, `createdAt`
-* **`Category`**: `id`, `userId`, `name`, `mergingInto`, `createdAt`
-* **`RecurringItem`**: `id`, `userId`, `title`, `amountLKR`, `categoryId`, `account`, `classification`, `frequency` (weekly/monthly/yearly), `nextDueDate`, `isActive`, `createdAt`
-
 ---
 
-## 🗄️ Firestore Database Design (6 Top-Level Collections)
+## 🗄️ Database Design (Cloud Firestore)
 
-To optimize query indexing, maintain constant repository path depth, and avoid subcollection query limitations, NEXUS organizes all data into **six flat collections linked by `userId`**:
+All documents are stored in **flat top-level collections linked by `userId`** for optimal querying and constant depth:
 
 ```
 Cloud Firestore
-├── users/{uid}               # User profiles (created on registration)
-├── incomes/{incomeId}        # All income events (confirmed & pending)
-├── expenses/{expenseId}      # Direct expense logs (LKR base currency)
-├── goals/{goalId}            # Savings goals (single active goal displayed)
-├── categories/{categoryId}   # Dynamic user categories (with mergingInto marker)
-└── recurringItems/{itemId}   # Recurring payment commitments & schedules
+├── users/{uid}               # User authentication profiles & preferences
+├── incomes/{incomeId}        # Inbound income records (confirmed & pending)
+├── expenses/{expenseId}      # Outbound expense logs (with account & classification)
+├── goals/{goalId}            # Savings goals (target amount, opening balance, deadline)
+├── categories/{categoryId}   # Dynamic user categories (with color, icon, merge target)
+└── recurringItems/{itemId}   # Recurring payment commitments & automated schedules
 ```
 
-### Multi-Currency & Financial Accuracy (NFR9)
-* **AdSense USD**: Both original USD and prevailing exchange rate are stored alongside the converted LKR (`amountLKR = amountOriginal × exchangeRate`). Historical reports never fluctuate when rates change.
-* **Crypto P&L (FR6)**: Crypto entries record signed gains and losses (negative numbers for closed positions at a loss), ensuring net positions are accurate without inflating earned income.
+---
+
+## 📋 Comprehensive Requirements & Extended Capabilities Traceability (FR1–FR23, EXT1–EXT8)
+
+| ID | Requirement Specification | Assigned Member | Status |
+|---|---|---|---|
+| **FR1** | 5-field registration (Name, Email, Phone normalized to +94, Password) & Firestore sync | Member 1 | ✅ Implemented |
+| **FR2** | Session persistence across app restarts with automatic auth restoration | Member 1 | ✅ Implemented |
+| **FR3** | Multi-source income logging (Salary, Freelance, AdSense, Crypto) | Member 1 | ✅ Implemented |
+| **FR4** | Multi-currency handling storing original, exchange rate, and converted LKR | Member 1 | ✅ Implemented |
+| **FR5** | Monthly income computed strictly from confirmed entries (never self-estimates) | Member 1 | ✅ Implemented |
+| **FR6** | Crypto tracked as running net P&L (gains minus losses) | Member 1 | ✅ Implemented |
+| **FR7** | Edit saved income entries with recalculation and audit trail | Member 1 | ✅ Implemented |
+| **FR8** | Freelance payments logged as "pending" and excluded from earned totals until "confirmed" | Member 1 | ✅ Implemented |
+| **FR9** | 3-tap rapid expense entry capturing amount, category, account, and committed flag | Member 2 | ✅ Implemented |
+| **FR10** | Pre-fill category and account with most recently used values | Member 2 | ✅ Implemented |
+| **FR11** | First-class recording of Cash and Secondary accounts (not card only) | Member 2 | ✅ Implemented |
+| **FR12** | Dynamic user-editable categories with batched merge and reassignment | Member 2 | ✅ Implemented |
+| **FR13** | Back-dated and bulk-add expense entry without streak penalties | Member 2 | ✅ Implemented |
+| **FR14** | Quantified savings goal setup (MacBook Pro M4 LKR 490k, LKR 11.2k opening savings) | Member 3 | ✅ Implemented |
+| **FR15** | Dynamic recalculation of required monthly savings rate on every confirmed entry | Member 3 | ✅ Implemented |
+| **FR16** | Pace-based projected completion date flagging target deadline misses | Member 3 | ✅ Implemented |
+| **FR17** | Real-time visual goal progress bar (percentage complete and remaining balance) | Member 3 | ✅ Implemented |
+| **FR18** | Dashboard showing monthly cash flow and committed vs. discretionary ratio | Member 3 | ✅ Implemented |
+| **FR19** | Real-time category-wise spending chart highlighting leaks | Member 3 | ✅ Implemented |
+| **FR20** | Reconciled actual monthly income aggregated across all four sources | Member 3 | ✅ Implemented |
+| **FR21** | Room offline caching ensuring core screens render without internet connectivity | Member 2 | ✅ Implemented |
+| **FR22** | Explicit empty-state UI with zero crashes or blank screens on empty datasets | All Members | ✅ Implemented |
+| **FR23** | Recurring payment schedules requiring user confirmation before posting as an expense | Member 2 | ✅ Implemented |
+| **EXT1** | **Automatic Bank SMS Automation Engine** (Inbound & Outbound SMS Parsing, Lock screen catch-up scanner) | **Member 1** | ✅ Implemented |
+| **EXT2** | **Real-Time Exchange Rate API** (Live USD/LKR currency conversion) | **Member 1** | ✅ Implemented |
+| **EXT3** | **Forgot Password, Biometric Security Vault & Screen Privacy** (Fingerprint/PIN/Blur) | **Member 1** | ✅ Implemented |
+| **EXT4** | **Smart Notifications System** (Heads-up lock screen alerts & reminders) | **Member 1** | ✅ Implemented |
+| **EXT5** | **Google Gemini AI Financial Advisor** (Interactive 3D Chatbot & reasoning engine) | **Member 2** | ✅ Implemented |
+| **EXT6** | **App Preferences & Personalization Engine** (Themes, Currency, Default Account, SMS toggle, Cache) | **Member 2** | ✅ Implemented |
+| **EXT7** | **Dedicated Monthly Intelligence & Reports Screen** (Historical cash flow & analytics) | **Member 3** | ✅ Implemented |
+| **EXT8** | **Goal Contribution Tracking** (Surplus rollover & contribution allocations) | **Member 3** | ✅ Implemented |
 
 ---
 
-## 📋 Comprehensive Requirements Traceability (FR1–FR23)
+## 🛠️ Technology Stack
 
-| ID | Requirement Specification | Module Owner |
+| Layer / Concern | Technology Used | Version / Configuration |
 |---|---|---|
-| **FR1** | 5-field registration (Name, Email, Phone normalized to +94, Password) & Firestore profile sync | Member 1 |
-| **FR2** | Session persistence across app restarts | Member 1 |
-| **FR3** | Multi-source income logging (Salary, Freelance, AdSense, Crypto) | Member 1 |
-| **FR4** | Multi-currency handling storing original, exchange rate, and converted LKR | Member 1 |
-| **FR5** | Monthly income computed strictly from confirmed entries (never self-estimates) | Member 1 |
-| **FR6** | Crypto tracked as running net P&L (gains minus losses) | Member 1 |
-| **FR7** | Edit saved income entries with recalculation and audit trail | Member 1 |
-| **FR8** | Freelance payments logged as "pending" and excluded from earned totals until "confirmed" | Member 1 |
-| **FR9** | 3-tap rapid expense entry capturing amount, category, account, and committed flag | Member 2 |
-| **FR10** | Pre-fill category and account with most recently used values | Member 2 |
-| **FR11** | First-class recording of Cash and Secondary accounts (not card only) | Member 2 |
-| **FR12** | Dynamic user-editable categories with batched merge and reassignment | Member 2 |
-| **FR13** | Back-dated and bulk-add expense entry without streak penalties | Member 2 |
-| **FR14** | Quantified savings goal setup (MacBook Pro M4 LKR 490k, LKR 11.2k opening savings) | Member 3 |
-| **FR15** | Dynamic recalculation of required monthly savings rate on every confirmed entry | Member 3 |
-| **FR16** | Pace-based projected completion date flagging target deadline misses | Member 3 |
-| **FR17** | Real-time visual goal progress bar (percentage complete and remaining balance) | Member 3 |
-| **FR18** | Dashboard showing monthly cash flow and committed vs. discretionary ratio | Member 3 |
-| **FR19** | Real-time category-wise spending chart highlighting leaks | Member 3 |
-| **FR20** | Reconciled actual monthly income aggregated across all four sources | Member 3 |
-| **FR21** | Room offline caching ensuring core screens render without internet connectivity | Member 2 |
-| **FR22** | Explicit empty-state UI with zero crashes or blank screens on empty datasets | All Members |
-| **FR23** | Recurring payment schedules requiring user confirmation before posting as an expense | Member 2 |
+| **Language** | Kotlin | 100% Kotlin (Zero Java), Kotlin DSL (`build.gradle.kts`) |
+| **UI Framework** | Jetpack Compose | Material Design 3, Single-Activity architecture |
+| **Architecture** | MVVM + Clean Architecture | Unidirectional Data Flow, StateFlow, Coroutines |
+| **Dependency Injection** | Hilt (Dagger) | Factory and constructor injection |
+| **Database (Cloud)** | Firebase Cloud Firestore | 6 top-level collections, user-isolated security rules |
+| **Database (Local)** | Android Room (SQLite) | Offline-first synchronization |
+| **Authentication** | Firebase Authentication | Email/Password provider with session restoration & reset |
+| **AI Integration** | Google Gemini API | Generative AI financial assistant |
+| **SMS Processing** | Android Telephony API | `BroadcastReceiver` + `content://sms/inbox` ContentProvider |
+| **Security** | Android Biometrics API | `BiometricPrompt` + Keystore encryption |
+| **Target SDKs** | Android SDK | `minSdk = 26` (Android 8.0 Oreo), `targetSdk = 36`, `compileSdk = 37` |
 
 ---
 
-## 🛠️ Technology Stack & Compliance
+## 🚀 Setup & Build Instructions
 
-| Layer / Concern | Required Technology | Compliance in Project |
-|---|---|---|
-| **Language** | Kotlin (100%) | Zero Java files in application layer; Kotlin DSL (`build.gradle.kts`) |
-| **UI Framework** | Jetpack Compose | Material Design 3 components, Single-Activity architecture, zero XML layouts |
-| **Architecture** | MVVM | Strict separation: UI $\rightarrow$ ViewModel $\rightarrow$ Repository $\rightarrow$ Model |
-| **State Management** | StateFlow / Coroutines | Sealed `UiState` (Loading, Empty, Success, Error); no mutable state leaked to UI |
-| **Dependency Injection** | Hilt (Dagger) | Factory and constructor injection; no manual ViewModel instantiation |
-| **Database** | Firebase Firestore | 6 flat collections, real-time snapshot listeners, user-isolated security rules |
-| **Local Caching** | Room Database | Offline-first persistence; UI never blocked on network failure |
-| **Authentication** | Firebase Authentication | Email/password provider with session restoration |
-| **Navigation** | Navigation Compose | Single-Activity architecture with typed routes |
-| **SDK Compatibility** | Min SDK 26, Target SDK 34+ | Configured with `minSdk = 26`, `targetSdk = 36`, `compileSdk = 37` |
+### Prerequisites
+1. **Android Studio** Ladybug (2024.2+) or newer
+2. **JDK 17 or JDK 21**
+3. **Android Device or Emulator** running API 26+ (Android 8.0 Oreo or higher)
+
+### Installation & Run
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/Kavindi-K/NEXUS-Finance_Tracker.git
+   cd NEXUS-Finance_Tracker
+   ```
+
+2. **Firebase Configuration:**
+   - Place your `google-services.json` inside the `app/` folder (Package name: `com.nexus.financetracker`).
+   - In Firebase Console:
+     - Enable **Firebase Authentication** (Email/Password).
+     - Initialize **Cloud Firestore** and deploy the security rules from `firestore.rules`.
+
+3. **Build the Debug APK:**
+   ```bash
+   ./gradlew assembleDebug
+   ```
+
+4. **Run Unit Tests:**
+   ```bash
+   ./gradlew testDebugUnitTest
+   ```
+
+5. **Install on Device/Emulator:**
+   ```bash
+   ./gradlew installDebug
+   ```
 
 ---
 
@@ -157,61 +234,19 @@ The development follows an integration branch model to enable clean parallel wor
 ```
 main (Production / Stable Release APK)
   └── development (Shared Team Integration Branch)
-        ├── feature/firestore-setup (Member 1)
-        ├── feature/firestore-security (Member 1)
         ├── feature/auth-* (Member 1)
         ├── feature/income-* (Member 1)
         ├── feature/expense-* (Member 2)
         ├── feature/categories-recurring (Member 2)
         ├── feature/offline-cache (Member 2)
-        ├── feature/app-nav-scaffold (Member 3)
         ├── feature/goal-* (Member 3)
-        └── feature/dashboard-analytics (Member 3)
+        ├── feature/dashboard-analytics (Member 3)
+        ├── feature/ai-chatbot (Member 2)
+        └── feature/bank-sms-settings-toggle (Member 2)
 ```
-
-### Git Collaboration Protocol:
-1. **Never commit directly to `main` or `development`.**
-2. Every feature is created from the latest `development` branch:
-   ```bash
-   git switch development
-   git pull origin development
-   git switch -c feature/<feature-name>
-   ```
-3. **Pull Request & Peer Review**:
-   * Each feature must be submitted via a GitHub Pull Request to `development`.
-   * Requires peer review and clean compilation (`./gradlew assembleDebug` and `./gradlew testDebugUnitTest`) before merging.
-4. **Final Release**: Once all modules pass integration testing on `development`, a final release PR is merged into `main`.
-5. `main` is protected and updated only for stable milestone releases.
 
 ---
 
-## 🚀 Setup & Build Instructions
+## 📄 License & Academic Integrity
 
-### Prerequisites
-1. **Android Studio** Ladybug (2024.2+) or Meerkat
-2. **JDK 17 or JDK 21**
-3. **Android Device or Emulator** running API 26+ (Android 8.0 Oreo or higher)
-
-### Installation & Run
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/Kavindi-K/NEXUS-Finance_Tracker.git
-   cd NEXUS-Finance_Tracker
-   ```
-2. **Firebase Configuration:**
-   * Verify `google-services.json` is placed inside the `app/` directory (Package: `com.nexus.financetracker`).
-   * In Firebase Console:
-     * Enable **Firebase Authentication** (Email/Password).
-     * Set up **Cloud Firestore** and publish the rules defined in `firestore.rules`.
-3. **Compile and Build Debug APK:**
-   ```bash
-   ./gradlew assembleDebug
-   ```
-4. **Execute Unit Tests:**
-   ```bash
-   ./gradlew testDebugUnitTest
-   ```
-5. **Install on Device/Emulator:**
-   ```bash
-   ./gradlew installDebug
-   ```
+This project is developed solely for academic evaluation under **SE3092: Platform Based Development** at the **Sri Lanka Institute of Information Technology (SLIIT)**. All rights reserved.
