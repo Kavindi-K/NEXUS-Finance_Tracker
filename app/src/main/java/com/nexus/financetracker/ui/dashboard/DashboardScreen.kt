@@ -29,6 +29,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+
+
+
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -67,6 +71,11 @@ fun DashboardScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
+
+    onNavigateToChatBot: () -> Unit = {},
+
+
+
     onLogExpense: () -> Unit = onAddExpense,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
@@ -104,13 +113,31 @@ fun DashboardScreen(
         .firstOrNull { it.isNotBlank() }
         ?: "User"
 
-    // Root-level scrollable Column ensures touch and mouse-wheel scrolling works everywhere
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(NavyHeaderBg)
-            .verticalScroll(scrollState)
-    ) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // Root Box enables the scrollable content and the floating AI Copilot button to overlay seamlessly
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(NavyHeaderBg)
+                .verticalScroll(scrollState)
+        ) {
+
+
+
         // --- 1. Top Navy Section (Greeting + Nexus Logo + Total Amount Card) ---
         Column(
             modifier = Modifier
@@ -844,6 +871,23 @@ fun DashboardScreen(
         }
     }
 
+
+
+    // Modern Circular Floating AI Copilot Action Icon featuring NEXUS brand mark
+    ModernAiCopilotFab(
+        onClick = onNavigateToChatBot,
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(end = 20.dp, bottom = 24.dp)
+    )
+}
+
+
+
+
+
+
+
     if (showSavingsReviewDialog && uiState.showSavingsAllocationBanner && uiState.allocationSavingsLKR > 0.0) {
         SavingsAllocationDialog(
             totalSavings = uiState.allocationSavingsLKR,
@@ -864,6 +908,43 @@ fun DashboardScreen(
                 showSavingsReviewDialog = false
             }
         )
+    }
+}
+
+/**
+ * Modern Circular Floating Action Button featuring the NEXUS icon mark
+ * for opening the NEXUS AI Copilot from the Dashboard.
+ */
+@Composable
+private fun ModernAiCopilotFab(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .size(56.dp)
+            .shadow(
+                elevation = 8.dp,
+                shape = CircleShape,
+                ambientColor = Color(0xFF0F172A),
+                spotColor = Color(0xFF38BDF8)
+            )
+            .clip(CircleShape),
+        color = Color(0xFF072044),
+        border = BorderStroke(2.dp, Color(0xFF38BDF8))
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.nexus_icon_mark),
+                contentDescription = "NEXUS AI Copilot",
+                modifier = Modifier.size(32.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
     }
 }
 

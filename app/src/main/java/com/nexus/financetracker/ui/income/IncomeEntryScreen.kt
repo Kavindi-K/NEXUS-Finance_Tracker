@@ -56,7 +56,10 @@ fun IncomeEntryScreen(
         if (!incomeId.isNullOrBlank()) {
             viewModel.loadIncomeForEdit(incomeId)
         } else {
-            viewModel.resetForm()
+            val applied = viewModel.checkAndApplyStagedDepositForOther()
+            if (!applied && !viewModel.formState.value.isPrefilledFromDeposit) {
+                viewModel.resetForm()
+            }
         }
     }
 
@@ -473,14 +476,14 @@ fun IncomeEntryScreen(
                     .onFocusChanged { focusState ->
                         if (isAmountFocused && !focusState.isFocused) {
                             formState.amountOriginal.toDoubleOrNull()?.let { num ->
-                                viewModel.onAmountOriginalChanged(String.format(Locale.US, "%.2f", num))
+                                viewModel.onAmountOriginalChanged(String.format(Locale.US, "%.2f", kotlin.math.abs(num)))
                             }
                         }
                         isAmountFocused = focusState.isFocused
                     },
                 label = { Text(amountLabel) },
-                prefix = { Text(if (isAdSense) "$ " else "LKR ") },
-                placeholder = { Text(if (isCrypto && formState.isCryptoLoss) "-0.00" else "0.00") },
+                prefix = { Text(if (isAdSense) "$ " else if (isCrypto && formState.isCryptoLoss) "- LKR " else "LKR ") },
+                placeholder = { Text("0.00") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 supportingText = {
                     formState.computedLkrAmount?.let { lkr ->

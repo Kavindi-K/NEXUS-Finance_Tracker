@@ -141,11 +141,12 @@ fun CategoryDashboardScreen(
                 it.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
             }
         }
+        val distinctClassified = classified.distinctBy { it.id.ifBlank { it.name } }
         if (searchQuery.isBlank()) {
-            classified
+            distinctClassified
         } else {
             val query = searchQuery.trim().lowercase()
-            classified.filter { it.name.lowercase().contains(query) }
+            distinctClassified.filter { it.name.lowercase().contains(query) }
         }
     }
 
