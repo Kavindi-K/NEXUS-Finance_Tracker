@@ -42,6 +42,7 @@ class AppSettingsManager @Inject constructor(
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
         private const val KEY_BANK_SMS_DETECTION_ENABLED = "bank_sms_detection_enabled"
+        private const val KEY_BANK_SMS_ENABLED_AT = "bank_sms_enabled_at"
         private const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
         private const val KEY_BASE_CURRENCY = "base_currency"
         private const val KEY_DEFAULT_ACCOUNT = "default_expense_account"
@@ -55,6 +56,15 @@ class AppSettingsManager @Inject constructor(
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             return prefs.getBoolean(KEY_BANK_SMS_DETECTION_ENABLED, true)
         }
+
+        /**
+         * Timestamp (ms) when bank SMS detection was enabled by the user.
+         * SMS messages received before this timestamp must never be retroactively scanned.
+         */
+        fun getBankSmsEnabledAt(context: Context): Long {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            return prefs.getLong(KEY_BANK_SMS_ENABLED_AT, 0L)
+        }
     }
 
     private val _settings = MutableStateFlow(loadSettings())
@@ -66,6 +76,10 @@ class AppSettingsManager @Inject constructor(
             ThemeMode.valueOf(themeString)
         } catch (_: Exception) {
             ThemeMode.SYSTEM
+        }
+
+        if (!prefs.contains(KEY_BANK_SMS_ENABLED_AT)) {
+            prefs.edit().putLong(KEY_BANK_SMS_ENABLED_AT, System.currentTimeMillis()).apply()
         }
 
         return AppSettings(
@@ -96,8 +110,13 @@ class AppSettingsManager @Inject constructor(
     }
 
     fun setBankSmsDetectionEnabled(enabled: Boolean) {
+        val editor = prefs.edit().putBoolean(KEY_BANK_SMS_DETECTION_ENABLED, enabled)
+        if (enabled) {
+            // Anchor detection start to this exact moment so previous/historical SMS while disabled are never scanned
+            editor.putLong(KEY_BANK_SMS_ENABLED_AT, System.currentTimeMillis())
+        }
         // Use commit() to guarantee immediate synchronous disk persistence for background receivers
-        prefs.edit().putBoolean(KEY_BANK_SMS_DETECTION_ENABLED, enabled).commit()
+        editor.commit()
         _settings.value = _settings.value.copy(bankSmsDetectionEnabled = enabled)
     }
 
