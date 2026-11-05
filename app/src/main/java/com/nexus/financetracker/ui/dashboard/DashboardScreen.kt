@@ -1,10 +1,12 @@
 package com.nexus.financetracker.ui.dashboard
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
@@ -912,39 +914,43 @@ fun DashboardScreen(
 }
 
 /**
- * Modern Circular Floating Action Button featuring the NEXUS icon mark
- * for opening the NEXUS AI Copilot from the Dashboard.
+ * Floating 3D Robot Companion for opening the NEXUS AI Copilot from the Dashboard.
+ * Floats naturally with no background box or borders.
  */
 @Composable
 private fun ModernAiCopilotFab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        onClick = onClick,
+    // Gentle hovering / floating animation so the companion robot floats naturally
+    val infiniteTransition = rememberInfiniteTransition(label = "robotFloat")
+    val offsetY by infiniteTransition.animateFloat(
+        initialValue = -5f,
+        targetValue = 5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "offsetY"
+    )
+
+    Box(
         modifier = modifier
-            .size(56.dp)
-            .shadow(
-                elevation = 8.dp,
-                shape = CircleShape,
-                ambientColor = Color(0xFF0F172A),
-                spotColor = Color(0xFF38BDF8)
-            )
-            .clip(CircleShape),
-        color = Color(0xFF072044),
-        border = BorderStroke(2.dp, Color(0xFF38BDF8))
+            .offset(y = offsetY.dp)
+            .size(68.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        Box(
+        Image(
+            painter = painterResource(id = R.drawable.ic_chatbot_avatar),
+            contentDescription = "NEXUS AI Copilot",
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.nexus_icon_mark),
-                contentDescription = "NEXUS AI Copilot",
-                modifier = Modifier.size(32.dp),
-                contentScale = ContentScale.Fit
-            )
-        }
+            contentScale = ContentScale.Fit
+        )
     }
 }
 
