@@ -35,7 +35,14 @@ class BankDepositManager @Inject constructor() {
 
     init {
         // Pre-populate with one realistic detected deposit for demonstration
-        simulateCommercialBankSalary()
+        // Starts clean: populated from live bank SMS alerts
+    }
+
+    /**
+     * Dismisses all pending detected deposits.
+     */
+    fun dismissAllDeposits() {
+        _pendingDeposits.value = emptyList()
     }
 
     /**

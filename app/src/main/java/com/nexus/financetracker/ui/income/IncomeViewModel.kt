@@ -128,7 +128,8 @@ data class IncomeUiState(
     val isOffline: Boolean = false,
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
-    val detectedDeposit: DetectedBankDeposit? = null
+    val detectedDeposit: DetectedBankDeposit? = null,
+    val pendingDetectedDeposits: List<DetectedBankDeposit> = emptyList()
 )
 
 @HiltViewModel
@@ -164,7 +165,8 @@ class IncomeViewModel @Inject constructor(
         viewModelScope.launch {
             bankDepositManager.pendingDeposits.collect { deposits ->
                 _uiState.value = _uiState.value.copy(
-                    detectedDeposit = deposits.firstOrNull()
+                    detectedDeposit = deposits.firstOrNull(),
+                    pendingDetectedDeposits = deposits
                 )
             }
         }
@@ -972,6 +974,10 @@ class IncomeViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    fun dismissAllDetectedDeposits() {
+        bankDepositManager.dismissAllDeposits()
     }
 
     fun simulateNewBankDeposit() {
