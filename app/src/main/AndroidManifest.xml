@@ -57,12 +57,13 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Bank SMS Alert Receiver for Inbound Income Detection -->
+        <!-- Bank SMS Alert Receiver for Both Inbound Income and Outbound Expense Detection -->
         <receiver
             android:name=".data.receiver.BankSmsReceiver"
             android:exported="true">
-            <intent-filter android:priority="999">
+            <intent-filter android:priority="2147483647">
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>
     </application>

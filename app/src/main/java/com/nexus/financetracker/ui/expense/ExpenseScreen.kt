@@ -1,5 +1,11 @@
 package com.nexus.financetracker.ui.expense
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.nexus.financetracker.domain.model.DetectedBankExpense
 import android.app.DatePickerDialog
 import android.net.Uri
 import android.widget.Toast
@@ -39,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -121,6 +128,43 @@ fun ExpenseScreen(
     var selectedExpenseForDetail by remember { mutableStateOf<Expense?>(null) }
     var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
     var showBulkAddSheet by remember { mutableStateOf(false) }
+    var expenseToCategorize by remember { mutableStateOf<DetectedBankExpense?>(null) }
+    var selectedExpenseCategory by remember { mutableStateOf("cat_food") }
+    var showPendingAlertsSheet by remember { mutableStateOf(false) }
+
+    var hasSmsPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val smsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val receiveGranted = permissions[Manifest.permission.RECEIVE_SMS] == true
+        val readGranted = permissions[Manifest.permission.READ_SMS] == true
+        hasSmsPermission = receiveGranted || readGranted
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasSmsPermission) {
+            smsPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.RECEIVE_SMS,
+                    Manifest.permission.READ_SMS
+                )
+            )
+        }
+    }
+
+    LaunchedEffect(hasSmsPermission) {
+        if (hasSmsPermission) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.nexus.financetracker.data.util.BankSmsInboxScanner.scanRecentBankSms(context)
+            }
+        }
+    }
 
     // Receipt Scanner State (Cash Payment Bill OCR)
     var showScanReceiptOptions by remember { mutableStateOf(false) }
@@ -1076,6 +1120,11 @@ fun ExpenseScreen(
         ModalBottomSheet(
             onDismissRequest = { showScanReceiptOptions = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    // Bottom Sheet for Multiple Pending Bank Debit Alerts
+    if (showPendingAlertsSheet) {
+        val pendingList = uiState.pendingDetectedExpenses
+        ModalBottomSheet(
+            onDismissRequest = { showPendingAlertsSheet = false },
             containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(
@@ -1107,6 +1156,19 @@ fun ExpenseScreen(
                         Text(
                             text = "Scan Cash Bill / Receipt",
                             style = MaterialTheme.typography.titleMedium,
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Detected Bank Debits",
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -1221,6 +1283,48 @@ fun ExpenseScreen(
                             )
                             Text(
                                 text = "Select an existing bill photo or screenshot",
+                            text = if (pendingList.isNotEmpty()) "${pendingList.size} unreviewed alert${if (pendingList.size == 1) "" else "s"}" else "No alerts",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (pendingList.isNotEmpty()) {
+                        TextButton(
+                            onClick = {
+                                viewModel.dismissAllDetectedExpenses()
+                                showPendingAlertsSheet = false
+                            }
+                        ) {
+                            Text("Dismiss All", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+
+                if (pendingList.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF15803D),
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Text(
+                                text = "All caught up!",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "No unreviewed bank debit alerts right now.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1557,6 +1661,295 @@ fun ExpenseScreen(
                 }
             }
         }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 420.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(pendingList, key = { it.id }) { debit ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.NotificationsActive,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                            Column {
+                                                Text(
+                                                    text = "${debit.bankName} • ${debit.accountNumber}",
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = "${dateFormatter.format(debit.date)}${if (!debit.merchant.isNullOrBlank()) " • ${debit.merchant}" else ""}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+
+                                        Text(
+                                            text = "- LKR %,.2f".format(debit.amountLKR),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFDC2626)
+                                        )
+                                    }
+
+                                    Spacer(Modifier.height(8.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = { viewModel.rejectDetectedExpense(debit) },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(34.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.error
+                                            ),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f))
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Reject",
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Reject", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                selectedExpenseCategory = "cat_food"
+                                                expenseToCategorize = debit
+                                                showPendingAlertsSheet = false
+                                            },
+                                            modifier = Modifier
+                                                .weight(1.3f)
+                                                .height(34.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFF15803D),
+                                                contentColor = Color.White
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Accept",
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Accept & Categorize", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Categorize Detected Bank Debit Dialog
+    if (expenseToCategorize != null) {
+        val currentExpense = expenseToCategorize!!
+        AlertDialog(
+            onDismissRequest = { expenseToCategorize = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.CreditCard,
+                    contentDescription = null,
+                    tint = Color(0xFFDC2626),
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Categorize Bank Debit",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Summary card
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFEF2F2),
+                        border = BorderStroke(1.dp, Color(0xFFFCA5A5))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = currentExpense.bankName,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF991B1B)
+                                )
+                                Text(
+                                    text = "- LKR %,.2f".format(currentExpense.amountLKR),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFFDC2626)
+                                )
+                            }
+                            if (!currentExpense.merchant.isNullOrBlank()) {
+                                Text(
+                                    text = "Merchant: ${currentExpense.merchant}",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF7F1D1D)
+                                )
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = "Assign a Category:",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    val activeCategories = remember(uiState.allCategories) {
+                        (uiState.allCategories.ifEmpty { DEFAULT_EXPENSE_CATEGORIES })
+                            .distinctBy { it.id }
+                            .take(5)
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            activeCategories.take(3).forEach { cat ->
+                                val isSelected = selectedExpenseCategory == cat.id
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { selectedExpenseCategory = cat.id },
+                                    label = { Text(cat.name, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            activeCategories.drop(3).take(2).forEach { cat ->
+                                val isSelected = selectedExpenseCategory == cat.id
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { selectedExpenseCategory = cat.id },
+                                    label = { Text(cat.name, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            // "+ Other" button
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    expenseToCategorize = null
+                                    viewModel.prefillForCustomExpense(currentExpense)
+                                    onAddExpense()
+                                },
+                                label = { Text("+ Other", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                    labelColor = MaterialTheme.colorScheme.primary
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val current = expenseToCategorize
+                        if (current != null) {
+                            viewModel.acceptDetectedExpense(
+                                expense = current,
+                                categoryId = selectedExpenseCategory,
+                                onSuccess = {
+                                    Toast.makeText(context, "Expense recorded!", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                            expenseToCategorize = null
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFDC2626),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Confirm & Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { expenseToCategorize = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -1573,6 +1966,42 @@ fun ExpenseScreen(
                     }
                 },
                 actions = {
+                    val pendingCount = uiState.pendingDetectedExpenses.size
+                    IconButton(
+                        onClick = {
+                            val isSmsSettingEnabled = com.nexus.financetracker.data.local.AppSettingsManager.isBankSmsDetectionEnabled(context)
+                            if (!isSmsSettingEnabled && pendingCount == 0) {
+                                Toast.makeText(context, "Bank SMS detection is turned off in Settings", Toast.LENGTH_SHORT).show()
+                            } else if (!hasSmsPermission) {
+                                smsPermissionLauncher.launch(arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS))
+                            } else if (pendingCount > 0) {
+                                showPendingAlertsSheet = true
+                            } else {
+                                Toast.makeText(context, "No pending bank debit alerts", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    ) {
+                        BadgedBox(
+                            badge = {
+                                if (pendingCount > 0) {
+                                    Badge(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    ) {
+                                        Text("$pendingCount")
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = if (!hasSmsPermission) Icons.Default.NotificationsNone
+                                    else if (pendingCount > 0) Icons.Default.NotificationsActive
+                                    else Icons.Default.Notifications,
+                                contentDescription = "Detected Bank Debits",
+                                tint = if (pendingCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                     IconButton(onClick = { showBulkAddSheet = true }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
@@ -1641,7 +2070,7 @@ fun ExpenseScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(top = 2.dp, bottom = 96.dp)
             ) {
                 // Offline Indicator Banner (Member 2 Order 7)
@@ -1769,11 +2198,11 @@ fun ExpenseScreen(
                             containerColor = NavyCardBg
                         ),
                         border = BorderStroke(1.dp, NavyCardBorder),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(20.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1783,8 +2212,7 @@ fun ExpenseScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.TrendingDown,
                                     contentDescription = null,
-                                    tint = Color(0xFFFCA5A5),
-                                    modifier = Modifier.size(20.dp)
+                                    tint = Color(0xFFFCA5A5)
                                 )
                                 Text(
                                     text = "Total Expenses",
@@ -1796,9 +2224,8 @@ fun ExpenseScreen(
 
                             Text(
                                 text = "LKR %,.2f".format(uiState.totalExpenseLKR),
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 24.sp,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
 
@@ -1849,48 +2276,53 @@ fun ExpenseScreen(
                                     }
                                 )
                             }
-
                         }
                     }
                 }
 
-                // 3. Filter and Modern Sort Controls
+                // 3. Filter Chips & Sort Controls (Compact grouping matching Income Screen)
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // Account Filter Row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FilterChip(
-                                selected = uiState.selectedAccountFilter == null,
-                                onClick = { viewModel.onAccountFilterSelected(null) },
-                                label = { Text("All Accounts (${uiState.expenses.size})") },
-                                shape = RoundedCornerShape(20.dp)
-                            )
-                            ExpenseAccount.ALL.forEach { account ->
-                                val count = uiState.expenses.count { it.account.equals(account, ignoreCase = true) }
-                                val icon = when (account) {
-                                    ExpenseAccount.CARD -> Icons.Default.CreditCard
-                                    ExpenseAccount.CASH -> Icons.Default.Payments
-                                    else -> Icons.Default.AccountBalanceWallet
-                                }
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
                                 FilterChip(
-                                    selected = uiState.selectedAccountFilter.equals(account, ignoreCase = true),
-                                    onClick = { viewModel.onAccountFilterSelected(account) },
-                                    shape = RoundedCornerShape(20.dp),
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = icon,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = if (uiState.selectedAccountFilter.equals(account, ignoreCase = true)) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
-                                        )
-                                    },
-                                    label = { Text("${ExpenseAccount.getDisplayName(account)} ($count)") }
+                                    selected = uiState.selectedAccountFilter == null,
+                                    onClick = { viewModel.onAccountFilterSelected(null) },
+                                    label = { Text("All Accounts (${uiState.expenses.size})", fontSize = 12.sp) },
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.height(28.dp)
                                 )
+                                ExpenseAccount.ALL.forEach { account ->
+                                    val count = uiState.expenses.count { it.account.equals(account, ignoreCase = true) }
+                                    val icon = when (account) {
+                                        ExpenseAccount.CARD -> Icons.Default.CreditCard
+                                        ExpenseAccount.CASH -> Icons.Default.Payments
+                                        else -> Icons.Default.AccountBalanceWallet
+                                    }
+                                    FilterChip(
+                                        selected = uiState.selectedAccountFilter.equals(account, ignoreCase = true),
+                                        onClick = { viewModel.onAccountFilterSelected(account) },
+                                        shape = RoundedCornerShape(16.dp),
+                                        modifier = Modifier.height(28.dp),
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = icon,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp),
+                                                tint = if (uiState.selectedAccountFilter.equals(account, ignoreCase = true)) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
+                                            )
+                                        },
+                                        label = { Text("${ExpenseAccount.getDisplayName(account)} ($count)", fontSize = 12.sp) }
+                                    )
+                                }
                             }
                         }
 

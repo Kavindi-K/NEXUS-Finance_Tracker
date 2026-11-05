@@ -4,7 +4,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,11 +26,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nexus.financetracker.R
 import com.nexus.financetracker.ui.theme.NexusNavyPrimary
 import android.content.Intent
 import android.net.Uri
@@ -44,6 +50,30 @@ private val ChatBackground = Color(0xFFF1F5F9)
 private val ChatEmerald = Color(0xFF10B981)
 private val ChatRose = Color(0xFFEF4444)
 private val ChatCardBorder = Color(0xFFE2E8F0)
+private val ChatFloatingBorder = Color(0xFF38BDF8)
+
+@Composable
+private fun NexusAiAvatar(
+    modifier: Modifier = Modifier,
+    size: Dp = 34.dp,
+    borderWidth: Dp = 1.5.dp
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(ChatNavyDark)
+            .border(BorderStroke(borderWidth, ChatFloatingBorder), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.ic_chatbot_avatar),
+            contentDescription = "NEXUS AI Copilot",
+            modifier = Modifier.size(size * 0.72f),
+            contentScale = ContentScale.Fit
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,6 +85,7 @@ fun ChatBotScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var inputText by remember { mutableStateOf("") }
     var showApiKeyDialog by remember { mutableStateOf(false) }
+    var showClearChatDialog by remember { mutableStateOf(false) }
     var apiKeyInput by remember { mutableStateOf("") }
     var isVerifyingKey by remember { mutableStateOf(false) }
     var keyErrorMessage by remember { mutableStateOf<String?>(null) }
@@ -73,12 +104,7 @@ fun ChatBotScreen(
         AlertDialog(
             onDismissRequest = { if (!isVerifyingKey) showApiKeyDialog = false },
             icon = {
-                Icon(
-                    imageVector = Icons.Default.SmartToy,
-                    contentDescription = null,
-                    tint = Color(0xFF3B82F6),
-                    modifier = Modifier.size(36.dp)
-                )
+                NexusAiAvatar(size = 52.dp, borderWidth = 2.dp)
             },
             title = {
                 Text(
@@ -186,6 +212,62 @@ fun ChatBotScreen(
         )
     }
 
+    if (showClearChatDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearChatDialog = false },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFEE2E2)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = null,
+                        tint = ChatRose,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    text = "Clear Chat History?",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color(0xFF0F172A)
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to clear your conversation history? Your saved financial transactions and settings will not be affected.",
+                    fontSize = 14.sp,
+                    color = Color(0xFF475569),
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.clearChat()
+                        showClearChatDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ChatRose)
+                ) {
+                    Text("Clear History", color = Color.White, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearChatDialog = false }) {
+                    Text("Cancel", color = Color(0xFF64748B))
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(18.dp)
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -194,20 +276,7 @@ fun ChatBotScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF1E3A8A)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.SmartToy,
-                                contentDescription = "AI Copilot",
-                                tint = Color(0xFF60A5FA),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                        NexusAiAvatar(size = 38.dp, borderWidth = 1.5.dp)
                         Column {
                             Text(
                                 text = "NEXUS AI Copilot",
@@ -215,34 +284,22 @@ fun ChatBotScreen(
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (uiState.hasGeminiApiKey) Color(0xFF064E3B) else Color(0xFF451A03),
-                                modifier = Modifier.clickable { showApiKeyDialog = true }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .clip(CircleShape)
-                                            .background(if (uiState.hasGeminiApiKey) ChatEmerald else Color(0xFFF59E0B))
-                                    )
-                                    Text(
-                                        text = if (uiState.hasGeminiApiKey) {
-                                            val label = if (uiState.activeGeminiModel != "auto" && uiState.activeGeminiModel.isNotBlank()) {
-                                                uiState.activeGeminiModel
-                                            } else "Gemini AI"
-                                            "$label ⚡"
-                                        } else "Setup Gemini Key 🔑",
-                                        color = Color.White,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(if (uiState.hasGeminiApiKey) ChatEmerald else Color(0xFF94A3B8))
+                                )
+                                Text(
+                                    text = if (uiState.hasGeminiApiKey) "Gemini Cloud Connected" else "Financial Intelligence",
+                                    color = Color(0xFFCBD5E1),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
                             }
                         }
                     }
@@ -257,19 +314,41 @@ fun ChatBotScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showApiKeyDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Default.VpnKey,
-                            contentDescription = "Gemini Key",
-                            tint = if (uiState.hasGeminiApiKey) Color(0xFF34D399) else Color(0xFFFBBF24)
-                        )
+                    IconButton(onClick = {
+                        apiKeyInput = ""
+                        keyErrorMessage = null
+                        showApiKeyDialog = true
+                    }) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(if (uiState.hasGeminiApiKey) Color(0xFF0F3B2E) else Color(0xFF1E293B)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.VpnKey,
+                                contentDescription = "Gemini Key Settings",
+                                tint = if (uiState.hasGeminiApiKey) Color(0xFF34D399) else Color(0xFF94A3B8),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
-                    IconButton(onClick = { viewModel.clearChat() }) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteSweep,
-                            contentDescription = "Clear Chat",
-                            tint = Color(0xFF94A3B8)
-                        )
+                    IconButton(onClick = { showClearChatDialog = true }) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF1E293B)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "Clear Chat",
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -282,6 +361,7 @@ fun ChatBotScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color.White)
+                    .navigationBarsPadding()
                     .imePadding()
             ) {
                 // Quick Suggestion Chips
@@ -317,14 +397,16 @@ fun ChatBotScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { inputText = it },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 50.dp),
                         placeholder = {
                             Text(
                                 text = "Ask anything (e.g. Petrol 2000 cash)...",
@@ -332,7 +414,7 @@ fun ChatBotScreen(
                                 color = Color(0xFF94A3B8)
                             )
                         },
-                        shape = RoundedCornerShape(24.dp),
+                        shape = RoundedCornerShape(26.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color(0xFFF8FAFC),
                             unfocusedContainerColor = Color(0xFFF8FAFC),
@@ -421,20 +503,7 @@ private fun ChatMessageBubble(
             modifier = Modifier.fillMaxWidth(0.92f)
         ) {
             if (!isUser) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF1E3A8A)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.SmartToy,
-                        contentDescription = "Bot",
-                        tint = Color(0xFF93C5FD),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+                NexusAiAvatar(size = 32.dp, borderWidth = 1.5.dp)
                 Spacer(modifier = Modifier.width(8.dp))
             }
 
@@ -651,20 +720,7 @@ private fun TypingIndicatorBubble() {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start
     ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF1E3A8A)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.SmartToy,
-                contentDescription = null,
-                tint = Color(0xFF93C5FD),
-                modifier = Modifier.size(18.dp)
-            )
-        }
+        NexusAiAvatar(size = 32.dp, borderWidth = 1.5.dp)
         Spacer(modifier = Modifier.width(8.dp))
         Surface(
             shape = RoundedCornerShape(14.dp),

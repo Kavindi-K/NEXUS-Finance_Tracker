@@ -20,7 +20,19 @@ object BankDepositParser {
         val upperBody = messageBody.uppercase(Locale.US)
         val upperSender = sender.uppercase(Locale.US)
 
-        // Only parse incoming credit/deposit messages (ignore debit/expense alerts)
+        // Strictly ignore debit/expense messages even if words like "DEPOSIT ACCOUNT" or "PAYMENT RECEIVED" appear
+        val isExplicitDebit = upperBody.contains("DEBIT") ||
+                upperBody.contains("DR.") ||
+                upperBody.contains("DR ") ||
+                upperBody.contains("WITHDRAWAL") ||
+                upperBody.contains("WITHDRAWN") ||
+                upperBody.contains("CARD USED") ||
+                upperBody.contains("USED FOR") ||
+                upperBody.contains("SPENT")
+
+        if (isExplicitDebit) return null
+
+        // Only parse incoming credit/deposit messages
         val isCredit = upperBody.contains("CREDITED") ||
                 upperBody.contains("DEPOSIT") ||
                 upperBody.contains("RECEIVED") ||
@@ -34,17 +46,21 @@ object BankDepositParser {
             upperSender.contains("SAMPATH") || upperBody.contains("SAMPATH") -> "Sampath Bank"
             upperSender.contains("HNB") || upperBody.contains("HATTON NATIONAL") || upperBody.contains("HNB") -> "Hatton National Bank"
             upperSender.contains("BOC") || upperBody.contains("BANK OF CEYLON") || upperBody.contains("BOC") -> "Bank of Ceylon"
+            upperSender.contains("PEOPLES") || upperBody.contains("PEOPLE'S BANK") || upperBody.contains("PEOPLES BANK") -> "People's Bank"
             upperSender.contains("SEYLAN") || upperBody.contains("SEYLAN") -> "Seylan Bank"
             upperSender.contains("NDB") || upperBody.contains("NDB") -> "NDB Bank"
-            upperSender.contains("NTB") || upperBody.contains("NATIONS TRUST") -> "Nations Trust Bank"
+            upperSender.contains("NTB") || upperBody.contains("NATIONS TRUST") || upperBody.contains("FRIMI") -> "Nations Trust Bank"
             upperSender.contains("DFCC") || upperBody.contains("DFCC") -> "DFCC Bank"
             upperSender.contains("PAN ASIA") || upperBody.contains("PABC") -> "Pan Asia Bank"
+            upperSender.contains("CARGILLS") || upperBody.contains("CARGILLS BANK") -> "Cargills Bank"
+            upperSender.contains("UNION") || upperBody.contains("UNION BANK") -> "Union Bank"
+            upperSender.contains("AMANA") || upperBody.contains("AMANA BANK") -> "Amana Bank"
             upperSender.contains("HSBC") || upperBody.contains("HSBC") -> "HSBC"
             else -> "Bank Deposit"
         }
 
-        // Extract Amount: e.g. "LKR 135,000.00" or "Rs. 135,000" or "LKR 135000"
-        val amountPattern = Pattern.compile("""(?:LKR|RS\.?)\s*([\d,]+(?:\.\d{1,2})?)""", Pattern.CASE_INSENSITIVE)
+        // Extract Amount: supports "LKR 135,000.00", "LKR. 135,000.00", "LKR: 135000", "Rs. 135,000", "SLR 135,000", etc.
+        val amountPattern = Pattern.compile("""(?:LKR|RS|SLR)[\.:/-]?\s*([\d,]+(?:\.\d{1,2})?)""", Pattern.CASE_INSENSITIVE)
         val amountMatcher = amountPattern.matcher(messageBody)
         val amount = if (amountMatcher.find()) {
             val raw = amountMatcher.group(1)?.replace(",", "")
@@ -55,8 +71,8 @@ object BankDepositParser {
 
         if (amount <= 0.0) return null
 
-        // Extract Account Number: e.g. "A/C *1234" or "A/C 1234" or "Account 1234"
-        val acctPattern = Pattern.compile("""(?:A\/C|ACCOUNT)\s*\*?([0-9Xx*]+)""", Pattern.CASE_INSENSITIVE)
+        // Extract Account Number: e.g. "A/C *1234" or "A/C 1234" or "ending in 1234"
+        val acctPattern = Pattern.compile("""(?:A\/C|ACCOUNT|CARD|ENDING IN|ENDING)\s*\*?([0-9Xx*]+)""", Pattern.CASE_INSENSITIVE)
         val acctMatcher = acctPattern.matcher(messageBody)
         val account = if (acctMatcher.find()) {
             val num = acctMatcher.group(1) ?: "1234"
@@ -78,7 +94,12 @@ object BankDepositParser {
             else -> IncomeSource.SALARY // Most common bank credit in SL
         }
 
+        // Deterministic ID based on SMS content to prevent duplicates between live receiver and inbox scanner
+        val contentSignature = "${bankName}_${account}_${amount}_${reference ?: ""}_${messageBody.trim()}"
+        val deterministicId = "sms_dep_${contentSignature.hashCode().toString(16)}"
+
         return DetectedBankDeposit(
+            id = deterministicId,
             bankName = bankName,
             accountNumber = account,
             amountLKR = amount,
@@ -89,4 +110,3 @@ object BankDepositParser {
         )
     }
 }
-
