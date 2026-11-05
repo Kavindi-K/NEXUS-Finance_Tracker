@@ -939,9 +939,9 @@ private fun ModernAiCopilotFab(
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.nexus_icon_mark),
+                painter = painterResource(id = R.drawable.ic_chatbot_avatar),
                 contentDescription = "NEXUS AI Copilot",
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(38.dp),
                 contentScale = ContentScale.Fit
             )
         }

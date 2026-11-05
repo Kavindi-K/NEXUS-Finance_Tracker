@@ -67,9 +67,9 @@ private fun NexusAiAvatar(
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(id = R.drawable.nexus_icon_mark),
+            painter = painterResource(id = R.drawable.ic_chatbot_avatar),
             contentDescription = "NEXUS AI Copilot",
-            modifier = Modifier.size(size * 0.65f),
+            modifier = Modifier.size(size * 0.72f),
             contentScale = ContentScale.Fit
         )
     }
