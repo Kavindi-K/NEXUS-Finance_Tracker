@@ -67,6 +67,9 @@ play-services-auth = { module = "com.google.android.gms:play-services-auth", ver
 androidx-biometric = { module = "androidx.biometric:biometric-ktx", version = "1.2.0-alpha05" }
 androidx-security-crypto = { module = "androidx.security:security-crypto", version = "1.1.0-alpha06" }
 
+# Google ML Kit Text Recognition for Bill & Receipt Scanning
+play-services-mlkit-text-recognition = { module = "com.google.android.gms:play-services-mlkit-text-recognition", version = "19.0.1" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

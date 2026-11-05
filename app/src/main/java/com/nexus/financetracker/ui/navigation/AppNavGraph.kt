@@ -443,6 +443,9 @@ fun AppNavGraph(
                     onEditExpense = { expenseId ->
                         navController.navigate(Screen.AddExpense.createRoute(expenseId))
                     },
+                    onNavigateToAddExpense = {
+                        navController.navigate(Screen.AddExpense.createRoute())
+                    },
                     onBack = onBackToDashboard
                 )
             }

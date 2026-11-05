@@ -57,7 +57,7 @@ fun ExpenseAddScreen(
     LaunchedEffect(expenseId, categoryId) {
         if (!expenseId.isNullOrBlank() && expenseId != "{expenseId}") {
             viewModel.loadExpenseForEdit(expenseId)
-        } else {
+        } else if (viewModel.formState.value.amountText.isBlank() && viewModel.formState.value.account != com.nexus.financetracker.domain.model.ExpenseAccount.CASH) {
             val cleanCatId = if (!categoryId.isNullOrBlank() && categoryId != "{categoryId}") categoryId else null
             viewModel.resetForm(preferredCategoryId = cleanCatId)
         }

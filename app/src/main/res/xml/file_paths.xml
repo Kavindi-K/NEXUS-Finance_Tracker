@@ -3,5 +3,5 @@
     <external-files-path name="reports_docs" path="Documents" />
     <external-files-path name="reports_dl" path="Download" />
     <cache-path name="cached_reports" path="reports" />
+    <cache-path name="receipt_images" path="receipts" />
 </paths>
-

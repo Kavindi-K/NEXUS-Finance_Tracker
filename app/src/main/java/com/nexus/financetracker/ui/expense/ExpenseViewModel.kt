@@ -7,6 +7,7 @@ import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.data.repository.ContributionManager
+import com.nexus.financetracker.data.util.ParsedReceipt
 import com.nexus.financetracker.domain.model.Category
 import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseAccount
@@ -1162,11 +1163,16 @@ class ExpenseViewModel @Inject constructor(
     }
 
     /**
-     * Jump the month navigation in the history screen to match the backdated expense's month.
+     * Jump the month navigation in the history screen to match the expense's month
+     * and clears filters so the newly saved expense is immediately visible.
      */
     fun navigateToExpenseMonth(date: Date) {
         selectedCalendar.time = date
-        _uiState.value = _uiState.value.copy(isPeriodAllTime = false)
+        _uiState.value = _uiState.value.copy(
+            isPeriodAllTime = false,
+            selectedAccountFilter = null,
+            selectedCategoryFilter = null
+        )
         recomputeUiState()
     }
 
@@ -1218,6 +1224,89 @@ class ExpenseViewModel @Inject constructor(
 
     fun onNoteChanged(note: String) {
         _formState.value = _formState.value.copy(note = note)
+    }
+
+    /**
+     * Pre-populates the expense form with data extracted from an OCR-scanned receipt.
+     * The payment account is automatically defaulted to Cash, matching physical bill receipts.
+     * Category selection is left for the user to pick explicitly (no auto-categorization).
+     */
+    fun applyScannedReceipt(parsed: ParsedReceipt, userChosenCategoryId: String? = null) {
+        val currentCats = if (_uiState.value.allCategories.isNotEmpty()) {
+            _uiState.value.allCategories
+        } else if (_formState.value.availableCategories.isNotEmpty()) {
+            _formState.value.availableCategories
+        } else {
+            DEFAULT_EXPENSE_CATEGORIES
+        }
+
+        val chosenCat = userChosenCategoryId?.let { id ->
+            currentCats.find { it.id == id } ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == id }
+        }
+
+        val formattedAmount = if (parsed.amountLKR % 1.0 == 0.0) {
+            parsed.amountLKR.toLong().toString()
+        } else {
+            String.format(Locale.US, "%.2f", parsed.amountLKR)
+        }
+
+        val isComm = chosenCat?.classification?.equals(ExpenseClassification.COMMITTED, ignoreCase = true) == true
+
+        _formState.value = _formState.value.copy(
+            amountText = formattedAmount,
+            account = ExpenseAccount.CASH,
+            note = "",
+            date = parsed.date,
+            categoryId = chosenCat?.id ?: "",
+            categoryName = chosenCat?.name ?: "",
+            classification = chosenCat?.classification ?: ExpenseClassification.DISCRETIONARY,
+            hasUserSelectedCategory = chosenCat != null,
+            isRecurring = isComm,
+            errorMessage = null
+        )
+    }
+
+    /**
+     * Saves an expense scanned from a paper bill/receipt directly with Cash payment account.
+     */
+    fun saveScannedReceiptExpense(
+        amount: Double,
+        categoryId: String,
+        date: Date,
+        note: String = "",
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val userId = currentUserId
+        if (userId.isNullOrBlank()) {
+            onError("User session expired. Please sign in again.")
+            return
+        }
+        val targetCat = _uiState.value.allCategories.find { it.id == categoryId }
+            ?: DEFAULT_EXPENSE_CATEGORIES.find { it.id == categoryId }
+        val classification = targetCat?.classification ?: ExpenseClassification.DISCRETIONARY
+
+        val expense = Expense(
+            userId = userId,
+            amountLKR = amount,
+            categoryId = categoryId,
+            account = ExpenseAccount.CASH,
+            classification = classification,
+            note = note.trim().takeIf { it.isNotBlank() },
+            date = date,
+            createdAt = Date()
+        )
+
+        viewModelScope.launch {
+            try {
+                expenseRepository.addExpense(expense)
+                navigateToExpenseMonth(expense.date)
+                loadExpenses()
+                onSuccess()
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Failed to record expense")
+            }
+        }
     }
 
     fun resetForm(preferredCategoryId: String? = null) {
@@ -1382,6 +1471,7 @@ class ExpenseViewModel @Inject constructor(
                 }
                 _formState.value = _formState.value.copy(isSubmitting = false)
                 resetForm()
+                navigateToExpenseMonth(state.date)
                 onSuccess()
             } catch (e: Exception) {
                 _formState.value = _formState.value.copy(

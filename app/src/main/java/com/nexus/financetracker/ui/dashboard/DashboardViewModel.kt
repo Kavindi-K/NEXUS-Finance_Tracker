@@ -302,7 +302,7 @@ class DashboardViewModel @Inject constructor(
 
                 // Net result for the month: Total Income minus effective category deductions
 
-                val netResult = totalIncome - effectiveDeductions
+                val netResult = totalIncome - totalExpense
 
 
 

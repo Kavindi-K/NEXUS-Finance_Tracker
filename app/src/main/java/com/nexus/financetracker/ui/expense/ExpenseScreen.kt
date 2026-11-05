@@ -1,7 +1,11 @@
 package com.nexus.financetracker.ui.expense
 
 import android.app.DatePickerDialog
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.CallMerge
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.Sort
@@ -37,7 +42,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.nexus.financetracker.data.util.ParsedReceipt
+import com.nexus.financetracker.data.util.ReceiptScanner
 import com.nexus.financetracker.domain.model.Category
+import kotlinx.coroutines.launch
 import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseAccount
 import com.nexus.financetracker.domain.model.ExpenseClassification
@@ -92,11 +100,13 @@ fun ExpenseScreen(
     onAddExpense: () -> Unit,
     onManageCategories: () -> Unit = {},
     onEditExpense: (String) -> Unit = {},
+    onNavigateToAddExpense: () -> Unit = {},
     onBack: () -> Unit = {},
     viewModel: ExpenseViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
     val fullDateTimeFormatter = remember { SimpleDateFormat("EEEE, MMM dd, yyyy • hh:mm a", Locale.getDefault()) }
 
@@ -111,6 +121,46 @@ fun ExpenseScreen(
     var selectedExpenseForDetail by remember { mutableStateOf<Expense?>(null) }
     var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
     var showBulkAddSheet by remember { mutableStateOf(false) }
+
+    // Receipt Scanner State (Cash Payment Bill OCR)
+    var showScanReceiptOptions by remember { mutableStateOf(false) }
+    var isScanningReceipt by remember { mutableStateOf(false) }
+    var scannedReceiptResult by remember { mutableStateOf<ParsedReceipt?>(null) }
+    var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && tempPhotoUri != null) {
+            isScanningReceipt = true
+            coroutineScope.launch {
+                val parsed = ReceiptScanner.processImageUri(context, tempPhotoUri!!)
+                isScanningReceipt = false
+                if (parsed != null) {
+                    scannedReceiptResult = parsed
+                } else {
+                    Toast.makeText(context, "Could not detect clear bill total. Please enter manually.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            isScanningReceipt = true
+            coroutineScope.launch {
+                val parsed = ReceiptScanner.processImageUri(context, uri)
+                isScanningReceipt = false
+                if (parsed != null) {
+                    scannedReceiptResult = parsed
+                } else {
+                    Toast.makeText(context, "Could not detect clear bill total. Please enter manually.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
     // Month Selector Dialog (Matching Income Screen)
     if (showMonthDialog) {
@@ -1021,6 +1071,494 @@ fun ExpenseScreen(
         )
     }
 
+    // Scan Cash Bill / Receipt Options Sheet
+    if (showScanReceiptOptions) {
+        ModalBottomSheet(
+            onDismissRequest = { showScanReceiptOptions = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DocumentScanner,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Scan Cash Bill / Receipt",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Automatically extract bill amount for cash expense",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                // Option 1: Take Photo with Camera
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showScanReceiptOptions = false
+                            try {
+                                val uri = ReceiptScanner.createTempImageUri(context)
+                                tempPhotoUri = uri
+                                cameraLauncher.launch(uri)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Failed to open camera: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoCamera,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Take Photo",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Use camera to photograph physical receipt chit",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                // Option 2: Choose from Gallery
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showScanReceiptOptions = false
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoLibrary,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Choose from Gallery",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Select an existing bill photo or screenshot",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // OCR Scanning In-Progress Dialog
+    if (isScanningReceipt) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(18.dp),
+            text = {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(36.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Column {
+                        Text(
+                            text = "Scanning Bill / Receipt...",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Extracting total amount from bill",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        )
+    }
+
+    // Review / Confirm Scanned Receipt Bottom Sheet
+    scannedReceiptResult?.let { parsed ->
+        var editableAmount by remember(parsed) {
+            mutableStateOf(
+                if (parsed.amountLKR % 1.0 == 0.0) parsed.amountLKR.toLong().toString()
+                else String.format(Locale.US, "%.2f", parsed.amountLKR)
+            )
+        }
+        val currentCats = uiState.allCategories.ifEmpty { DEFAULT_EXPENSE_CATEGORIES }
+        var selectedCatId by remember(parsed) { mutableStateOf<String?>(null) }
+        var selectedReceiptDate by remember(parsed) { mutableStateOf(parsed.date) }
+        var categoryError by remember { mutableStateOf(false) }
+        var showCatMenu by remember { mutableStateOf(false) }
+        val selCat = currentCats.find { it.id == selectedCatId }
+
+        ModalBottomSheet(
+            onDismissRequest = { scannedReceiptResult = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Bill Scanned",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Cash payment detected",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Cash Pill Badge (Styled consistently with the app's account tags)
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Payments,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = "Cash",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                // Amount Field
+                OutlinedTextField(
+                    value = editableAmount,
+                    onValueChange = { editableAmount = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = { Text("Total Amount (LKR)") },
+                    prefix = { Text("LKR ", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        cursorColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+
+                // Category Selector (User chooses explicitly - no auto-categorization)
+                Box {
+                    OutlinedTextField(
+                        value = selCat?.name ?: "",
+                        onValueChange = {},
+                        readOnly = true,
+                        isError = categoryError && selectedCatId == null,
+                        label = { Text("Choose Category *") },
+                        placeholder = { Text("Tap to choose category") },
+                        trailingIcon = {
+                            IconButton(onClick = { showCatMenu = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Select Category",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
+                        supportingText = if (categoryError && selectedCatId == null) {
+                            { Text("Please choose a category", color = MaterialTheme.colorScheme.error) }
+                        } else null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showCatMenu = true },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            cursorColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                    DropdownMenu(
+                        expanded = showCatMenu,
+                        onDismissRequest = { showCatMenu = false },
+                        modifier = Modifier.heightIn(max = 280.dp)
+                    ) {
+                        currentCats.forEach { cat ->
+                            DropdownMenuItem(
+                                text = { Text(cat.name, fontWeight = if (cat.id == selectedCatId) FontWeight.Bold else FontWeight.Normal) },
+                                onClick = {
+                                    selectedCatId = cat.id
+                                    categoryError = false
+                                    showCatMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Date Selector (Defaults to extracted receipt date or today, tap to change)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val cal = Calendar.getInstance().apply { time = selectedReceiptDate }
+                            DatePickerDialog(
+                                context,
+                                { _, y, m, d ->
+                                    val newCal = Calendar.getInstance().apply {
+                                        set(Calendar.YEAR, y)
+                                        set(Calendar.MONTH, m)
+                                        set(Calendar.DAY_OF_MONTH, d)
+                                        set(Calendar.HOUR_OF_DAY, 12)
+                                        set(Calendar.MINUTE, 0)
+                                        set(Calendar.SECOND, 0)
+                                    }
+                                    selectedReceiptDate = newCal.time
+                                },
+                                cal.get(Calendar.YEAR),
+                                cal.get(Calendar.MONTH),
+                                cal.get(Calendar.DAY_OF_MONTH)
+                            ).show()
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarMonth,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Receipt Date: ${dateFormatter.format(selectedReceiptDate)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Text(
+                            text = "Change",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val finalAmount = editableAmount.toDoubleOrNull() ?: parsed.amountLKR
+                            val updatedParsed = parsed.copy(
+                                amountLKR = finalAmount,
+                                date = selectedReceiptDate
+                            )
+                            viewModel.applyScannedReceipt(updatedParsed, userChosenCategoryId = selectedCatId)
+                            scannedReceiptResult = null
+                            onNavigateToAddExpense()
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                    ) {
+                        Text("Edit in Form", fontWeight = FontWeight.SemiBold)
+                    }
+
+                    Button(
+                        onClick = {
+                            if (selectedCatId == null) {
+                                categoryError = true
+                                Toast.makeText(context, "Please choose a category first", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            val finalAmount = editableAmount.toDoubleOrNull() ?: parsed.amountLKR
+                            viewModel.saveScannedReceiptExpense(
+                                amount = finalAmount,
+                                categoryId = selectedCatId!!,
+                                date = selectedReceiptDate,
+                                onSuccess = {
+                                    Toast.makeText(context, "Cash expense recorded: LKR %,.2f".format(finalAmount), Toast.LENGTH_SHORT).show()
+                                    scannedReceiptResult = null
+                                },
+                                onError = { err ->
+                                    Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                                }
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NavyPrimary,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                    ) {
+                        Text("Save Cash Expense", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -1056,13 +1594,34 @@ fun ExpenseScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddExpense,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = RoundedCornerShape(16.dp)
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Expense")
+                // New Feature: Scan Cash Bill / Receipt Icon (Matching Navy Theme)
+                FloatingActionButton(
+                    onClick = { showScanReceiptOptions = true },
+                    containerColor = NavyCardBg,
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.size(52.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DocumentScanner,
+                        contentDescription = "Scan Bill / Receipt",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                // Existing + icon (Navigates to Categories / Add Expense)
+                FloatingActionButton(
+                    onClick = onAddExpense,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Expense")
+                }
             }
         },
         containerColor = MaterialTheme.colorScheme.background

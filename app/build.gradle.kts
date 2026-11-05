@@ -78,6 +78,9 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.okhttp)
 
+    // Google ML Kit Text Recognition for Bill & Receipt Scanning
+    implementation(libs.play.services.mlkit.text.recognition)
+
     // WorkManager (background bill reminders)
     implementation(libs.work.runtime.ktx)
     implementation(libs.hilt.work)
