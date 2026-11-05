@@ -119,6 +119,7 @@ fun ExpenseScreen(
     var showBulkAddSheet by remember { mutableStateOf(false) }
     var expenseToCategorize by remember { mutableStateOf<DetectedBankExpense?>(null) }
     var selectedExpenseCategory by remember { mutableStateOf("cat_food") }
+    var showPendingAlertsSheet by remember { mutableStateOf(false) }
 
     var hasSmsPermission by remember {
         mutableStateOf(
@@ -1052,6 +1053,211 @@ fun ExpenseScreen(
         )
     }
 
+    // Bottom Sheet for Multiple Pending Bank Debit Alerts
+    if (showPendingAlertsSheet) {
+        val pendingList = uiState.pendingDetectedExpenses
+        ModalBottomSheet(
+            onDismissRequest = { showPendingAlertsSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Detected Bank Debits",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (pendingList.isNotEmpty()) "${pendingList.size} unreviewed alert${if (pendingList.size == 1) "" else "s"}" else "No alerts",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (pendingList.isNotEmpty()) {
+                        TextButton(
+                            onClick = {
+                                viewModel.dismissAllDetectedExpenses()
+                                showPendingAlertsSheet = false
+                            }
+                        ) {
+                            Text("Dismiss All", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+
+                if (pendingList.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF15803D),
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Text(
+                                text = "All caught up!",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "No unreviewed bank debit alerts right now.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 420.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(pendingList, key = { it.id }) { debit ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.NotificationsActive,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                            Column {
+                                                Text(
+                                                    text = "${debit.bankName} • ${debit.accountNumber}",
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = "${dateFormatter.format(debit.date)}${if (!debit.merchant.isNullOrBlank()) " • ${debit.merchant}" else ""}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+
+                                        Text(
+                                            text = "- LKR %,.2f".format(debit.amountLKR),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFDC2626)
+                                        )
+                                    }
+
+                                    Spacer(Modifier.height(8.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = { viewModel.rejectDetectedExpense(debit) },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(34.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.error
+                                            ),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f))
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Reject",
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Reject", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                selectedExpenseCategory = "cat_food"
+                                                expenseToCategorize = debit
+                                                showPendingAlertsSheet = false
+                                            },
+                                            modifier = Modifier
+                                                .weight(1.3f)
+                                                .height(34.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFF15803D),
+                                                contentColor = Color.White
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Accept",
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Accept & Categorize", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Categorize Detected Bank Debit Dialog
     if (expenseToCategorize != null) {
         val currentExpense = expenseToCategorize!!
@@ -1225,6 +1431,39 @@ fun ExpenseScreen(
                     }
                 },
                 actions = {
+                    val pendingCount = uiState.pendingDetectedExpenses.size
+                    IconButton(
+                        onClick = {
+                            if (!hasSmsPermission) {
+                                smsPermissionLauncher.launch(arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS))
+                            } else if (pendingCount > 0) {
+                                showPendingAlertsSheet = true
+                            } else {
+                                Toast.makeText(context, "No pending bank debit alerts", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    ) {
+                        BadgedBox(
+                            badge = {
+                                if (pendingCount > 0) {
+                                    Badge(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    ) {
+                                        Text("$pendingCount")
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = if (!hasSmsPermission) Icons.Default.NotificationsNone
+                                    else if (pendingCount > 0) Icons.Default.NotificationsActive
+                                    else Icons.Default.Notifications,
+                                contentDescription = "Detected Bank Debits",
+                                tint = if (pendingCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                     IconButton(onClick = { showBulkAddSheet = true }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,

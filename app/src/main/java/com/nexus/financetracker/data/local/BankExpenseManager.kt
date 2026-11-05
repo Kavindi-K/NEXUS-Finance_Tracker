@@ -34,8 +34,14 @@ class BankExpenseManager @Inject constructor() {
     }
 
     init {
-        // Pre-populate with one realistic detected debit for demonstration
-        simulateCommercialBankCardPayment()
+        // Starts clean — populated from live bank SMS alerts
+    }
+
+    /**
+     * Dismisses all pending detected debit alerts.
+     */
+    fun dismissAllExpenses() {
+        _pendingExpenses.value = emptyList()
     }
 
     /**

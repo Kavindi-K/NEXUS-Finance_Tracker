@@ -60,7 +60,8 @@ data class ExpenseUiState(
     val isOffline: Boolean = false,
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
-    val detectedExpense: DetectedBankExpense? = null
+    val detectedExpense: DetectedBankExpense? = null,
+    val pendingDetectedExpenses: List<DetectedBankExpense> = emptyList()
 )
 
 data class ExpenseFormState(
@@ -243,10 +244,15 @@ class ExpenseViewModel @Inject constructor(
         viewModelScope.launch {
             bankExpenseManager.pendingExpenses.collect { expenses ->
                 _uiState.value = _uiState.value.copy(
-                    detectedExpense = expenses.firstOrNull()
+                    detectedExpense = expenses.firstOrNull(),
+                    pendingDetectedExpenses = expenses
                 )
             }
         }
+    }
+
+    fun dismissAllDetectedExpenses() {
+        bankExpenseManager.dismissAllExpenses()
     }
 
     fun rejectDetectedExpense(expense: DetectedBankExpense) {
