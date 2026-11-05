@@ -63,13 +63,6 @@ fun ExpenseAddScreen(
             viewModel.resetForm(preferredCategoryId = cleanCatId)
         }
     }
-        if (!expenseId.isNullOrBlank() && expenseId != "{expenseId}") {
-            viewModel.loadExpenseForEdit(expenseId)
-        } else if (!viewModel.formState.value.isPrefilledFromExpense) {
-            val cleanCatId = if (!categoryId.isNullOrBlank() && categoryId != "{categoryId}") categoryId else null
-            viewModel.resetForm(preferredCategoryId = cleanCatId)
-        }
-    }
 
     LaunchedEffect(categoryId, uiState.allCategories) {
         val cleanCatId = if (!categoryId.isNullOrBlank() && categoryId != "{categoryId}") categoryId else null
