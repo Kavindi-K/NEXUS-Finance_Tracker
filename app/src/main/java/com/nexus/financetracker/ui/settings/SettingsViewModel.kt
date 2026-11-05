@@ -14,6 +14,7 @@ import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.repository.GoalRepository
 import com.nexus.financetracker.data.repository.IncomeRepository
+import com.nexus.financetracker.ui.chatbot.ChatHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +29,7 @@ data class SettingsUiState(
     val isPinSet: Boolean = false,
     val baseCurrency: String = "LKR",
     val defaultExpenseAccount: String = "Card",
+    val geminiApiKey: String = "",
     val userEmail: String? = null,
     val displayName: String? = null,
     val cachedExpensesCount: Int = 0,
@@ -51,7 +53,8 @@ class SettingsViewModel @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val incomeDao: IncomeDao,
     private val goalDao: GoalDao,
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
+    private val chatHistoryRepository: ChatHistoryRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState(isPinSet = securityManager.isPinSet()))
@@ -74,7 +77,8 @@ class SettingsViewModel @Inject constructor(
                     notificationsEnabled = settings.notificationsEnabled,
                     biometricLockEnabled = settings.biometricLockEnabled,
                     baseCurrency = settings.baseCurrency,
-                    defaultExpenseAccount = settings.defaultExpenseAccount
+                    defaultExpenseAccount = settings.defaultExpenseAccount,
+                    geminiApiKey = settings.geminiApiKey
                 )
             }
         }
@@ -156,6 +160,7 @@ class SettingsViewModel @Inject constructor(
                 incomeRepository.clearLocalCache(uid)
                 goalRepository.clearLocalCache(uid)
                 categoryRepository.clearLocalCache(uid)
+                chatHistoryRepository.clearHistory(uid)
             }
             authRepository.signOut()
             onSuccess()
@@ -173,6 +178,11 @@ class SettingsViewModel @Inject constructor(
     fun removePin() {
         securityManager.removePin()
         _uiState.value = _uiState.value.copy(isPinSet = false, message = "4-digit PIN removed")
+    }
+
+    fun setGeminiApiKey(key: String) {
+        appSettingsManager.setGeminiApiKey(key)
+        _uiState.value = _uiState.value.copy(message = "Gemini AI API Key saved successfully")
     }
 
     fun dismissMessage() {

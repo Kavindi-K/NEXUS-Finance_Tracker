@@ -7,6 +7,8 @@ import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.data.repository.ContributionManager
+import com.nexus.financetracker.data.local.BankExpenseManager
+import com.nexus.financetracker.domain.model.DetectedBankExpense
 import com.nexus.financetracker.domain.model.Category
 import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseAccount
@@ -57,7 +59,9 @@ data class ExpenseUiState(
     val allCategories: List<Category> = emptyList(),
     val isOffline: Boolean = false,
     val isLoading: Boolean = true,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val detectedExpense: DetectedBankExpense? = null,
+    val pendingDetectedExpenses: List<DetectedBankExpense> = emptyList()
 )
 
 data class ExpenseFormState(
@@ -73,8 +77,15 @@ data class ExpenseFormState(
     val isSubmitting: Boolean = false,
     val isLoadingDefaults: Boolean = false,
     val errorMessage: String? = null,
+    val pendingExpenseIdToDismiss: String? = null,
+    val isPrefilledFromExpense: Boolean = false,
     val availableCategories: List<Category> = emptyList(),
-    val hasUserSelectedCategory: Boolean = false
+    val hasUserSelectedCategory: Boolean = false,
+    val isRecurring: Boolean = false,
+    val recurringFrequency: String = "monthly",
+    val recurringDuration: Int? = 1,
+    val recurringDurationUnit: String = "months",
+    val isOngoingRecurrence: Boolean = false
 ) {
     val isEditMode: Boolean
         get() = !editingExpenseId.isNullOrBlank()
@@ -176,11 +187,27 @@ class ExpenseViewModel @Inject constructor(
     private val auth: FirebaseAuth,
     private val networkMonitor: NetworkMonitor,
     private val contributionManager: ContributionManager,
+    private val bankExpenseManager: BankExpenseManager,
     @param:ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val categoryPrefs by lazy {
         context.getSharedPreferences("nexus_categories_prefs", Context.MODE_PRIVATE)
+    }
+
+    private val recurringPrefs by lazy {
+        context.getSharedPreferences("nexus_recurring_prefs", Context.MODE_PRIVATE)
+    }
+
+    private fun isSeriesCancelled(seriesId: String): Boolean {
+        val cancelledSet = recurringPrefs.getStringSet("cancelled_series", emptySet()) ?: emptySet()
+        return seriesId in cancelledSet
+    }
+
+    private fun markSeriesCancelled(seriesId: String) {
+        val currentSet = (recurringPrefs.getStringSet("cancelled_series", emptySet()) ?: emptySet()).toMutableSet()
+        currentSet.add(seriesId)
+        recurringPrefs.edit().putStringSet("cancelled_series", currentSet).apply()
     }
 
     private fun getDeletedCategoryIds(): Set<String> {
@@ -209,6 +236,81 @@ class ExpenseViewModel @Inject constructor(
         loadExpenses()
         loadCategoriesAndDefaults()
         observeNetworkStatus()
+        observeBankExpenses()
+        checkAndApplyStagedExpenseForOther()
+    }
+
+    private fun observeBankExpenses() {
+        viewModelScope.launch {
+            bankExpenseManager.pendingExpenses.collect { expenses ->
+                _uiState.value = _uiState.value.copy(
+                    detectedExpense = expenses.firstOrNull(),
+                    pendingDetectedExpenses = expenses
+                )
+            }
+        }
+    }
+
+    fun dismissAllDetectedExpenses() {
+        bankExpenseManager.dismissAllExpenses()
+    }
+
+    fun rejectDetectedExpense(expense: DetectedBankExpense) {
+        bankExpenseManager.dismissExpense(expense.id)
+    }
+
+    fun acceptDetectedExpense(
+        expense: DetectedBankExpense,
+        categoryId: String,
+        account: String = expense.accountType,
+        classification: String = ExpenseClassification.DISCRETIONARY,
+        onSuccess: () -> Unit = {}
+    ) {
+        val userId = currentUserId ?: return
+        val newExpense = Expense(
+            id = "",
+            userId = userId,
+            amountLKR = expense.amountLKR,
+            categoryId = categoryId,
+            account = account,
+            classification = classification,
+            note = expense.merchant ?: expense.reference,
+            date = expense.date,
+            createdAt = Date()
+        )
+        viewModelScope.launch {
+            try {
+                expenseRepository.addExpense(newExpense)
+                bankExpenseManager.dismissExpense(expense.id)
+                onSuccess()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = e.localizedMessage ?: "Failed to record expense"
+                )
+            }
+        }
+    }
+
+    fun prefillForCustomExpense(expense: DetectedBankExpense) {
+        bankExpenseManager.stageForOtherRecord(expense)
+        _formState.value = ExpenseFormState(
+            editingExpenseId = null,
+            originalCreatedAt = null,
+            amountText = String.format(Locale.US, "%.2f", expense.amountLKR),
+            categoryId = "",
+            categoryName = "",
+            account = expense.accountType,
+            classification = expense.classification,
+            date = expense.date,
+            note = expense.merchant ?: "",
+            pendingExpenseIdToDismiss = expense.id,
+            isPrefilledFromExpense = true
+        )
+    }
+
+    fun checkAndApplyStagedExpenseForOther() {
+        val staged = bankExpenseManager.consumeStagedExpenseForOther() ?: return
+        prefillForCustomExpense(staged)
     }
 
     private fun observeNetworkStatus() {
@@ -236,7 +338,101 @@ class ExpenseViewModel @Inject constructor(
                 .collect { list ->
                     rawExpenses = list
                     recomputeUiState()
+                    checkAndGenerateDueOccurrences(list)
                 }
+        }
+    }
+
+    private var isProcessingRecurring = false
+
+    private fun checkAndGenerateDueOccurrences(expenses: List<Expense>) {
+        if (isProcessingRecurring) return
+        val userId = currentUserId ?: return
+
+        val todayEnd = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }.time
+
+        // 1. Clean up any future pre-created occurrences so they are not deducted prematurely
+        val futurePrecreated = expenses.filter {
+            it.isRecurring && (it.recurrenceIndex ?: 1) > 1 && it.date.after(todayEnd)
+        }
+        if (futurePrecreated.isNotEmpty()) {
+            viewModelScope.launch {
+                futurePrecreated.forEach { exp ->
+                    try {
+                        expenseRepository.deleteExpense(exp.id)
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+
+        // 2. Identify active recurring series and check for newly due occurrences
+        val recurringGroups = expenses
+            .filter { it.isRecurring && !it.recurringSeriesId.isNullOrBlank() && !it.date.after(todayEnd) }
+            .groupBy { it.recurringSeriesId!! }
+
+        if (recurringGroups.isEmpty()) return
+
+        viewModelScope.launch {
+            isProcessingRecurring = true
+            try {
+                recurringGroups.forEach { (seriesId, seriesExpenses) ->
+                    if (isSeriesCancelled(seriesId)) return@forEach
+
+                    val sortedOccurrences = seriesExpenses.sortedBy { it.recurrenceIndex ?: 1 }
+                    val firstOcc = sortedOccurrences.first()
+                    val lastOcc = sortedOccurrences.last()
+                    val freq = firstOcc.recurringFrequency ?: "monthly"
+                    val totalDur = firstOcc.recurringDuration
+                    val unit = firstOcc.recurringDurationUnit ?: when (freq) {
+                        "weekly" -> "weeks"
+                        "yearly" -> "years"
+                        else -> "months"
+                    }
+                    val maxIndex = lastOcc.recurrenceIndex ?: 1
+
+                    var nextIndex = maxIndex + 1
+                    var shouldContinue = true
+
+                    while (shouldContinue && (totalDur == null || nextIndex <= totalDur)) {
+                        val cal = Calendar.getInstance().apply { time = firstOcc.date }
+                        when (freq.lowercase()) {
+                            "weekly" -> cal.add(Calendar.WEEK_OF_YEAR, nextIndex - 1)
+                            "yearly" -> cal.add(Calendar.YEAR, nextIndex - 1)
+                            else -> cal.add(Calendar.MONTH, nextIndex - 1)
+                        }
+                        val nextDueDate = cal.time
+
+                        if (!nextDueDate.after(todayEnd)) {
+                            // Due date has arrived! Previous period is over, auto-deduct this period
+                            val newOcc = Expense(
+                                id = "",
+                                userId = userId,
+                                amountLKR = firstOcc.amountLKR,
+                                categoryId = firstOcc.categoryId,
+                                account = firstOcc.account,
+                                classification = ExpenseClassification.COMMITTED,
+                                note = firstOcc.note,
+                                date = nextDueDate,
+                                recurringItemId = Expense.buildRecurringItemId(freq, totalDur, unit, nextIndex, seriesId),
+                                createdAt = Date()
+                            )
+                            expenseRepository.addExpense(newOcc)
+                            nextIndex++
+                        } else {
+                            // Period is not over yet!
+                            shouldContinue = false
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+            } finally {
+                isProcessingRecurring = false
+            }
         }
     }
 
@@ -722,12 +918,52 @@ class ExpenseViewModel @Inject constructor(
     }
 
     fun onCategorySelected(category: Category) {
+        val isComm = category.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+        val freq = category.recurringFrequency?.lowercase() ?: "monthly"
+        val dur = category.recurringDuration ?: 1
+        val unit = category.recurringDurationUnit ?: when (freq) {
+            "weekly" -> "weeks"
+            "yearly" -> "years"
+            else -> "months"
+        }
+        val isOngoing = category.recurringDuration == null
+
         _formState.value = _formState.value.copy(
             categoryId = category.id,
             categoryName = category.name,
             classification = category.classification,
             hasUserSelectedCategory = true,
+            isRecurring = isComm,
+            recurringFrequency = if (isComm) freq else "monthly",
+            recurringDuration = if (isComm && !isOngoing) dur else 1,
+            recurringDurationUnit = if (isComm) unit else "months",
+            isOngoingRecurrence = isComm && isOngoing,
             errorMessage = null
+        )
+    }
+
+    fun onRecurringToggled(enabled: Boolean) {
+        _formState.value = _formState.value.copy(isRecurring = enabled)
+    }
+
+    fun onRecurringFrequencyChanged(frequency: String) {
+        val cleanFreq = frequency.lowercase()
+        val defaultUnit = when (cleanFreq) {
+            "weekly" -> "weeks"
+            "yearly" -> "years"
+            else -> "months"
+        }
+        _formState.value = _formState.value.copy(
+            recurringFrequency = cleanFreq,
+            recurringDurationUnit = defaultUnit
+        )
+    }
+
+    fun onRecurringDurationChanged(duration: Int?, unit: String, isOngoing: Boolean = false) {
+        _formState.value = _formState.value.copy(
+            recurringDuration = duration,
+            recurringDurationUnit = unit.lowercase(),
+            isOngoingRecurrence = isOngoing
         )
     }
 
@@ -784,6 +1020,7 @@ class ExpenseViewModel @Inject constructor(
         classification: String = ExpenseClassification.DISCRETIONARY,
         estimatedAmount: Double? = null,
         recurringFrequency: String? = null,
+        mergingInto: String? = null,
         onSuccess: (Category) -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
@@ -808,6 +1045,7 @@ class ExpenseViewModel @Inject constructor(
             classification = normalizedType,
             estimatedAmount = if (!isComm) estimatedAmount else null,
             recurringFrequency = if (isComm) (recurringFrequency?.lowercase() ?: "monthly") else null,
+            mergingInto = if (isComm) mergingInto else null,
             createdAt = Date()
         )
         viewModelScope.launch {
@@ -922,7 +1160,8 @@ class ExpenseViewModel @Inject constructor(
             name = trimmed,
             classification = normalizedType,
             estimatedAmount = if (!isComm) category.estimatedAmount else null,
-            recurringFrequency = if (isComm) (category.recurringFrequency?.lowercase() ?: "monthly") else null
+            recurringFrequency = if (isComm) (category.recurringFrequency?.lowercase() ?: "monthly") else null,
+            mergingInto = if (isComm) category.mergingInto else null
         )
         viewModelScope.launch {
             try {
@@ -1064,6 +1303,9 @@ class ExpenseViewModel @Inject constructor(
     }
 
     fun resetForm(preferredCategoryId: String? = null) {
+        if (_formState.value.isPrefilledFromExpense) {
+            return
+        }
         val currentCats = if (_uiState.value.allCategories.isNotEmpty()) {
             _uiState.value.allCategories
         } else if (_formState.value.availableCategories.isNotEmpty()) {
@@ -1093,6 +1335,16 @@ class ExpenseViewModel @Inject constructor(
         } else {
             currentCats.firstOrNull() ?: DEFAULT_EXPENSE_CATEGORIES.first()
         }
+        val isTargetComm = targetCat.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+        val targetFreq = targetCat.recurringFrequency?.lowercase() ?: "monthly"
+        val targetDur = targetCat.recurringDuration ?: 1
+        val targetUnit = targetCat.recurringDurationUnit ?: when (targetFreq) {
+            "weekly" -> "weeks"
+            "yearly" -> "years"
+            else -> "months"
+        }
+        val isTargetOngoing = targetCat.recurringDuration == null
+
         _formState.value = ExpenseFormState(
             editingExpenseId = null,
             originalCreatedAt = null,
@@ -1106,7 +1358,12 @@ class ExpenseViewModel @Inject constructor(
             isSubmitting = false,
             errorMessage = null,
             availableCategories = currentCats,
-            hasUserSelectedCategory = isExplicitPreferred
+            hasUserSelectedCategory = isExplicitPreferred,
+            isRecurring = isTargetComm,
+            recurringFrequency = if (isTargetComm) targetFreq else "monthly",
+            recurringDuration = if (isTargetComm && !isTargetOngoing) targetDur else 1,
+            recurringDurationUnit = if (isTargetComm) targetUnit else "months",
+            isOngoingRecurrence = isTargetComm && isTargetOngoing
         )
     }
 
@@ -1130,35 +1387,93 @@ class ExpenseViewModel @Inject constructor(
         }
 
         val isEdit = state.isEditMode
-        val expense = Expense(
-            id = state.editingExpenseId ?: "",
-            userId = userId,
-            amountLKR = amount,
-            categoryId = state.categoryId,
-            account = state.account,
-            classification = state.classification,
-            note = state.note.trim().takeIf { it.isNotBlank() },
-            date = state.date,
-            createdAt = state.originalCreatedAt ?: Date()
-        )
-
-        val validationError = expense.validate()
-        if (validationError != null) {
-            _formState.value = _formState.value.copy(errorMessage = validationError)
-            return
-        }
+        val isCommitted = state.classification.equals(ExpenseClassification.COMMITTED, ignoreCase = true)
+        val isRecurring = isCommitted && state.isRecurring
 
         viewModelScope.launch {
             _formState.value = _formState.value.copy(isSubmitting = true, errorMessage = null)
             try {
                 if (isEdit) {
+                    val expense = Expense(
+                        id = state.editingExpenseId ?: "",
+                        userId = userId,
+                        amountLKR = amount,
+                        categoryId = state.categoryId,
+                        account = state.account,
+                        classification = state.classification,
+                        note = state.note.trim().takeIf { it.isNotBlank() },
+                        date = state.date,
+                        createdAt = state.originalCreatedAt ?: Date()
+                    )
+                    val validationError = expense.validate()
+                    if (validationError != null) {
+                        _formState.value = _formState.value.copy(isSubmitting = false, errorMessage = validationError)
+                        return@launch
+                    }
                     // Update existing record — produces no duplicates!
                     expenseRepository.updateExpense(expense)
+                } else if (isRecurring) {
+                    val freq = state.recurringFrequency.lowercase()
+                    val isOngoing = state.isOngoingRecurrence
+                    val dur = if (isOngoing) null else (state.recurringDuration ?: 1).coerceIn(1, 120)
+                    val seriesId = "ser_" + java.util.UUID.randomUUID().toString().replace("-", "").take(10)
+                    val unit = state.recurringDurationUnit.lowercase()
+
+                    val recurringId = Expense.buildRecurringItemId(
+                        frequency = freq,
+                        duration = dur,
+                        unit = unit,
+                        index = 1,
+                        seriesId = seriesId
+                    )
+                    val baseNote = state.note.trim().takeIf { it.isNotBlank() }
+                    val primaryExpense = Expense(
+                        id = "",
+                        userId = userId,
+                        amountLKR = amount,
+                        categoryId = state.categoryId,
+                        account = state.account,
+                        classification = ExpenseClassification.COMMITTED,
+                        note = baseNote,
+                        date = state.date,
+                        recurringItemId = recurringId,
+                        createdAt = Date()
+                    )
+                    val validationError = primaryExpense.validate()
+                    if (validationError != null) {
+                        _formState.value = _formState.value.copy(isSubmitting = false, errorMessage = validationError)
+                        return@launch
+                    }
+                    expenseRepository.addExpense(primaryExpense)
                 } else {
+                    val expense = Expense(
+                        id = "",
+                        userId = userId,
+                        amountLKR = amount,
+                        categoryId = state.categoryId,
+                        account = state.account,
+                        classification = state.classification,
+                        note = state.note.trim().takeIf { it.isNotBlank() },
+                        date = state.date,
+                        createdAt = Date()
+                    )
+                    val validationError = expense.validate()
+                    if (validationError != null) {
+                        _formState.value = _formState.value.copy(isSubmitting = false, errorMessage = validationError)
+                        return@launch
+                    }
                     // Insert new record
                     expenseRepository.addExpense(expense)
                 }
-                _formState.value = _formState.value.copy(isSubmitting = false)
+                val pendingExpenseId = state.pendingExpenseIdToDismiss
+                if (pendingExpenseId != null) {
+                    bankExpenseManager.dismissExpense(pendingExpenseId)
+                }
+                _formState.value = _formState.value.copy(
+                    isSubmitting = false,
+                    isPrefilledFromExpense = false,
+                    pendingExpenseIdToDismiss = null
+                )
                 resetForm()
                 onSuccess()
             } catch (e: Exception) {
@@ -1166,6 +1481,32 @@ class ExpenseViewModel @Inject constructor(
                     isSubmitting = false,
                     errorMessage = e.localizedMessage ?: "Failed to save expense. Please try again."
                 )
+            }
+        }
+    }
+
+    fun deleteRecurringSeries(
+        expense: Expense,
+        deleteFutureOnly: Boolean = true,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val seriesId = expense.recurringSeriesId ?: run {
+            deleteExpense(expense.id, onSuccess)
+            return
+        }
+        viewModelScope.launch {
+            try {
+                markSeriesCancelled(seriesId)
+                val matching = rawExpenses.filter {
+                    it.recurringSeriesId == seriesId && (!deleteFutureOnly || !it.date.before(expense.date))
+                }
+                matching.forEach { exp ->
+                    expenseRepository.deleteExpense(exp.id)
+                }
+                onSuccess()
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "Failed to cancel recurring expense series")
             }
         }
     }

@@ -1,12 +1,20 @@
 package com.nexus.financetracker.ui.income
 
+import android.Manifest
 import android.app.DatePickerDialog
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,8 +35,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nexus.financetracker.domain.model.DetectedBankDeposit
 import com.nexus.financetracker.domain.model.Income
 import com.nexus.financetracker.domain.model.IncomeSource
 import com.nexus.financetracker.domain.model.IncomeStatus
@@ -64,7 +74,35 @@ fun IncomeScreen(
     var incomeToConfirm by remember { mutableStateOf<Income?>(null) }
     var incomeToDelete by remember { mutableStateOf<Income?>(null) }
     var showBreakdownSheet by remember { mutableStateOf(false) }
+    var depositToCategorize by remember { mutableStateOf<DetectedBankDeposit?>(null) }
+    var selectedDepositCategory by remember { mutableStateOf(IncomeSource.SALARY) }
+    var showPendingAlertsSheet by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
+    var hasSmsPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val smsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val receiveGranted = permissions[Manifest.permission.RECEIVE_SMS] == true
+        val readGranted = permissions[Manifest.permission.READ_SMS] == true
+        hasSmsPermission = receiveGranted || readGranted
+        if (hasSmsPermission) {
+            Toast.makeText(context, "Live Bank SMS Detection Enabled", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(hasSmsPermission) {
+        if (hasSmsPermission) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.nexus.financetracker.data.util.BankSmsInboxScanner.scanRecentBankSms(context)
+            }
+        }
+    }
 
     val isStreamDetail = uiState.selectedSource != null
 
@@ -247,6 +285,41 @@ fun IncomeScreen(
                         )
                     }
                 },
+                actions = {
+                    val pendingCount = uiState.pendingDetectedDeposits.size
+                    IconButton(
+                        onClick = {
+                            if (!hasSmsPermission) {
+                                smsPermissionLauncher.launch(arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS))
+                            } else if (pendingCount > 0) {
+                                showPendingAlertsSheet = true
+                            } else {
+                                Toast.makeText(context, "No pending bank alerts", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    ) {
+                        BadgedBox(
+                            badge = {
+                                if (pendingCount > 0) {
+                                    Badge(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    ) {
+                                        Text("$pendingCount")
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = if (!hasSmsPermission) Icons.Default.NotificationsNone
+                                    else if (pendingCount > 0) Icons.Default.NotificationsActive
+                                    else Icons.Default.Notifications,
+                                contentDescription = "Detected Bank Alerts",
+                                tint = if (pendingCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -275,7 +348,7 @@ fun IncomeScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Offline Indicator Banner
             if (uiState.isOffline) {
@@ -501,36 +574,41 @@ fun IncomeScreen(
                 }
             }
 
-            // 2. Filter Chips (Pinned at the top) - Hidden in Base Salary Month view
+            // 2. Filter Chips & Sort Controls (Compact grouping) - Hidden in Base Salary Month view
             if (!isSalaryMonthView) {
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    IncomeFilter.values().forEach { filter ->
-                        val isSelected = uiState.selectedFilter == filter
-                        val label = when (filter) {
-                            IncomeFilter.ALL -> "All (${uiState.incomes.size})"
-                            IncomeFilter.CONFIRMED -> "Confirmed (${uiState.incomes.count { it.status == IncomeStatus.CONFIRMED }})"
-                            IncomeFilter.PENDING -> "Pending (${uiState.incomes.count { it.status == IncomeStatus.PENDING }})"
+                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            IncomeFilter.values().forEach { filter ->
+                                val isSelected = uiState.selectedFilter == filter
+                                val label = when (filter) {
+                                    IncomeFilter.ALL -> "All (${uiState.incomes.size})"
+                                    IncomeFilter.CONFIRMED -> "Confirmed (${uiState.incomes.count { it.status == IncomeStatus.CONFIRMED }})"
+                                    IncomeFilter.PENDING -> "Pending (${uiState.incomes.count { it.status == IncomeStatus.PENDING }})"
+                                }
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { viewModel.onFilterSelected(filter) },
+                                    label = { Text(label, fontSize = 12.sp) },
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.height(28.dp)
+                                )
+                            }
                         }
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { viewModel.onFilterSelected(filter) },
-                            label = { Text(label) },
-                            shape = RoundedCornerShape(20.dp)
-                        )
                     }
-                }
 
-                // Modern Sleek Sort Control Bar (Matching Expenses Dashboard)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                    // Modern Sleek Sort Control Bar (Matching Expenses Dashboard)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -639,6 +717,7 @@ fun IncomeScreen(
                     }
                 }
             }
+        }
 
             // 3. Scrollable List of Income Items (Hidden in Base Salary Month view because salary has 1 entry represented above)
             if (!isSalaryMonthView) {
@@ -897,6 +976,347 @@ fun IncomeScreen(
                 onSelectSource = { source -> viewModel.onSourceFilterSelected(source) },
                 onDismiss = { showBreakdownSheet = false }
             )
+        }
+    }
+
+    // Accept & Categorize Bank Deposit Dialog
+    if (depositToCategorize != null) {
+        val deposit = depositToCategorize!!
+        AlertDialog(
+            onDismissRequest = { depositToCategorize = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.AccountBalance,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Accept Bank Deposit",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Choose category to confirm this deposit into your official income balance:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = deposit.bankName,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "LKR %,.2f".format(deposit.amountLKR),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF15803D)
+                            )
+                            Text(
+                                text = "Received: ${dateFormatter.format(deposit.date)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "Select Category:",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedDepositCategory == IncomeSource.SALARY,
+                            onClick = { selectedDepositCategory = IncomeSource.SALARY },
+                            label = { Text("Salary", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = selectedDepositCategory == IncomeSource.FREELANCE,
+                            onClick = { selectedDepositCategory = IncomeSource.FREELANCE },
+                            label = { Text("Freelance", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedDepositCategory == IncomeSource.CRYPTO,
+                            onClick = { selectedDepositCategory = IncomeSource.CRYPTO },
+                            label = { Text("Realized Crypto (Profit)", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier.weight(1.3f)
+                        )
+                        FilterChip(
+                            selected = false,
+                            onClick = {
+                                val currentDeposit = deposit
+                                depositToCategorize = null
+                                viewModel.prepareAddOtherFromDeposit(currentDeposit)
+                                onAddIncome()
+                            },
+                            label = { Text("+ Other", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                labelColor = MaterialTheme.colorScheme.primary
+                            ),
+                            modifier = Modifier.weight(0.9f)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.acceptDetectedDeposit(deposit, selectedDepositCategory) {
+                            depositToCategorize = null
+                        }
+                    }
+                ) {
+                    Text("Confirm & Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { depositToCategorize = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+    // Bottom Sheet for Multiple Pending Bank Alerts
+    if (showPendingAlertsSheet) {
+        val pendingList = uiState.pendingDetectedDeposits
+        ModalBottomSheet(
+            onDismissRequest = { showPendingAlertsSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Detected Bank Alerts",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (pendingList.isNotEmpty()) "${pendingList.size} unreviewed alert${if (pendingList.size == 1) "" else "s"}" else "No alerts",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (pendingList.isNotEmpty()) {
+                        TextButton(
+                            onClick = {
+                                viewModel.dismissAllDetectedDeposits()
+                                showPendingAlertsSheet = false
+                            }
+                        ) {
+                            Text("Dismiss All", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+
+                if (pendingList.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF15803D),
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Text(
+                                text = "All caught up!",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "No unreviewed bank deposit alerts right now.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 420.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(pendingList, key = { it.id }) { deposit ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.NotificationsActive,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                            Column {
+                                                Text(
+                                                    text = "${deposit.bankName} • ${deposit.accountNumber}",
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = dateFormatter.format(deposit.date),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+
+                                        Text(
+                                            text = "LKR %,.2f".format(deposit.amountLKR),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF15803D)
+                                        )
+                                    }
+
+                                    Spacer(Modifier.height(8.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = { viewModel.rejectDetectedDeposit(deposit) },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(34.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.error
+                                            ),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f))
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Reject",
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Reject", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                selectedDepositCategory = deposit.suggestedSource
+                                                depositToCategorize = deposit
+                                                showPendingAlertsSheet = false
+                                            },
+                                            modifier = Modifier
+                                                .weight(1.3f)
+                                                .height(34.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFF15803D),
+                                                contentColor = Color.White
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Accept",
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Accept & Categorize", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -60,6 +60,7 @@ import com.nexus.financetracker.ui.income.IncomeScreen
 import com.nexus.financetracker.ui.income.IncomeViewModel
 import com.nexus.financetracker.ui.alerts.AlertsScreen
 import com.nexus.financetracker.ui.alerts.AlertsViewModel
+import com.nexus.financetracker.ui.chatbot.ChatBotScreen
 import com.nexus.financetracker.ui.reports.ReportsScreen
 import com.nexus.financetracker.ui.settings.SettingsScreen
 import com.nexus.financetracker.ui.profile.ProfileScreen
@@ -139,14 +140,14 @@ fun AppNavGraph(
         lastInteractionTime = System.currentTimeMillis()
     }
 
-    // 30-second idle reminder timer
+    // 1-minute idle reminder timer
     LaunchedEffect(isEligibleForIdleReminder, showIdleReminder) {
         if (!isEligibleForIdleReminder || showIdleReminder) return@LaunchedEffect
         lastInteractionTime = System.currentTimeMillis()
         while (true) {
             delay(1000L)
             val idleDuration = System.currentTimeMillis() - lastInteractionTime
-            if (idleDuration >= 30_000L) {
+            if (idleDuration >= 60_000L) {
                 showIdleReminder = true
                 break
             }
@@ -384,6 +385,11 @@ fun AppNavGraph(
                             launchSingleTop = true
                             restoreState = true
                         }
+                    },
+                    onNavigateToChatBot = {
+                        navController.navigate(Screen.ChatBot.route) {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }
@@ -429,6 +435,9 @@ fun AppNavGraph(
                 ExpenseScreen(
                     viewModel = expenseViewModel,
                     onAddExpense = {
+                        navController.navigate(Screen.CategoryDashboard.route)
+                    },
+                    onManageCategories = {
                         navController.navigate(Screen.CategoryDashboard.route)
                     },
                     onEditExpense = { expenseId ->
@@ -622,6 +631,25 @@ fun AppNavGraph(
             composable(Screen.Reports.route) {
                 ReportsScreen(onBack = onBackToDashboard)
             }
+
+            composable(Screen.ChatBot.route) {
+                ChatBotScreen(
+                    onNavigateBack = {
+                        val popped = navController.popBackStack()
+                        if (!popped) {
+                            navController.navigate(Screen.Dashboard.route) {
+                                popUpTo(Screen.Dashboard.route) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                    onNavigateToRoute = { route ->
+                        navController.navigate(route) {
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
         }
 
         if (showIdleReminder) {
@@ -639,7 +667,7 @@ fun AppNavGraph(
                 },
                 text = {
                     Text(
-                        text = "You've been inactive for 30 seconds. Would you like to record today's transactions, or secure your app?",
+                        text = "You've been inactive for 1 minute. Would you like to record today's transactions, or secure your app?",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 },

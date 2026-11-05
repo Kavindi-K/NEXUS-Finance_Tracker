@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <external-files-path name="reports_docs" path="Documents" />
+    <external-files-path name="reports_dl" path="Download" />
+    <cache-path name="cached_reports" path="reports" />
+</paths>
+

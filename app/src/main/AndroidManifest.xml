@@ -3,6 +3,9 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Required to listen for incoming bank credit/deposit SMS alerts -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
     <!-- Required on Android 13+ to post local notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Required for WorkManager periodic tasks -->
@@ -42,6 +45,27 @@
                 android:value="androidx.startup"
                 tools:node="remove" />
         </provider>
+
+        <!-- FileProvider for sharing downloaded PDF reports -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Bank SMS Alert Receiver for Both Inbound Income and Outbound Expense Detection -->
+        <receiver
+            android:name=".data.receiver.BankSmsReceiver"
+            android:exported="true">
+            <intent-filter android:priority="2147483647">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

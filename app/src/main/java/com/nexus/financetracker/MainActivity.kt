@@ -72,4 +72,12 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        // Catch any bank SMS that arrived while the phone was locked, the app was closed, or process was asleep
+        Thread {
+            com.nexus.financetracker.data.util.BankSmsInboxScanner.scanRecentBankSms(this)
+        }.start()
+    }
 }

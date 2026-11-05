@@ -1,5 +1,11 @@
 package com.nexus.financetracker.ui.expense
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.nexus.financetracker.domain.model.DetectedBankExpense
 import android.app.DatePickerDialog
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -34,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -90,6 +97,7 @@ private fun resolveCategoryName(categoryId: String, categoriesMap: Map<String, S
 @Composable
 fun ExpenseScreen(
     onAddExpense: () -> Unit,
+    onManageCategories: () -> Unit = {},
     onEditExpense: (String) -> Unit = {},
     onBack: () -> Unit = {},
     viewModel: ExpenseViewModel = hiltViewModel()
@@ -110,6 +118,43 @@ fun ExpenseScreen(
     var selectedExpenseForDetail by remember { mutableStateOf<Expense?>(null) }
     var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
     var showBulkAddSheet by remember { mutableStateOf(false) }
+    var expenseToCategorize by remember { mutableStateOf<DetectedBankExpense?>(null) }
+    var selectedExpenseCategory by remember { mutableStateOf("cat_food") }
+    var showPendingAlertsSheet by remember { mutableStateOf(false) }
+
+    var hasSmsPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val smsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val receiveGranted = permissions[Manifest.permission.RECEIVE_SMS] == true
+        val readGranted = permissions[Manifest.permission.READ_SMS] == true
+        hasSmsPermission = receiveGranted || readGranted
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasSmsPermission) {
+            smsPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.RECEIVE_SMS,
+                    Manifest.permission.READ_SMS
+                )
+            )
+        }
+    }
+
+    LaunchedEffect(hasSmsPermission) {
+        if (hasSmsPermission) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.nexus.financetracker.data.util.BankSmsInboxScanner.scanRecentBankSms(context)
+            }
+        }
+    }
 
     // Month Selector Dialog (Matching Income Screen)
     if (showMonthDialog) {
@@ -330,10 +375,14 @@ fun ExpenseScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     DetailRow(label = "Date & Time", value = fullDateTimeFormatter.format(expense.date))
                     val isBackdated = remember(expense) {
-                        val calDate = Calendar.getInstance().apply { time = expense.date }
-                        val calCreated = Calendar.getInstance().apply { time = expense.createdAt }
-                        calDate.get(Calendar.YEAR) != calCreated.get(Calendar.YEAR) ||
-                            calDate.get(Calendar.DAY_OF_YEAR) != calCreated.get(Calendar.DAY_OF_YEAR)
+                        !expense.isRecurring && run {
+                            val calDate = Calendar.getInstance().apply { time = expense.date }
+                            val calCreated = Calendar.getInstance().apply { time = expense.createdAt }
+                            calDate.before(calCreated) && (
+                                calDate.get(Calendar.YEAR) != calCreated.get(Calendar.YEAR) ||
+                                calDate.get(Calendar.DAY_OF_YEAR) != calCreated.get(Calendar.DAY_OF_YEAR)
+                            )
+                        }
                     }
                     if (isBackdated) {
                         DetailRow(
@@ -346,7 +395,12 @@ fun ExpenseScreen(
                     if (!expense.note.isNullOrBlank()) {
                         DetailRow(label = "Note", value = expense.note)
                     }
-                    if (!expense.recurringItemId.isNullOrBlank()) {
+                    if (expense.isRecurring) {
+                        DetailRow(
+                            label = "Recurring Commitment",
+                            value = expense.getRecurringProgressText() ?: "Recurring schedule"
+                        )
+                    } else if (!expense.recurringItemId.isNullOrBlank()) {
                         DetailRow(label = "Recurring Schedule", value = "Linked to recurring schedule")
                     }
                 }
@@ -401,33 +455,83 @@ fun ExpenseScreen(
     expenseToDelete?.let { expense ->
         val catName = resolveCategoryName(expense.categoryId, uiState.categoriesMap)
 
-        AlertDialog(
-            onDismissRequest = { expenseToDelete = null },
-            title = { Text("Delete Expense") },
-            text = { Text("Are you sure you want to delete this expense of LKR %,.2f for $catName? This will be removed from your records.".format(expense.amountLKR)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteExpense(expense.id)
-                        expenseToDelete = null
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Delete", fontWeight = FontWeight.Bold)
+        if (expense.isRecurring) {
+            AlertDialog(
+                onDismissRequest = { expenseToDelete = null },
+                title = { Text("Delete Recurring Expense") },
+                text = {
+                    Text(
+                        "This expense is part of an active recurring series (${expense.getRecurringProgressText()}).\n\nWould you like to cancel all remaining future occurrences or only delete this single entry?"
+                    )
+                },
+                confirmButton = {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.deleteRecurringSeries(expense, deleteFutureOnly = true)
+                                expenseToDelete = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Cancel Remaining Series", fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.deleteExpense(expense.id)
+                                expenseToDelete = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Delete This Month Only")
+                        }
+
+                        TextButton(
+                            onClick = { expenseToDelete = null },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Keep Expense")
+                        }
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { expenseToDelete = null }) {
-                    Text("Cancel")
+            )
+        } else {
+            AlertDialog(
+                onDismissRequest = { expenseToDelete = null },
+                title = { Text("Delete Expense") },
+                text = { Text("Are you sure you want to delete this expense of LKR %,.2f for $catName? This will be removed from your records.".format(expense.amountLKR)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.deleteExpense(expense.id)
+                            expenseToDelete = null
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Delete", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { expenseToDelete = null }) {
+                        Text("Cancel")
+                    }
                 }
-            }
-        )
+            )
+        }
     }
 
     // Category Management Sheet
     if (showCategoryManagementSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { showCategoryManagementSheet = false },
+            sheetState = sheetState,
             containerColor = Color.White,
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
         ) {
@@ -444,7 +548,7 @@ fun ExpenseScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Expense Categories",
                             style = MaterialTheme.typography.titleLarge,
@@ -457,8 +561,18 @@ fun ExpenseScreen(
                             color = TextSubtle
                         )
                     }
-                    IconButton(onClick = { showCategoryManagementSheet = false }) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = NavyPrimary)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(
+                            onClick = {
+                                showCategoryManagementSheet = false
+                                onManageCategories()
+                            }
+                        ) {
+                            Text("Full View ›", color = Color(0xFF2563EB), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        IconButton(onClick = { showCategoryManagementSheet = false }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = NavyPrimary)
+                        }
                     }
                 }
 
@@ -548,24 +662,32 @@ fun ExpenseScreen(
 
                 HorizontalDivider(color = Color(0xFFE2E8F0))
 
+                val standardIds = remember { DEFAULT_EXPENSE_CATEGORIES.map { it.id.lowercase().trim() }.toSet() }
+                val customCats = remember(uiState.customCategories) {
+                    uiState.customCategories
+                        .filter { it.id.isNotBlank() && it.id.lowercase().trim() !in standardIds }
+                        .distinctBy { it.id }
+                }
+
                 // Scrollable Categories List
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f, fill = false),
+                        .weight(1f, fill = false)
+                        .heightIn(max = 420.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (uiState.customCategories.isNotEmpty()) {
-                        item {
+                    if (customCats.isNotEmpty()) {
+                        item(key = "header_custom_cats") {
                             Text(
-                                text = "Your Custom Categories (${uiState.customCategories.size})",
+                                text = "Your Custom Categories (${customCats.size})",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = NavyPrimary
                             )
                         }
 
-                        items(uiState.customCategories, key = { it.id }) { cat ->
+                        items(customCats, key = { "custom_${it.id}" }) { cat ->
                             val count = uiState.expenses.count { it.categoryId == cat.id }
                             val isSelectedCategory = uiState.selectedCategoryFilter == cat.id
                             Surface(
@@ -662,7 +784,7 @@ fun ExpenseScreen(
                     }
 
                     // Standard Default Categories
-                    item {
+                    item(key = "header_standard_cats") {
                         Spacer(Modifier.height(8.dp))
                         Text(
                             text = "Standard Categories (${DEFAULT_EXPENSE_CATEGORIES.size})",
@@ -672,7 +794,7 @@ fun ExpenseScreen(
                         )
                     }
 
-                    items(DEFAULT_EXPENSE_CATEGORIES, key = { it.id }) { cat ->
+                    items(DEFAULT_EXPENSE_CATEGORIES, key = { "standard_${it.id}" }) { cat ->
                         val count = uiState.expenses.count { it.categoryId == cat.id }
                         val isSelectedCategory = uiState.selectedCategoryFilter == cat.id
                         Surface(
@@ -943,6 +1065,370 @@ fun ExpenseScreen(
         )
     }
 
+    // Bottom Sheet for Multiple Pending Bank Debit Alerts
+    if (showPendingAlertsSheet) {
+        val pendingList = uiState.pendingDetectedExpenses
+        ModalBottomSheet(
+            onDismissRequest = { showPendingAlertsSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Detected Bank Debits",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (pendingList.isNotEmpty()) "${pendingList.size} unreviewed alert${if (pendingList.size == 1) "" else "s"}" else "No alerts",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (pendingList.isNotEmpty()) {
+                        TextButton(
+                            onClick = {
+                                viewModel.dismissAllDetectedExpenses()
+                                showPendingAlertsSheet = false
+                            }
+                        ) {
+                            Text("Dismiss All", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+
+                if (pendingList.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF15803D),
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Text(
+                                text = "All caught up!",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "No unreviewed bank debit alerts right now.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 420.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(pendingList, key = { it.id }) { debit ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.NotificationsActive,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                            Column {
+                                                Text(
+                                                    text = "${debit.bankName} • ${debit.accountNumber}",
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = "${dateFormatter.format(debit.date)}${if (!debit.merchant.isNullOrBlank()) " • ${debit.merchant}" else ""}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+
+                                        Text(
+                                            text = "- LKR %,.2f".format(debit.amountLKR),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFDC2626)
+                                        )
+                                    }
+
+                                    Spacer(Modifier.height(8.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = { viewModel.rejectDetectedExpense(debit) },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(34.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.error
+                                            ),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f))
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Reject",
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Reject", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                selectedExpenseCategory = "cat_food"
+                                                expenseToCategorize = debit
+                                                showPendingAlertsSheet = false
+                                            },
+                                            modifier = Modifier
+                                                .weight(1.3f)
+                                                .height(34.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFF15803D),
+                                                contentColor = Color.White
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Accept",
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Accept & Categorize", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Categorize Detected Bank Debit Dialog
+    if (expenseToCategorize != null) {
+        val currentExpense = expenseToCategorize!!
+        AlertDialog(
+            onDismissRequest = { expenseToCategorize = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.CreditCard,
+                    contentDescription = null,
+                    tint = Color(0xFFDC2626),
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Categorize Bank Debit",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Summary card
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFEF2F2),
+                        border = BorderStroke(1.dp, Color(0xFFFCA5A5))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = currentExpense.bankName,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF991B1B)
+                                )
+                                Text(
+                                    text = "- LKR %,.2f".format(currentExpense.amountLKR),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFFDC2626)
+                                )
+                            }
+                            if (!currentExpense.merchant.isNullOrBlank()) {
+                                Text(
+                                    text = "Merchant: ${currentExpense.merchant}",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF7F1D1D)
+                                )
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = "Assign a Category:",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    val activeCategories = remember(uiState.allCategories) {
+                        (uiState.allCategories.ifEmpty { DEFAULT_EXPENSE_CATEGORIES })
+                            .distinctBy { it.id }
+                            .take(5)
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            activeCategories.take(3).forEach { cat ->
+                                val isSelected = selectedExpenseCategory == cat.id
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { selectedExpenseCategory = cat.id },
+                                    label = { Text(cat.name, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            activeCategories.drop(3).take(2).forEach { cat ->
+                                val isSelected = selectedExpenseCategory == cat.id
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { selectedExpenseCategory = cat.id },
+                                    label = { Text(cat.name, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            // "+ Other" button
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    expenseToCategorize = null
+                                    viewModel.prefillForCustomExpense(currentExpense)
+                                    onAddExpense()
+                                },
+                                label = { Text("+ Other", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                    labelColor = MaterialTheme.colorScheme.primary
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val current = expenseToCategorize
+                        if (current != null) {
+                            viewModel.acceptDetectedExpense(
+                                expense = current,
+                                categoryId = selectedExpenseCategory,
+                                onSuccess = {
+                                    Toast.makeText(context, "Expense recorded!", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                            expenseToCategorize = null
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFDC2626),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Confirm & Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { expenseToCategorize = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -957,6 +1443,39 @@ fun ExpenseScreen(
                     }
                 },
                 actions = {
+                    val pendingCount = uiState.pendingDetectedExpenses.size
+                    IconButton(
+                        onClick = {
+                            if (!hasSmsPermission) {
+                                smsPermissionLauncher.launch(arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS))
+                            } else if (pendingCount > 0) {
+                                showPendingAlertsSheet = true
+                            } else {
+                                Toast.makeText(context, "No pending bank debit alerts", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    ) {
+                        BadgedBox(
+                            badge = {
+                                if (pendingCount > 0) {
+                                    Badge(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    ) {
+                                        Text("$pendingCount")
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = if (!hasSmsPermission) Icons.Default.NotificationsNone
+                                    else if (pendingCount > 0) Icons.Default.NotificationsActive
+                                    else Icons.Default.Notifications,
+                                contentDescription = "Detected Bank Debits",
+                                tint = if (pendingCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                     IconButton(onClick = { showBulkAddSheet = true }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
@@ -1004,7 +1523,7 @@ fun ExpenseScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(top = 2.dp, bottom = 96.dp)
             ) {
                 // Offline Indicator Banner (Member 2 Order 7)
@@ -1132,11 +1651,11 @@ fun ExpenseScreen(
                             containerColor = NavyCardBg
                         ),
                         border = BorderStroke(1.dp, NavyCardBorder),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(20.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1146,8 +1665,7 @@ fun ExpenseScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.TrendingDown,
                                     contentDescription = null,
-                                    tint = Color(0xFFFCA5A5),
-                                    modifier = Modifier.size(20.dp)
+                                    tint = Color(0xFFFCA5A5)
                                 )
                                 Text(
                                     text = "Total Expenses",
@@ -1159,9 +1677,8 @@ fun ExpenseScreen(
 
                             Text(
                                 text = "LKR %,.2f".format(uiState.totalExpenseLKR),
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 24.sp,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
 
@@ -1212,48 +1729,53 @@ fun ExpenseScreen(
                                     }
                                 )
                             }
-
                         }
                     }
                 }
 
-                // 3. Filter and Modern Sort Controls
+                // 3. Filter Chips & Sort Controls (Compact grouping matching Income Screen)
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // Account Filter Row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FilterChip(
-                                selected = uiState.selectedAccountFilter == null,
-                                onClick = { viewModel.onAccountFilterSelected(null) },
-                                label = { Text("All Accounts (${uiState.expenses.size})") },
-                                shape = RoundedCornerShape(20.dp)
-                            )
-                            ExpenseAccount.ALL.forEach { account ->
-                                val count = uiState.expenses.count { it.account.equals(account, ignoreCase = true) }
-                                val icon = when (account) {
-                                    ExpenseAccount.CARD -> Icons.Default.CreditCard
-                                    ExpenseAccount.CASH -> Icons.Default.Payments
-                                    else -> Icons.Default.AccountBalanceWallet
-                                }
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
                                 FilterChip(
-                                    selected = uiState.selectedAccountFilter.equals(account, ignoreCase = true),
-                                    onClick = { viewModel.onAccountFilterSelected(account) },
-                                    shape = RoundedCornerShape(20.dp),
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = icon,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = if (uiState.selectedAccountFilter.equals(account, ignoreCase = true)) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
-                                        )
-                                    },
-                                    label = { Text("${ExpenseAccount.getDisplayName(account)} ($count)") }
+                                    selected = uiState.selectedAccountFilter == null,
+                                    onClick = { viewModel.onAccountFilterSelected(null) },
+                                    label = { Text("All Accounts (${uiState.expenses.size})", fontSize = 12.sp) },
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.height(28.dp)
                                 )
+                                ExpenseAccount.ALL.forEach { account ->
+                                    val count = uiState.expenses.count { it.account.equals(account, ignoreCase = true) }
+                                    val icon = when (account) {
+                                        ExpenseAccount.CARD -> Icons.Default.CreditCard
+                                        ExpenseAccount.CASH -> Icons.Default.Payments
+                                        else -> Icons.Default.AccountBalanceWallet
+                                    }
+                                    FilterChip(
+                                        selected = uiState.selectedAccountFilter.equals(account, ignoreCase = true),
+                                        onClick = { viewModel.onAccountFilterSelected(account) },
+                                        shape = RoundedCornerShape(16.dp),
+                                        modifier = Modifier.height(28.dp),
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = icon,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp),
+                                                tint = if (uiState.selectedAccountFilter.equals(account, ignoreCase = true)) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
+                                            )
+                                        },
+                                        label = { Text("${ExpenseAccount.getDisplayName(account)} ($count)", fontSize = 12.sp) }
+                                    )
+                                }
                             }
                         }
 
@@ -1595,13 +2117,6 @@ private fun ExpenseItemRow(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val isBackdated = remember(expense) {
-        val calDate = Calendar.getInstance().apply { time = expense.date }
-        val calCreated = Calendar.getInstance().apply { time = expense.createdAt }
-        calDate.get(Calendar.YEAR) != calCreated.get(Calendar.YEAR) ||
-            calDate.get(Calendar.DAY_OF_YEAR) != calCreated.get(Calendar.DAY_OF_YEAR)
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1631,40 +2146,15 @@ private fun ExpenseItemRow(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Category Name + Backdated Badge (Side-by-side)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = categoryName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-
-                if (isBackdated) {
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
-                    ) {
-                        Text(
-                            text = "Backdated",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
-                        )
-                    }
-                }
-            }
+            // Category Name
+            Text(
+                text = categoryName,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
 
             if (!expense.note.isNullOrBlank()) {
                 Text(
@@ -1715,18 +2205,36 @@ private fun ExpenseItemRow(
                 }
 
                 if (expense.classification == ExpenseClassification.COMMITTED) {
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFFFEF3C7)
-                    ) {
-                        Text(
-                            text = "Fixed",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF92400E),
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                    val recurringText = expense.getRecurringProgressText()
+                    if (recurringText != null) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFEFF6FF),
+                            border = BorderStroke(0.5.dp, Color(0xFFBFDBFE))
+                        ) {
+                            Text(
+                                text = recurringText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF1D4ED8),
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFFEF3C7)
+                        ) {
+                            Text(
+                                text = "Fixed",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF92400E),
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
             }
