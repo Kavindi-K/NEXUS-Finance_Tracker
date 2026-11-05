@@ -980,7 +980,4 @@ class IncomeViewModel @Inject constructor(
         bankDepositManager.dismissAllDeposits()
     }
 
-    fun simulateNewBankDeposit() {
-        bankDepositManager.simulateCommercialBankSalary()
-    }
 }
