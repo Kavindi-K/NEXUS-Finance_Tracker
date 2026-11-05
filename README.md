@@ -136,39 +136,39 @@ Cloud Firestore
 
 ## 📋 Comprehensive Requirements & Extended Capabilities Traceability (FR1–FR23, EXT1–EXT8)
 
-| ID | Requirement Specification | Assigned Member | Status |
-|---|---|---|---|
-| **FR1** | 5-field registration (Name, Email, Phone normalized to +94, Password) & Firestore sync | Member 1 | ✅ Implemented |
-| **FR2** | Session persistence across app restarts with automatic auth restoration | Member 1 | ✅ Implemented |
-| **FR3** | Multi-source income logging (Salary, Freelance, AdSense, Crypto) | Member 1 | ✅ Implemented |
-| **FR4** | Multi-currency handling storing original, exchange rate, and converted LKR | Member 1 | ✅ Implemented |
-| **FR5** | Monthly income computed strictly from confirmed entries (never self-estimates) | Member 1 | ✅ Implemented |
-| **FR6** | Crypto tracked as running net P&L (gains minus losses) | Member 1 | ✅ Implemented |
-| **FR7** | Edit saved income entries with recalculation and audit trail | Member 1 | ✅ Implemented |
-| **FR8** | Freelance payments logged as "pending" and excluded from earned totals until "confirmed" | Member 1 | ✅ Implemented |
-| **FR9** | 3-tap rapid expense entry capturing amount, category, account, and committed flag | Member 2 | ✅ Implemented |
-| **FR10** | Pre-fill category and account with most recently used values | Member 2 | ✅ Implemented |
-| **FR11** | First-class recording of Cash and Secondary accounts (not card only) | Member 2 | ✅ Implemented |
-| **FR12** | Dynamic user-editable categories with batched merge and reassignment | Member 2 | ✅ Implemented |
-| **FR13** | Back-dated and bulk-add expense entry without streak penalties | Member 2 | ✅ Implemented |
-| **FR14** | Quantified savings goal setup (MacBook Pro M4 LKR 490k, LKR 11.2k opening savings) | Member 3 | ✅ Implemented |
-| **FR15** | Dynamic recalculation of required monthly savings rate on every confirmed entry | Member 3 | ✅ Implemented |
-| **FR16** | Pace-based projected completion date flagging target deadline misses | Member 3 | ✅ Implemented |
-| **FR17** | Real-time visual goal progress bar (percentage complete and remaining balance) | Member 3 | ✅ Implemented |
-| **FR18** | Dashboard showing monthly cash flow and committed vs. discretionary ratio | Member 3 | ✅ Implemented |
-| **FR19** | Real-time category-wise spending chart highlighting leaks | Member 3 | ✅ Implemented |
-| **FR20** | Reconciled actual monthly income aggregated across all four sources | Member 3 | ✅ Implemented |
-| **FR21** | Room offline caching ensuring core screens render without internet connectivity | Member 2 | ✅ Implemented |
-| **FR22** | Explicit empty-state UI with zero crashes or blank screens on empty datasets | All Members | ✅ Implemented |
-| **FR23** | Recurring payment schedules requiring user confirmation before posting as an expense | Member 2 | ✅ Implemented |
-| **EXT1** | **Automatic Bank SMS Automation Engine** (Inbound & Outbound SMS Parsing, Lock screen catch-up scanner) | **Member 1** | ✅ Implemented |
-| **EXT2** | **Real-Time Exchange Rate API** (Live USD/LKR currency conversion) | **Member 1** | ✅ Implemented |
-| **EXT3** | **Forgot Password, Biometric Security Vault & Screen Privacy** (Fingerprint/PIN/Blur) | **Member 1** | ✅ Implemented |
-| **EXT4** | **Smart Notifications System** (Heads-up lock screen alerts & reminders) | **Member 1** | ✅ Implemented |
-| **EXT5** | **Google Gemini AI Financial Advisor** (Interactive 3D Chatbot & reasoning engine) | **Member 2** | ✅ Implemented |
-| **EXT6** | **App Preferences & Personalization Engine** (Themes, Currency, Default Account, SMS toggle, Cache) | **Member 2** | ✅ Implemented |
-| **EXT7** | **Dedicated Monthly Intelligence & Reports Screen** (Historical cash flow & analytics) | **Member 3** | ✅ Implemented |
-| **EXT8** | **Goal Contribution Tracking** (Surplus rollover & contribution allocations) | **Member 3** | ✅ Implemented |
+| ID | Requirement Specification |
+|---|---|
+| **FR1** | 5-field registration (Name, Email, Phone normalized to +94, Password) & Firestore sync |
+| **FR2** | Session persistence across app restarts with automatic auth restoration |
+| **FR3** | Multi-source income logging (Salary, Freelance, AdSense, Crypto) |
+| **FR4** | Multi-currency handling storing original, exchange rate, and converted LKR |
+| **FR5** | Monthly income computed strictly from confirmed entries (never self-estimates) |
+| **FR6** | Crypto tracked as running net P&L (gains minus losses) |
+| **FR7** | Edit saved income entries with recalculation and audit trail |
+| **FR8** | Freelance payments logged as "pending" and excluded from earned totals until "confirmed" |
+| **FR9** | 3-tap rapid expense entry capturing amount, category, account, and committed flag |
+| **FR10** | Pre-fill category and account with most recently used values |
+| **FR11** | First-class recording of Cash and Secondary accounts (not card only) |
+| **FR12** | Dynamic user-editable categories with batched merge and reassignment |
+| **FR13** | Back-dated and bulk-add expense entry without streak penalties |
+| **FR14** | Quantified savings goal setup (MacBook Pro M4 LKR 490k, LKR 11.2k opening savings) |
+| **FR15** | Dynamic recalculation of required monthly savings rate on every confirmed entry |
+| **FR16** | Pace-based projected completion date flagging target deadline misses |
+| **FR17** | Real-time visual goal progress bar (percentage complete and remaining balance) |
+| **FR18** | Dashboard showing monthly cash flow and committed vs. discretionary ratio |
+| **FR19** | Real-time category-wise spending chart highlighting leaks |
+| **FR20** | Reconciled actual monthly income aggregated across all four sources |
+| **FR21** | Room offline caching ensuring core screens render without internet connectivity |
+| **FR22** | Explicit empty-state UI with zero crashes or blank screens on empty datasets |
+| **FR23** | Recurring payment schedules requiring user confirmation before posting as an expense |
+| **EXT1** | **Automatic Bank SMS Automation Engine** (Inbound & Outbound SMS Parsing, Lock screen catch-up scanner) |
+| **EXT2** | **Real-Time Exchange Rate API** (Live USD/LKR currency conversion) |
+| **EXT3** | **Forgot Password, Biometric Security Vault & Screen Privacy** (Fingerprint/PIN/Blur) |
+| **EXT4** | **Smart Notifications System** (Heads-up lock screen alerts & reminders) |
+| **EXT5** | **Google Gemini AI Financial Advisor** (Interactive 3D Chatbot & reasoning engine) |
+| **EXT6** | **App Preferences & Personalization Engine** (Themes, Currency, Default Account, SMS toggle, Cache) |
+| **EXT7** | **Dedicated Monthly Intelligence & Reports Screen** (Historical cash flow & analytics) |
+| **EXT8** | **Goal Contribution Tracking** (Surplus rollover & contribution allocations) |
 
 ---
 
@@ -244,15 +244,15 @@ The development follows an integration branch model to enable clean parallel wor
 ```
 main (Production / Stable Release APK)
   └── development (Shared Team Integration Branch)
-        ├── feature/auth-* (Member 1)
-        ├── feature/income-* (Member 1)
-        ├── feature/expense-* (Member 2)
-        ├── feature/categories-recurring (Member 2)
-        ├── feature/offline-cache (Member 2)
-        ├── feature/goal-* (Member 3)
-        ├── feature/dashboard-analytics (Member 3)
-        ├── feature/ai-chatbot (Member 2)
-        └── feature/bank-sms-settings-toggle (Member 2)
+        ├── feature/auth-*
+        ├── feature/income-*
+        ├── feature/expense-*
+        ├── feature/categories-recurring
+        ├── feature/offline-cache
+        ├── feature/goal-*
+        ├── feature/dashboard-analytics
+        ├── feature/ai-chatbot
+        └── feature/bank-sms-settings-toggle
 ```
 
 ---
