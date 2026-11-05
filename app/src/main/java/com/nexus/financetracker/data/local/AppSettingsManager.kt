@@ -19,6 +19,7 @@ enum class ThemeMode {
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val notificationsEnabled: Boolean = true,
+    val bankSmsDetectionEnabled: Boolean = true,
     val biometricLockEnabled: Boolean = false,
     val baseCurrency: String = "LKR",
     val defaultExpenseAccount: String = ExpenseAccount.CARD,
@@ -37,13 +38,33 @@ class AppSettingsManager @Inject constructor(
     private val prefs = context.getSharedPreferences("nexus_app_settings", Context.MODE_PRIVATE)
 
     companion object {
+        private const val PREFS_NAME = "nexus_app_settings"
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
+        private const val KEY_BANK_SMS_DETECTION_ENABLED = "bank_sms_detection_enabled"
+        private const val KEY_BANK_SMS_ENABLED_AT = "bank_sms_enabled_at"
         private const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
         private const val KEY_BASE_CURRENCY = "base_currency"
         private const val KEY_DEFAULT_ACCOUNT = "default_expense_account"
         private const val KEY_GEMINI_API_KEY = "gemini_api_key"
         private const val KEY_GEMINI_MODEL = "gemini_model"
+
+        /**
+         * Standalone check for background BroadcastReceivers and services without Hilt injection.
+         */
+        fun isBankSmsDetectionEnabled(context: Context): Boolean {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            return prefs.getBoolean(KEY_BANK_SMS_DETECTION_ENABLED, true)
+        }
+
+        /**
+         * Timestamp (ms) when bank SMS detection was enabled by the user.
+         * SMS messages received before this timestamp must never be retroactively scanned.
+         */
+        fun getBankSmsEnabledAt(context: Context): Long {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            return prefs.getLong(KEY_BANK_SMS_ENABLED_AT, 0L)
+        }
     }
 
     private val _settings = MutableStateFlow(loadSettings())
@@ -57,9 +78,14 @@ class AppSettingsManager @Inject constructor(
             ThemeMode.SYSTEM
         }
 
+        if (!prefs.contains(KEY_BANK_SMS_ENABLED_AT)) {
+            prefs.edit().putLong(KEY_BANK_SMS_ENABLED_AT, System.currentTimeMillis()).apply()
+        }
+
         return AppSettings(
             themeMode = themeMode,
             notificationsEnabled = prefs.getBoolean(KEY_NOTIFICATIONS_ENABLED, true),
+            bankSmsDetectionEnabled = prefs.getBoolean(KEY_BANK_SMS_DETECTION_ENABLED, true),
             biometricLockEnabled = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false),
             baseCurrency = prefs.getString(KEY_BASE_CURRENCY, "LKR") ?: "LKR",
             defaultExpenseAccount = prefs.getString(KEY_DEFAULT_ACCOUNT, ExpenseAccount.CARD) ?: ExpenseAccount.CARD,
@@ -81,6 +107,17 @@ class AppSettingsManager @Inject constructor(
         } else {
             NotificationScheduler.cancelAllReminders(context)
         }
+    }
+
+    fun setBankSmsDetectionEnabled(enabled: Boolean) {
+        val editor = prefs.edit().putBoolean(KEY_BANK_SMS_DETECTION_ENABLED, enabled)
+        if (enabled) {
+            // Anchor detection start to this exact moment so previous/historical SMS while disabled are never scanned
+            editor.putLong(KEY_BANK_SMS_ENABLED_AT, System.currentTimeMillis())
+        }
+        // Use commit() to guarantee immediate synchronous disk persistence for background receivers
+        editor.commit()
+        _settings.value = _settings.value.copy(bankSmsDetectionEnabled = enabled)
     }
 
     fun setBiometricLockEnabled(enabled: Boolean) {

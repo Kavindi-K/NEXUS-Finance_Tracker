@@ -25,6 +25,7 @@ import javax.inject.Inject
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val notificationsEnabled: Boolean = true,
+    val bankSmsDetectionEnabled: Boolean = true,
     val biometricLockEnabled: Boolean = false,
     val isPinSet: Boolean = false,
     val baseCurrency: String = "LKR",
@@ -75,6 +76,7 @@ class SettingsViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     themeMode = settings.themeMode,
                     notificationsEnabled = settings.notificationsEnabled,
+                    bankSmsDetectionEnabled = settings.bankSmsDetectionEnabled,
                     biometricLockEnabled = settings.biometricLockEnabled,
                     baseCurrency = settings.baseCurrency,
                     defaultExpenseAccount = settings.defaultExpenseAccount,
@@ -119,6 +121,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setNotificationsEnabled(enabled: Boolean) {
         appSettingsManager.setNotificationsEnabled(enabled)
+    }
+
+    fun setBankSmsDetectionEnabled(enabled: Boolean) {
+        appSettingsManager.setBankSmsDetectionEnabled(enabled)
     }
 
     fun setBiometricLockEnabled(enabled: Boolean) {

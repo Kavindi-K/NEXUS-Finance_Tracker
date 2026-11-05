@@ -46,6 +46,12 @@ class BankSmsReceiver : BroadcastReceiver() {
             return
         }
 
+        // Check user setting toggle: if disabled, ignore the broadcast immediately
+        if (!com.nexus.financetracker.data.local.AppSettingsManager.isBankSmsDetectionEnabled(context)) {
+            Log.d("BankSmsReceiver", "Bank SMS detection disabled in App Settings. Ignoring broadcast.")
+            return
+        }
+
         val messages: List<SmsMessage> = try {
             Telephony.Sms.Intents.getMessagesFromIntent(intent)?.toList() ?: emptyList()
         } catch (e: Exception) {
