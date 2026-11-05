@@ -294,4 +294,71 @@ object NotificationHelper {
             // POST_NOTIFICATIONS permission was not granted — silently skip
         }
     }
+
+    private const val BANK_ALERT_CHANNEL_ID = "nexus_bank_sms_alerts"
+    private const val BANK_ALERT_CHANNEL_NAME = "Bank Transaction Alerts"
+
+    /**
+     * Posts a high-priority heads-up notification when a bank SMS alert is captured in the background.
+     * Wakes up device and alerts the user even when the phone is locked.
+     */
+    fun postBankAlertNotification(
+        context: Context,
+        isCredit: Boolean,
+        bankName: String,
+        amountLKR: Double,
+        detail: String
+    ) {
+        val notificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // Ensure high-importance notification channel exists for bank transaction alerts
+        val channel = NotificationChannel(
+            BANK_ALERT_CHANNEL_ID,
+            BANK_ALERT_CHANNEL_NAME,
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "High-priority notifications for detected bank SMS deposits and debit transactions."
+            enableVibration(true)
+            setShowBadge(true)
+        }
+        notificationManager.createNotificationChannel(channel)
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val notificationId = (System.currentTimeMillis() % 100000).toInt()
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val typeTag = if (isCredit) "Bank Deposit Alert" else "Bank Debit Alert"
+        val sign = if (isCredit) "+" else "-"
+        val formattedAmount = "$sign LKR %,.2f".format(amountLKR)
+        val title = "$bankName: $formattedAmount"
+        val bodyText = "$detail • Tap to review and confirm."
+
+        val notification = NotificationCompat.Builder(context, BANK_ALERT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(bodyText)
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText("$typeTag from $bankName: $formattedAmount\n$detail\nTap to open NEXUS and review in ${if (isCredit) "Income" else "Expenses"}.")
+            )
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
+        } catch (_: SecurityException) {
+            // Permission not granted
+        }
+    }
 }

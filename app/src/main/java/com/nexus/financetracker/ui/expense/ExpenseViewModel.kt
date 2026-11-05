@@ -7,6 +7,8 @@ import com.nexus.financetracker.data.repository.CategoryRepository
 import com.nexus.financetracker.data.repository.ExpenseRepository
 import com.nexus.financetracker.data.util.NetworkMonitor
 import com.nexus.financetracker.data.repository.ContributionManager
+import com.nexus.financetracker.data.local.BankExpenseManager
+import com.nexus.financetracker.domain.model.DetectedBankExpense
 import com.nexus.financetracker.domain.model.Category
 import com.nexus.financetracker.domain.model.Expense
 import com.nexus.financetracker.domain.model.ExpenseAccount
@@ -57,7 +59,9 @@ data class ExpenseUiState(
     val allCategories: List<Category> = emptyList(),
     val isOffline: Boolean = false,
     val isLoading: Boolean = true,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val detectedExpense: DetectedBankExpense? = null,
+    val pendingDetectedExpenses: List<DetectedBankExpense> = emptyList()
 )
 
 data class ExpenseFormState(
@@ -73,6 +77,8 @@ data class ExpenseFormState(
     val isSubmitting: Boolean = false,
     val isLoadingDefaults: Boolean = false,
     val errorMessage: String? = null,
+    val pendingExpenseIdToDismiss: String? = null,
+    val isPrefilledFromExpense: Boolean = false,
     val availableCategories: List<Category> = emptyList(),
     val hasUserSelectedCategory: Boolean = false,
     val isRecurring: Boolean = false,
@@ -181,6 +187,7 @@ class ExpenseViewModel @Inject constructor(
     private val auth: FirebaseAuth,
     private val networkMonitor: NetworkMonitor,
     private val contributionManager: ContributionManager,
+    private val bankExpenseManager: BankExpenseManager,
     @param:ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -229,6 +236,81 @@ class ExpenseViewModel @Inject constructor(
         loadExpenses()
         loadCategoriesAndDefaults()
         observeNetworkStatus()
+        observeBankExpenses()
+        checkAndApplyStagedExpenseForOther()
+    }
+
+    private fun observeBankExpenses() {
+        viewModelScope.launch {
+            bankExpenseManager.pendingExpenses.collect { expenses ->
+                _uiState.value = _uiState.value.copy(
+                    detectedExpense = expenses.firstOrNull(),
+                    pendingDetectedExpenses = expenses
+                )
+            }
+        }
+    }
+
+    fun dismissAllDetectedExpenses() {
+        bankExpenseManager.dismissAllExpenses()
+    }
+
+    fun rejectDetectedExpense(expense: DetectedBankExpense) {
+        bankExpenseManager.dismissExpense(expense.id)
+    }
+
+    fun acceptDetectedExpense(
+        expense: DetectedBankExpense,
+        categoryId: String,
+        account: String = expense.accountType,
+        classification: String = ExpenseClassification.DISCRETIONARY,
+        onSuccess: () -> Unit = {}
+    ) {
+        val userId = currentUserId ?: return
+        val newExpense = Expense(
+            id = "",
+            userId = userId,
+            amountLKR = expense.amountLKR,
+            categoryId = categoryId,
+            account = account,
+            classification = classification,
+            note = expense.merchant ?: expense.reference,
+            date = expense.date,
+            createdAt = Date()
+        )
+        viewModelScope.launch {
+            try {
+                expenseRepository.addExpense(newExpense)
+                bankExpenseManager.dismissExpense(expense.id)
+                onSuccess()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = e.localizedMessage ?: "Failed to record expense"
+                )
+            }
+        }
+    }
+
+    fun prefillForCustomExpense(expense: DetectedBankExpense) {
+        bankExpenseManager.stageForOtherRecord(expense)
+        _formState.value = ExpenseFormState(
+            editingExpenseId = null,
+            originalCreatedAt = null,
+            amountText = String.format(Locale.US, "%.2f", expense.amountLKR),
+            categoryId = "",
+            categoryName = "",
+            account = expense.accountType,
+            classification = expense.classification,
+            date = expense.date,
+            note = expense.merchant ?: "",
+            pendingExpenseIdToDismiss = expense.id,
+            isPrefilledFromExpense = true
+        )
+    }
+
+    fun checkAndApplyStagedExpenseForOther() {
+        val staged = bankExpenseManager.consumeStagedExpenseForOther() ?: return
+        prefillForCustomExpense(staged)
     }
 
     private fun observeNetworkStatus() {
@@ -1221,6 +1303,9 @@ class ExpenseViewModel @Inject constructor(
     }
 
     fun resetForm(preferredCategoryId: String? = null) {
+        if (_formState.value.isPrefilledFromExpense) {
+            return
+        }
         val currentCats = if (_uiState.value.allCategories.isNotEmpty()) {
             _uiState.value.allCategories
         } else if (_formState.value.availableCategories.isNotEmpty()) {
@@ -1380,7 +1465,15 @@ class ExpenseViewModel @Inject constructor(
                     // Insert new record
                     expenseRepository.addExpense(expense)
                 }
-                _formState.value = _formState.value.copy(isSubmitting = false)
+                val pendingExpenseId = state.pendingExpenseIdToDismiss
+                if (pendingExpenseId != null) {
+                    bankExpenseManager.dismissExpense(pendingExpenseId)
+                }
+                _formState.value = _formState.value.copy(
+                    isSubmitting = false,
+                    isPrefilledFromExpense = false,
+                    pendingExpenseIdToDismiss = null
+                )
                 resetForm()
                 onSuccess()
             } catch (e: Exception) {
