@@ -123,14 +123,17 @@ fun ExpenseScreen(
 
     var hasSmsPermission by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
         )
     }
 
     val smsPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        hasSmsPermission = permissions[Manifest.permission.RECEIVE_SMS] == true
+        val receiveGranted = permissions[Manifest.permission.RECEIVE_SMS] == true
+        val readGranted = permissions[Manifest.permission.READ_SMS] == true
+        hasSmsPermission = receiveGranted || readGranted
     }
 
     LaunchedEffect(Unit) {
@@ -141,6 +144,14 @@ fun ExpenseScreen(
                     Manifest.permission.READ_SMS
                 )
             )
+        }
+    }
+
+    LaunchedEffect(hasSmsPermission) {
+        if (hasSmsPermission) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.nexus.financetracker.data.util.BankSmsInboxScanner.scanRecentBankSms(context)
+            }
         }
     }
 

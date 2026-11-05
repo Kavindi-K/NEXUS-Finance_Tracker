@@ -11,6 +11,7 @@ import com.nexus.financetracker.data.local.BankDepositManager
 import com.nexus.financetracker.data.local.BankExpenseManager
 import com.nexus.financetracker.data.util.BankDebitParser
 import com.nexus.financetracker.data.util.BankDepositParser
+import com.nexus.financetracker.notification.NotificationHelper
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -21,7 +22,7 @@ import javax.inject.Inject
 /**
  * Android BroadcastReceiver that listens for incoming SMS messages on the device.
  * Filters for supported bank credit/deposit alerts (Income) and debit/card spend alerts (Expense),
- * staging them for user review (Accept or Reject) before affecting account balances.
+ * staging them persistently to disk so they survive app kills, restarts, and phone lock.
  */
 @AndroidEntryPoint
 class BankSmsReceiver : BroadcastReceiver() {
@@ -41,7 +42,9 @@ class BankSmsReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
-        if (action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION && action != "android.provider.Telephony.SMS_RECEIVED") return
+        if (action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION && action != "android.provider.Telephony.SMS_RECEIVED") {
+            return
+        }
 
         val messages: List<SmsMessage> = try {
             Telephony.Sms.Intents.getMessagesFromIntent(intent)?.toList() ?: emptyList()
@@ -50,9 +53,14 @@ class BankSmsReceiver : BroadcastReceiver() {
         }.ifEmpty {
             // Robust fallback for physical devices where getMessagesFromIntent returns empty
             val bundle = intent.extras
-            val pdus = bundle?.get("pdus") as? Array<*>
+            val rawPdus = bundle?.get("pdus")
             val format = bundle?.getString("format")
-            pdus?.mapNotNull { pdu ->
+            val pduList = when (rawPdus) {
+                is Array<*> -> rawPdus.toList()
+                is Collection<*> -> rawPdus.toList()
+                else -> emptyList()
+            }
+            pduList.mapNotNull { pdu ->
                 if (pdu is ByteArray) {
                     try {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -61,11 +69,11 @@ class BankSmsReceiver : BroadcastReceiver() {
                             @Suppress("DEPRECATION")
                             SmsMessage.createFromPdu(pdu)
                         }
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         null
                     }
                 } else null
-            } ?: emptyList()
+            }
         }
 
         if (messages.isEmpty()) {
@@ -80,33 +88,61 @@ class BankSmsReceiver : BroadcastReceiver() {
             ?: messages.firstOrNull()?.originatingAddress
             ?: ""
 
-        Log.d("BankSmsReceiver", "Received SMS from: $sender | Body: $fullMessageBody")
+        Log.i("BankSmsReceiver", "Received SMS from: $sender | Body: $fullMessageBody")
 
         // 1. Try parsing as an inbound bank deposit (Income)
         val deposit = BankDepositParser.parse(sender, fullMessageBody)
         if (deposit != null) {
-            Log.d("BankSmsReceiver", "Detected valid bank credit alert: ${deposit.bankName} - LKR ${deposit.amountLKR}")
-            val manager = try {
-                if (::bankDepositManager.isInitialized) bankDepositManager
-                else EntryPointAccessors.fromApplication(context.applicationContext, BankSmsReceiverEntryPoint::class.java).bankDepositManager()
-            } catch (e: Exception) {
-                EntryPointAccessors.fromApplication(context.applicationContext, BankSmsReceiverEntryPoint::class.java).bankDepositManager()
-            }
-            manager.stageDeposit(deposit)
+            Log.i("BankSmsReceiver", "Detected valid bank credit alert: ${deposit.bankName} - LKR ${deposit.amountLKR}")
+            // Guarantee immediate synchronous disk write (works even if process is killed)
+            BankDepositManager.stageDirectly(context, deposit)
+
+            // Also update live in-memory singleton if running
+            try {
+                if (::bankDepositManager.isInitialized) {
+                    bankDepositManager.refreshFromStorage()
+                } else {
+                    EntryPointAccessors.fromApplication(context.applicationContext, BankSmsReceiverEntryPoint::class.java)
+                        .bankDepositManager().refreshFromStorage()
+                }
+            } catch (_: Exception) {}
+
+            // Post high-priority notification to wake screen / lockscreen
+            NotificationHelper.postBankAlertNotification(
+                context = context,
+                isCredit = true,
+                bankName = deposit.bankName,
+                amountLKR = deposit.amountLKR,
+                detail = deposit.reference ?: "Income Deposit"
+            )
             return
         }
 
         // 2. Try parsing as an outbound bank debit / card spend (Expense)
         val debit = BankDebitParser.parse(sender, fullMessageBody)
         if (debit != null) {
-            Log.d("BankSmsReceiver", "Detected valid bank debit alert: ${debit.bankName} - LKR ${debit.amountLKR} at ${debit.merchant}")
-            val expManager = try {
-                if (::bankExpenseManager.isInitialized) bankExpenseManager
-                else EntryPointAccessors.fromApplication(context.applicationContext, BankSmsReceiverEntryPoint::class.java).bankExpenseManager()
-            } catch (e: Exception) {
-                EntryPointAccessors.fromApplication(context.applicationContext, BankSmsReceiverEntryPoint::class.java).bankExpenseManager()
-            }
-            expManager.stageExpense(debit)
+            Log.i("BankSmsReceiver", "Detected valid bank debit alert: ${debit.bankName} - LKR ${debit.amountLKR} at ${debit.merchant}")
+            // Guarantee immediate synchronous disk write (works even if process is killed)
+            BankExpenseManager.stageDirectly(context, debit)
+
+            // Also update live in-memory singleton if running
+            try {
+                if (::bankExpenseManager.isInitialized) {
+                    bankExpenseManager.refreshFromStorage()
+                } else {
+                    EntryPointAccessors.fromApplication(context.applicationContext, BankSmsReceiverEntryPoint::class.java)
+                        .bankExpenseManager().refreshFromStorage()
+                }
+            } catch (_: Exception) {}
+
+            // Post high-priority notification to wake screen / lockscreen
+            NotificationHelper.postBankAlertNotification(
+                context = context,
+                isCredit = false,
+                bankName = debit.bankName,
+                amountLKR = debit.amountLKR,
+                detail = debit.merchant ?: debit.reference ?: "Card Debit"
+            )
         }
     }
 }

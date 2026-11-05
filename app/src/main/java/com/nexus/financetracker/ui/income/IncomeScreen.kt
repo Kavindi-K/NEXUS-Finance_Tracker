@@ -96,6 +96,14 @@ fun IncomeScreen(
         }
     }
 
+    LaunchedEffect(hasSmsPermission) {
+        if (hasSmsPermission) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.nexus.financetracker.data.util.BankSmsInboxScanner.scanRecentBankSms(context)
+            }
+        }
+    }
+
     val isStreamDetail = uiState.selectedSource != null
 
     // Intercept hardware/gesture back press to return from Stream Detail to Main Income Overview
