@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -1522,7 +1523,7 @@ fun ExpenseScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(top = 2.dp, bottom = 96.dp)
             ) {
                 // Offline Indicator Banner (Member 2 Order 7)
@@ -1650,11 +1651,11 @@ fun ExpenseScreen(
                             containerColor = NavyCardBg
                         ),
                         border = BorderStroke(1.dp, NavyCardBorder),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(20.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1664,8 +1665,7 @@ fun ExpenseScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.TrendingDown,
                                     contentDescription = null,
-                                    tint = Color(0xFFFCA5A5),
-                                    modifier = Modifier.size(20.dp)
+                                    tint = Color(0xFFFCA5A5)
                                 )
                                 Text(
                                     text = "Total Expenses",
@@ -1677,9 +1677,8 @@ fun ExpenseScreen(
 
                             Text(
                                 text = "LKR %,.2f".format(uiState.totalExpenseLKR),
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 24.sp,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
 
@@ -1730,48 +1729,53 @@ fun ExpenseScreen(
                                     }
                                 )
                             }
-
                         }
                     }
                 }
 
-                // 3. Filter and Modern Sort Controls
+                // 3. Filter Chips & Sort Controls (Compact grouping matching Income Screen)
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // Account Filter Row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FilterChip(
-                                selected = uiState.selectedAccountFilter == null,
-                                onClick = { viewModel.onAccountFilterSelected(null) },
-                                label = { Text("All Accounts (${uiState.expenses.size})") },
-                                shape = RoundedCornerShape(20.dp)
-                            )
-                            ExpenseAccount.ALL.forEach { account ->
-                                val count = uiState.expenses.count { it.account.equals(account, ignoreCase = true) }
-                                val icon = when (account) {
-                                    ExpenseAccount.CARD -> Icons.Default.CreditCard
-                                    ExpenseAccount.CASH -> Icons.Default.Payments
-                                    else -> Icons.Default.AccountBalanceWallet
-                                }
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
                                 FilterChip(
-                                    selected = uiState.selectedAccountFilter.equals(account, ignoreCase = true),
-                                    onClick = { viewModel.onAccountFilterSelected(account) },
-                                    shape = RoundedCornerShape(20.dp),
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = icon,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = if (uiState.selectedAccountFilter.equals(account, ignoreCase = true)) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
-                                        )
-                                    },
-                                    label = { Text("${ExpenseAccount.getDisplayName(account)} ($count)") }
+                                    selected = uiState.selectedAccountFilter == null,
+                                    onClick = { viewModel.onAccountFilterSelected(null) },
+                                    label = { Text("All Accounts (${uiState.expenses.size})", fontSize = 12.sp) },
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.height(28.dp)
                                 )
+                                ExpenseAccount.ALL.forEach { account ->
+                                    val count = uiState.expenses.count { it.account.equals(account, ignoreCase = true) }
+                                    val icon = when (account) {
+                                        ExpenseAccount.CARD -> Icons.Default.CreditCard
+                                        ExpenseAccount.CASH -> Icons.Default.Payments
+                                        else -> Icons.Default.AccountBalanceWallet
+                                    }
+                                    FilterChip(
+                                        selected = uiState.selectedAccountFilter.equals(account, ignoreCase = true),
+                                        onClick = { viewModel.onAccountFilterSelected(account) },
+                                        shape = RoundedCornerShape(16.dp),
+                                        modifier = Modifier.height(28.dp),
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = icon,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp),
+                                                tint = if (uiState.selectedAccountFilter.equals(account, ignoreCase = true)) MaterialTheme.colorScheme.onSecondaryContainer else NavyPrimary
+                                            )
+                                        },
+                                        label = { Text("${ExpenseAccount.getDisplayName(account)} ($count)", fontSize = 12.sp) }
+                                    )
+                                }
                             }
                         }
 
